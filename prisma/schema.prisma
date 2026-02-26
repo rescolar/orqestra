@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  user
+  superadmin
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  password   String
+  name       String
+  avatar_url String?
+  role       UserRole @default(user)
+  created_at DateTime @default(now())
+
+  persons   Person[]
+  events    Event[]
+  amenities Amenity[]
+
+  @@map("users")
+}
+
+// ─── Person ──────────────────────────────────────────────────────────────────
+
+enum Gender {
+  unknown
+  female
+  male
+  other
+}
+
+enum PersonRole {
+  participant
+  facilitator
+}
+
+model Person {
+  id                   String     @id @default(cuid())
+  user_id              String
+  name_full            String
+  name_display         String
+  name_initials        String
+  default_role         PersonRole @default(participant)
+  gender               Gender     @default(unknown)
+  contact_email        String?
+  contact_phone        String?
+  contact_address      String?
+  dietary_requirements String[]   @default([])
+  allergies_text       String?
+  notes                String?
+  created_at           DateTime   @default(now())
+
+  user          User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  event_persons EventPerson[]
+
+  @@map("persons")
+}
+
+// ─── Event ───────────────────────────────────────────────────────────────────
+
+enum EventStatus {
+  draft
+  active
+  archived
+}
+
+model Event {
+  id                     String      @id @default(cuid())
+  user_id                String
+  name                   String
+  date_start             DateTime
+  date_end               DateTime
+  estimated_participants Int
+  status                 EventStatus @default(draft)
+
+  user          User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  event_persons EventPerson[]
+  rooms         Room[]
+  groups        Group[]
+  undo_entries  UndoEntry[]
+
+  @@map("events")
+}
+
+// ─── EventPerson ─────────────────────────────────────────────────────────────
+
+enum EventPersonStatus {
+  confirmed
+  tentative
+  cancelled
+}
+
+model EventPerson {
+  id                   String            @id @default(cuid())
+  event_id             String
+  person_id            String
+  role                 PersonRole        @default(participant)
+  status               EventPersonStatus @default(confirmed)
+  group_id             String?
+  move_with_partner    Boolean           @default(false)
+  dietary_requirements String[]          @default([])
+  dietary_managed      Boolean           @default(false)
+  preferences_text     String?
+  preferences_managed  Boolean           @default(false)
+  allergies_text       String?
+  allergies_managed    Boolean           @default(false)
+  room_id              String?
+
+  event  Event   @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  person Person  @relation(fields: [person_id], references: [id], onDelete: Cascade)
+  group  Group?  @relation(fields: [group_id], references: [id], onDelete: SetNull)
+  room   Room?   @relation(fields: [room_id], references: [id], onDelete: SetNull)
+
+  @@map("event_persons")
+}
+
+// ─── Room ────────────────────────────────────────────────────────────────────
+
+enum RoomType {
+  general
+  facilitator
+}
+
+enum GenderRestriction {
+  mixed
+  women
+  men
+}
+
+model Room {
+  id                    String            @id @default(cuid())
+  event_id              String
+  internal_number       String
+  display_name          String?
+  icon                  String?
+  capacity              Int
+  room_type             RoomType          @default(general)
+  gender_restriction    GenderRestriction @default(mixed)
+  description           String?
+  tags                  String[]          @default([])
+  amenity_ids           String[]          @default([])
+  conflict_acknowledged Boolean           @default(false)
+  locked                Boolean           @default(false)
+  locked_reason         String?
+
+  event         Event         @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  event_persons EventPerson[]
+
+  @@map("rooms")
+}
+
+// ─── Amenity ─────────────────────────────────────────────────────────────────
+
+model Amenity {
+  id      String  @id @default(cuid())
+  user_id String
+  code    String
+  label   String
+  icon    String?
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, code])
+  @@map("amenities")
+}
+
+// ─── Group ───────────────────────────────────────────────────────────────────
+
+enum GroupType {
+  strong
+  flexible
+}
+
+model Group {
+  id       String    @id @default(cuid())
+  event_id String
+  name     String
+  type     GroupType @default(flexible)
+  locked   Boolean   @default(false)
+
+  event   Event         @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  members EventPerson[]
+
+  @@map("groups")
+}
+
+// ─── UndoEntry ───────────────────────────────────────────────────────────────
+
+enum UndoType {
+  assign_person
+  link_persons
+}
+
+model UndoEntry {
+  id        String   @id @default(cuid())
+  event_id  String
+  batch_id  String
+  type      UndoType
+  snapshot  Json
+  timestamp DateTime @default(now())
+
+  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+
+  @@map("undo_entries")
+}

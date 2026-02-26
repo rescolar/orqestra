@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mockup MVP - Panel Pendientes</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="header">
+        <div class="brand">
+          <h1>Orqestra Board</h1>
+          <small>Pendientes abiertos</small>
+        </div>
+        <div class="kpis">
+          <span class="kpi">Asignados: 38 / 45</span>
+          <span class="kpi">No asignados: 7</span>
+          <span class="kpi action">Pendientes: 11</span>
+          <button>Volver al board</button>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="center" style="grid-column: 1 / span 2;">
+          <h2>Panel de pendientes (contador único)</h2>
+          <p style="color: var(--muted); margin: 8px 0 12px;">Cada ítem es clicable y lleva al participante/habitación.</p>
+
+          <div class="pending-list">
+            <h3>Conflictos de habitación</h3>
+            <div class="item">
+              <strong>Hab 03 · Sol · Capacidad excedida (4/3)</strong>
+              Reubicar 1 participante para resolver conflicto.
+            </div>
+            <div class="item">
+              <strong>Hab 07 · Alba · Restricción women incumplida</strong>
+              Marcos Vela no cumple la restricción actual de la habitación.
+            </div>
+
+            <h3>Preferencias no resueltas</h3>
+            <div class="item">
+              <strong>Nora Ruiz</strong>
+              "Cerca de Marta, lejos de zona de ronquidos".
+            </div>
+            <div class="item">
+              <strong>Óscar Peralta</strong>
+              "Habitación silenciosa por medicación nocturna".
+            </div>
+
+            <h3>Alergias no gestionadas</h3>
+            <div class="item">
+              <strong>Nora Ruiz</strong>
+              Frutos secos y kiwi.
+            </div>
+            <div class="item">
+              <strong>Paula Nieto</strong>
+              Lactosa y marisco.
+            </div>
+
+            <h3>Participantes dudosos</h3>
+            <div class="item">
+              <strong>Nora Ruiz</strong>
+              Estado tentative, actualmente asignada en Hab 02.
+            </div>
+            <div class="item">
+              <strong>Iván Cifuentes</strong>
+              Estado tentative, sin habitación asignada.
+            </div>
+          </div>
+        </section>
+
+        <aside class="right">
+          <div class="section-title">
+            <h2>Filtro rápido</h2>
+          </div>
+          <article class="card">
+            <p><input type="checkbox" checked /> Conflictos</p>
+            <p><input type="checkbox" checked /> Preferencias</p>
+            <p><input type="checkbox" checked /> Alergias</p>
+            <p><input type="checkbox" checked /> Dudosos</p>
+          </article>
+
+          <article class="card">
+            <strong>Estado de resolución</strong>
+            <p>Resueltos hoy: 5</p>
+            <p>Abiertos: 11</p>
+            <p>Objetivo check-in: 0</p>
+          </article>
+        </aside>
+      </main>
+    </div>
+  </body>
+</html>

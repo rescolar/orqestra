@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mockup MVP - Modal añadir participantes</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="modal-wrap">
+      <div class="modal">
+        <div class="section-title">
+          <h1>Añadir participantes (pegar lista)</h1>
+          <small>Modal MVP</small>
+        </div>
+
+        <p style="margin-top: 6px; color: var(--muted);">
+          Pega un nombre por línea. Se guarda el nombre completo y se genera nombre compacto para chips.
+        </p>
+
+        <textarea>
+Alba Costa Fernández
+Leire Solis Pardo
+Óscar Peralta Núñez
+Irene Mur Cifuentes
+Mauro Vidal Ríos
+Paula Nieto Casas
+Iván Cifuentes León
+        </textarea>
+
+        <div class="section-title" style="margin-bottom: 6px;">
+          <strong>Previsualización de chips compactos</strong>
+          <small>7 detectados</small>
+        </div>
+        <div class="preview">
+          <span class="chip">Alba Costa</span>
+          <span class="chip">Leire Solis</span>
+          <span class="chip">Óscar Peralta</span>
+          <span class="chip">Irene Mur</span>
+          <span class="chip">Mauro Vidal</span>
+          <span class="chip">Paula Nieto</span>
+          <span class="chip tentative">Iván Cifuentes · dudoso</span>
+        </div>
+
+        <div class="modal-footer" style="margin-top: 14px;">
+          <small style="color: var(--muted);">No elimina participantes existentes, solo añade nuevos.</small>
+          <div class="controls">
+            <button>Cancelar</button>
+            <button>Agregar participantes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

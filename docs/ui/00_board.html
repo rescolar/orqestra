@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mockup MVP - Board Habitaciones</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="header">
+        <div class="brand">
+          <h1>Orqestra Board</h1>
+          <small>Retiro Sierra Norte - 12/04/2026</small>
+        </div>
+        <div class="kpis">
+          <span class="kpi">Asignados: 38 / 45</span>
+          <span class="kpi">Habitaciones: 14</span>
+          <span class="kpi action">No asignados: 7</span>
+          <span class="kpi action">Pendientes: 11</span>
+          <button>Undo</button>
+        </div>
+      </header>
+
+      <main class="main">
+        <aside class="left">
+          <div class="section-title">
+            <h2>Participantes</h2>
+            <button>+ Grupo</button>
+          </div>
+          <input class="search" type="text" value="Elena" />
+
+          <article class="card">
+            <strong>Elena Hernández 🔗</strong>
+            <p class="linked">↳ Rafa Martín</p>
+            <p class="linked">↳ Fer López</p>
+          </article>
+
+          <section class="card">
+            <div class="section-title">
+              <strong>No asignados</strong>
+              <small>7</small>
+            </div>
+            <div class="left-list">
+              <span class="chip">Alba Costa</span>
+              <span class="chip tentative">Nora Ruiz · dudoso</span>
+              <span class="chip">Pablo Mena</span>
+              <span class="chip">Leire Solis</span>
+              <span class="chip">Óscar Peralta</span>
+              <span class="chip">Irene Mur</span>
+              <span class="chip">Mauro Vidal</span>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="section-title">
+              <strong>Acciones</strong>
+            </div>
+            <div class="controls">
+              <button>Añadir lista</button>
+              <button>Pre-asignar</button>
+            </div>
+          </section>
+        </aside>
+
+        <section class="center">
+          <div class="controls">
+            <button>Ocultar completadas</button>
+            <button>Mostrar cerradas</button>
+            <button>Exportar alergias</button>
+          </div>
+
+          <div class="grid">
+            <article class="room ok">
+              <div class="bar"></div>
+              <div class="room-body">
+                <div class="room-head">
+                  <span>Luna · Hab 01</span>
+                  <span>2/2</span>
+                </div>
+                <span class="chip">Elena Hernández</span>
+                <span class="chip">Rafa Martín</span>
+              </div>
+            </article>
+
+            <article class="room warn">
+              <div class="bar"></div>
+              <div class="room-body">
+                <div class="room-head">
+                  <span>Bosque · Hab 02</span>
+                  <span>2/3 <span class="badge">1 dudoso</span></span>
+                </div>
+                <span class="chip">Marta Ruiz</span>
+                <span class="chip tentative">Nora Ruiz</span>
+              </div>
+            </article>
+
+            <article class="room danger">
+              <div class="bar"></div>
+              <div class="room-body">
+                <div class="room-head">
+                  <span>Sol · Hab 03 ⚠</span>
+                  <span>4/3</span>
+                </div>
+                <span class="chip">Marina Téllez</span>
+                <span class="chip">Inés Cano</span>
+                <span class="chip">Lucía Bernal</span>
+                <span class="chip">Jana Ortiz</span>
+              </div>
+            </article>
+
+            <article class="room closed">
+              <div class="bar"></div>
+              <div class="room-body">
+                <div class="room-head">
+                  <span>Pino · Hab 04 🔒</span>
+                  <span>0/2</span>
+                </div>
+                <small>Habitación cerrada por mantenimiento</small>
+              </div>
+            </article>
+
+            <article class="room ok">
+              <div class="bar"></div>
+              <div class="room-body">
+                <div class="room-head">
+                  <span>Río · Hab 05</span>
+                  <span>3/3</span>
+                </div>
+                <span class="chip">Ana Dávila</span>
+                <span class="chip">Teresa Suárez</span>
+                <span class="chip">Lola Castro</span>
+              </div>
+            </article>
+
+            <article class="room warn">
+              <div class="bar"></div>
+              <div class="room-body">
+                <div class="room-head">
+                  <span>Cedro · Hab 06</span>
+                  <span>1/2</span>
+                </div>
+                <span class="chip">Álex Salinas</span>
+              </div>
+            </article>
+
+            <article class="room danger">
+              <div class="bar"></div>
+              <div class="room-body">
+                <div class="room-head">
+                  <span>Alba · Hab 07 ⚠</span>
+                  <span>2/2</span>
+                </div>
+                <span class="chip">Pía León</span>
+                <span class="chip">Marcos Vela</span>
+                <small>Restricción women incumplida</small>
+              </div>
+            </article>
+
+            <article class="room ok">
+              <div class="bar"></div>
+              <div class="room-body">
+                <div class="room-head">
+                  <span>Nube · Hab 08</span>
+                  <span>2/2</span>
+                </div>
+                <span class="chip">Leire Solis</span>
+                <span class="chip">Irene Mur</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <aside class="right">
+          <div class="section-title">
+            <h2>Ficha participante</h2>
+            <small>ID P-109</small>
+          </div>
+          <article class="card">
+            <strong>Nora Ruiz</strong>
+            <p>Estado: <span class="badge">tentative</span></p>
+            <p>Género: female</p>
+            <p>Grupo: Pareja Nora + Ian (strong)</p>
+            <p>Habitación: Bosque · Hab 02</p>
+          </article>
+
+          <article class="card">
+            <strong>Preferencias</strong>
+            <p>"Cerca de Marta, lejos de zona de ronquidos"</p>
+            <p><span class="badge">No resuelto</span></p>
+          </article>
+
+          <article class="card">
+            <strong>Alergias</strong>
+            <p>Frutos secos y kiwi</p>
+            <p><span class="badge">No gestionado</span></p>
+          </article>
+
+          <div class="controls">
+            <button>Descartar</button>
+            <button>Guardar autosave ✓</button>
+          </div>
+        </aside>
+      </main>
+    </div>
+  </body>
+</html>
