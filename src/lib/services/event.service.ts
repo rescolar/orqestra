@@ -97,6 +97,57 @@ export const EventService = {
     await db.event.delete({ where: { id: eventId } });
   },
 
+  async getEventForDetail(eventId: string, userId: string) {
+    const event = await db.event.findFirst({
+      where: { id: eventId, user_id: userId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        location: true,
+        image_url: true,
+        date_start: true,
+        date_end: true,
+        estimated_participants: true,
+        _count: { select: { rooms: true } },
+      },
+    });
+
+    if (!event) return null;
+
+    return {
+      ...event,
+      roomCount: event._count.rooms,
+    };
+  },
+
+  async updateEventDetails(
+    eventId: string,
+    userId: string,
+    data: {
+      name: string;
+      description: string | null;
+      location: string | null;
+      image_url: string | null;
+    }
+  ) {
+    const event = await db.event.findFirst({
+      where: { id: eventId, user_id: userId },
+      select: { id: true },
+    });
+    if (!event) throw new Error("Evento no encontrado");
+
+    return db.event.update({
+      where: { id: eventId },
+      data: {
+        name: data.name,
+        description: data.description,
+        location: data.location,
+        image_url: data.image_url,
+      },
+    });
+  },
+
   async getEventWithRooms(eventId: string, userId: string) {
     const event = await db.event.findFirst({
       where: { id: eventId, user_id: userId },

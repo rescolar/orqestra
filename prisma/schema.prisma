@@ -81,6 +81,9 @@ model Event {
   date_end               DateTime
   estimated_participants Int
   status                 EventStatus @default(draft)
+  description            String?
+  location               String?
+  image_url              String?
 
   user          User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
   event_persons EventPerson[]

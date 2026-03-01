@@ -126,49 +126,41 @@ export function RoomSetupForm({
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
           Añadir tipo de habitación
         </h2>
-        <div className="flex items-end gap-3">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-gray-600">
-              Capacidad
-            </label>
-            <Input
-              type="number"
-              min={1}
-              value={newCapacity}
-              onChange={(e) => setNewCapacity(Number(e.target.value))}
-              className="w-20 bg-white"
-            />
-          </div>
+        <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-x-4 gap-y-2">
+          <label className="text-xs font-medium text-gray-600">Capacidad</label>
+          <label className="text-xs font-medium text-gray-600">Baño</label>
+          <label className="text-xs font-medium text-gray-600">Cantidad</label>
+          <span />
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-gray-600">Baño</label>
-            <button
-              type="button"
-              onClick={() => setNewBathroom(!newBathroom)}
-              className={`flex size-10 items-center justify-center rounded-lg border transition-colors ${
-                newBathroom
-                  ? "border-primary bg-primary text-white"
-                  : "border-gray-300 bg-white text-gray-400 hover:border-gray-400"
-              }`}
-            >
-              <Bath className="size-4" />
-            </button>
-          </div>
+          <Input
+            type="number"
+            min={1}
+            value={newCapacity}
+            onChange={(e) => setNewCapacity(Number(e.target.value))}
+            className="bg-white"
+          />
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-gray-600">
-              Cantidad
-            </label>
-            <Input
-              type="number"
-              min={1}
-              value={newQuantity}
-              onChange={(e) => setNewQuantity(Number(e.target.value))}
-              className="w-20 bg-white"
-            />
-          </div>
+          <button
+            type="button"
+            onClick={() => setNewBathroom(!newBathroom)}
+            className={`flex size-10 items-center justify-center rounded-lg border transition-colors ${
+              newBathroom
+                ? "border-primary bg-primary text-white"
+                : "border-gray-300 bg-white text-gray-400 hover:border-gray-400"
+            }`}
+          >
+            <Bath className="size-4" />
+          </button>
 
-          <Button onClick={handleAdd} size="sm" className="mb-0.5">
+          <Input
+            type="number"
+            min={1}
+            value={newQuantity}
+            onChange={(e) => setNewQuantity(Number(e.target.value))}
+            className="bg-white"
+          />
+
+          <Button onClick={handleAdd} size="sm">
             <Plus className="mr-1 size-4" />
             Añadir
           </Button>
@@ -360,7 +352,7 @@ export function RoomSetupForm({
           onClick={handleSubmit}
           disabled={types.length === 0 || submitting}
         >
-          {submitting ? "Creando habitaciones..." : "Ir al tablero"}
+          {submitting ? "Creando habitaciones..." : "Siguiente"}
         </Button>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { getEvents } from "@/lib/actions/event";
-import { CreateEventDialog } from "@/components/create-event-dialog";
 import { EventCard } from "@/components/event-card";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 
 function formatDateRange(start: Date, end: Date): string {
   const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
@@ -20,7 +21,13 @@ export default async function DashboardPage() {
 
       {events.length === 0 ? (
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <CreateEventDialog />
+          <Link
+            href="/events/new"
+            className="flex h-full min-h-[180px] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-gray-300 bg-white p-6 text-gray-500 transition-colors hover:border-primary hover:text-primary"
+          >
+            <Plus className="size-8" />
+            <span className="text-sm font-medium">Nuevo Evento</span>
+          </Link>
           <div className="col-span-full -mt-2">
             <p className="text-sm text-gray-500">
               Aún no tienes eventos. Crea uno para empezar a organizar tu
@@ -41,7 +48,13 @@ export default async function DashboardPage() {
               status={event.status}
             />
           ))}
-          <CreateEventDialog />
+          <Link
+            href="/events/new"
+            className="flex h-full min-h-[180px] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-gray-300 bg-white p-6 text-gray-500 transition-colors hover:border-primary hover:text-primary"
+          >
+            <Plus className="size-8" />
+            <span className="text-sm font-medium">Nuevo Evento</span>
+          </Link>
         </div>
       )}
     </div>

@@ -55,5 +55,21 @@ export async function createRoomsFromTypes(
   if (!session?.user?.id) redirect("/login");
 
   await EventService.createRoomsFromTypes(eventId, session.user.id, types);
-  redirect(`/events/${eventId}/board`);
+  redirect(`/events/${eventId}/detail`);
+}
+
+export async function updateEventDetails(
+  eventId: string,
+  data: {
+    name: string;
+    description: string | null;
+    location: string | null;
+    image_url: string | null;
+  }
+) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  await EventService.updateEventDetails(eventId, session.user.id, data);
+  revalidatePath("/dashboard");
 }
