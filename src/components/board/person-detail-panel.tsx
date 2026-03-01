@@ -367,7 +367,12 @@ export function PersonDetailPanel({
             onBlur={handleAllergiesBlur}
             placeholder="Ninguna conocida"
             rows={2}
-            className="w-full rounded-lg border border-red-200 bg-red-50/50 px-3 py-2 text-sm outline-none focus:border-red-300"
+            className={cn(
+              "w-full rounded-lg border px-3 py-2 text-sm outline-none",
+              allergiesLocal
+                ? "border-red-200 bg-red-50/50 focus:border-red-300"
+                : "border-gray-200 focus:border-primary"
+            )}
           />
         </Section>
 
