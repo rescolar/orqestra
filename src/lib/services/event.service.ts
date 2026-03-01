@@ -79,12 +79,36 @@ export const EventService = {
   },
 
   async getEventWithRooms(eventId: string, userId: string) {
-    return db.event.findFirst({
+    const event = await db.event.findFirst({
       where: { id: eventId, user_id: userId },
       include: {
-        rooms: { orderBy: { internal_number: "asc" } },
+        rooms: {
+          orderBy: { internal_number: "asc" },
+          include: {
+            _count: { select: { event_persons: true } },
+            event_persons: {
+              select: { id: true, status: true, person: { select: { gender: true } } },
+            },
+          },
+        },
         _count: { select: { event_persons: true } },
+        event_persons: {
+          where: { room_id: { not: null } },
+          select: { id: true },
+        },
       },
     });
+
+    if (!event) return null;
+
+    const totalPersons = event._count.event_persons;
+    const assignedCount = event.event_persons.length;
+
+    return {
+      ...event,
+      totalPersons,
+      assignedCount,
+      unassignedCount: totalPersons - assignedCount,
+    };
   },
 };

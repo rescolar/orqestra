@@ -2,7 +2,8 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { EventService } from "@/lib/services/event.service";
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import { BoardHeader } from "@/components/board/board-header";
+import { RoomGrid } from "@/components/board/room-grid";
 
 export default async function BoardPage({
   params,
@@ -17,27 +18,36 @@ export default async function BoardPage({
   if (!event) notFound();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-6">
-          <Link
-            href="/dashboard"
-            className="text-sm text-gray-500 hover:text-gray-900"
-          >
-            ← Mis Eventos
-          </Link>
-          <span className="text-sm text-gray-300">|</span>
-          <h1 className="text-lg font-semibold text-gray-900">{event.name}</h1>
-          <span className="text-sm text-gray-500">
-            {event.rooms.length} habitaciones
-          </span>
-        </div>
-      </header>
-      <main className="mx-auto max-w-7xl px-6 py-10">
-        <p className="text-sm text-gray-500">
-          El tablero se implementará en el siguiente epic.
-        </p>
-      </main>
+    <div className="flex h-screen flex-col overflow-hidden bg-surface">
+      <BoardHeader
+        eventName={event.name}
+        dateStart={event.date_start}
+        dateEnd={event.date_end}
+        assignedCount={event.assignedCount}
+        totalPersons={event.totalPersons}
+        roomCount={event.rooms.length}
+        unassignedCount={event.unassignedCount}
+        userName={session.user.name}
+      />
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left panel — participants placeholder */}
+        <aside className="w-64 shrink-0 border-r border-gray-200 bg-white">
+          <div className="p-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
+              Participantes
+            </h2>
+            <p className="mt-2 text-xs text-gray-300">
+              Se habilitará en el siguiente epic.
+            </p>
+          </div>
+        </aside>
+
+        {/* Center — room grid */}
+        <main className="flex-1 overflow-y-auto p-8">
+          <RoomGrid eventId={event.id} rooms={event.rooms} />
+        </main>
+      </div>
     </div>
   );
 }
