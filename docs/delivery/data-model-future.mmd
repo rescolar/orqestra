@@ -1,0 +1,179 @@
+%% ═══════════════════════════════════════════════════════════════
+%% ORQESTRA — Future Data Model (MVP + planned extensions)
+%% ═══════════════════════════════════════════════════════════════
+%% Entities marked [MVP] exist today
+%% Entities marked [FUTURE] are planned extensions
+%% ═══════════════════════════════════════════════════════════════
+
+erDiagram
+
+    %% ─── MVP ENTITIES (existing) ────────────────────────
+
+    User {
+        string id PK "cuid()"
+        string email UK
+        string password "bcrypt hash"
+        string name
+        string avatar_url "optional"
+        UserRole role "organizer | admin"
+        datetime created_at
+    }
+
+    Person {
+        string id PK "cuid()"
+        string user_id FK "→ User"
+        string name_full
+        string name_display
+        string name_initials
+        PersonRole default_role "participant | facilitator"
+        Gender gender
+        string contact_email
+        string contact_phone
+        string contact_address
+        string_arr dietary_requirements
+        string allergies_text
+        string notes
+        datetime created_at
+    }
+
+    Event {
+        string id PK "cuid()"
+        string user_id FK "→ User"
+        string venue_id FK "→ Venue [FUTURE], nullable"
+        string name
+        datetime date_start
+        datetime date_end
+        int estimated_participants
+        EventStatus status "draft | active | archived"
+    }
+
+    EventPerson {
+        string id PK "cuid()"
+        string event_id FK "→ Event"
+        string person_id FK "→ Person"
+        string group_id FK "→ Group, nullable"
+        string room_id FK "→ Room, nullable"
+        PersonRole role
+        EventPersonStatus status
+        boolean move_with_partner
+        string_arr dietary_requirements
+        string allergies_text
+        boolean dietary_notified
+        string requests_text
+        boolean requests_managed
+    }
+
+    Room {
+        string id PK "cuid()"
+        string event_id FK "→ Event"
+        string room_type_id FK "→ RoomType [FUTURE], nullable"
+        string source_venue_room_id FK "→ VenueRoom [FUTURE], nullable"
+        string internal_number
+        string display_name
+        string icon
+        int capacity
+        boolean has_private_bathroom
+        GenderRestriction gender_restriction
+        string description
+        string_arr tags
+        boolean conflict_acknowledged
+        boolean locked
+        string locked_reason
+    }
+
+    Group {
+        string id PK "cuid()"
+        string event_id FK "→ Event"
+        string name
+        GroupType type
+    }
+
+    UndoEntry {
+        string id PK "cuid()"
+        string event_id FK "→ Event"
+        string batch_id
+        UndoType type
+        json snapshot
+        datetime timestamp
+    }
+
+    %% ─── FUTURE ENTITIES ────────────────────────────────
+
+    Venue {
+        string id PK "[FUTURE]"
+        string user_id FK "→ User"
+        string name "Casa Rural Sierra Norte"
+        string address "optional"
+        string notes "optional"
+    }
+
+    VenueRoom {
+        string id PK "[FUTURE]"
+        string venue_id FK "→ Venue"
+        string internal_number
+        string display_name
+        string icon
+        int capacity
+        boolean has_private_bathroom
+        GenderRestriction gender_restriction
+        string description
+        string_arr tags
+    }
+
+    RoomType {
+        string id PK "[FUTURE]"
+        string user_id FK "→ User"
+        string code UK "double, suite, dorm"
+        string name "Doble, Suite, Dormitorio"
+        boolean has_private_bathroom
+    }
+
+    Amenity {
+        string id PK "[FUTURE]"
+        string room_type_id FK "→ RoomType"
+        string code "wifi, heating, ac"
+        string label "Wi-Fi, Calefacción"
+        string icon "Material Symbol"
+    }
+
+    ActivityLog {
+        string id PK "[FUTURE]"
+        string user_id FK "→ User"
+        string event_id FK "→ Event, nullable"
+        string entity_type "room, event_person, group..."
+        string entity_id "target entity"
+        string action "assign, unassign, create, update, delete, pre_assign"
+        json payload "action-specific data"
+        datetime created_at
+    }
+
+    %% ─── MVP RELATIONSHIPS ──────────────────────────────
+
+    User ||--o{ Person : "owns (directory)"
+    User ||--o{ Event : "owns"
+
+    Person ||--o{ EventPerson : "instantiated as"
+
+    Event ||--o{ EventPerson : "participants"
+    Event ||--o{ Room : "rooms"
+    Event ||--o{ Group : "groups"
+    Event ||--o{ UndoEntry : "undo stack"
+
+    Group |o--o{ EventPerson : "members"
+    Room |o--o{ EventPerson : "assigned"
+
+    %% ─── FUTURE RELATIONSHIPS ───────────────────────────
+
+    User ||--o{ Venue : "[FUTURE] owns"
+    User ||--o{ RoomType : "[FUTURE] owns"
+    User ||--o{ ActivityLog : "[FUTURE] tracked"
+
+    Venue ||--o{ VenueRoom : "[FUTURE] template rooms"
+    Venue |o--o{ Event : "[FUTURE] linked"
+
+    RoomType ||--o{ Amenity : "[FUTURE] features"
+    RoomType |o--o{ Room : "[FUTURE] classification"
+
+    VenueRoom |o--o{ Room : "[FUTURE] source copy"
+
+    Event |o--o{ ActivityLog : "[FUTURE] audited"

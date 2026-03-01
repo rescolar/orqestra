@@ -1,0 +1,75 @@
+graph TB
+    %% ═══════════════════════════════════════════════════════
+    %% ORQESTRA — MVP Architecture Diagram
+    %% ═══════════════════════════════════════════════════════
+
+    subgraph CLIENT ["🖥️ Browser (Desktop-first)"]
+        direction TB
+        UI["Next.js App Router<br/><b>React 18 + TypeScript</b>"]
+
+        subgraph PAGES ["Pages"]
+            LOGIN["(auth)/<br/>Login · Register"]
+            DASH["dashboard/<br/>Event list"]
+            WIZARD["events/new/<br/>Create event wizard"]
+            BOARD["events/[id]/board/<br/><b>Main Board View</b>"]
+        end
+
+        subgraph BOARD_LAYOUT ["Board — 3-Column Layout"]
+            direction LR
+            LEFT["Left Panel<br/>264px<br/>──────────<br/>Person list<br/>Search + filters<br/>Unassigned pool"]
+            CENTER["Center<br/>flex<br/>──────────<br/>Room grid<br/>Room cards<br/>Drag targets"]
+            RIGHT["Right Panel<br/>384px<br/>──────────<br/>Person detail<br/>Room detail<br/>Pendings panel<br/><i>(one at a time)</i>"]
+        end
+
+        DND["dnd-kit<br/>Drag & Drop engine"]
+        STATE["Client State<br/>(Zustand / Context)"]
+    end
+
+    subgraph SERVER ["⚡ Next.js Server (Vercel)"]
+        direction TB
+        SA["Server Actions<br/><b>lib/actions/</b><br/>──────────<br/>assignPerson()<br/>unassignPerson()<br/>createRooms()<br/>updateRoom()<br/>addPersonsToEvent()<br/>resolveConflict()<br/>preAssign()<br/>undo()"]
+        AUTH["NextAuth.js v5<br/>Email + Password<br/><i>(OAuth-ready)</i>"]
+        PRISMA["Prisma ORM<br/>Type-safe queries"]
+    end
+
+    subgraph DB ["🗄️ Database"]
+        PG["PostgreSQL<br/><b>Supabase</b><br/>──────────<br/>users<br/>persons<br/>events<br/>event_persons<br/>rooms<br/>groups<br/>undo_entries"]
+    end
+
+    subgraph DEPLOY ["🚀 Deployment"]
+        direction LR
+        VERCEL["Vercel<br/>Free tier<br/>Auto-deploy on push"]
+        SUPA["Supabase<br/>Free tier<br/>500MB · 50K rows"]
+        DOMAIN["Custom domain<br/>~$12/year"]
+    end
+
+    %% ─── Connections ──────────────────────────────────
+
+    UI --> PAGES
+    BOARD --> BOARD_LAYOUT
+    BOARD --> DND
+    BOARD --> STATE
+
+    UI -- "Server Actions<br/>(no REST API)" --> SA
+    UI -- "Session check" --> AUTH
+    SA --> PRISMA
+    AUTH --> PRISMA
+    PRISMA --> PG
+
+    VERCEL -.- SERVER
+    VERCEL -.- CLIENT
+    SUPA -.- PG
+
+    %% ─── Styling ──────────────────────────────────
+
+    classDef client fill:#E8F5E9,stroke:#1E4A4A,stroke-width:2px,color:#1E4A4A
+    classDef server fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1
+    classDef db fill:#FFF3E0,stroke:#E65100,stroke-width:2px,color:#BF360C
+    classDef deploy fill:#F3E5F5,stroke:#6A1B9A,stroke-width:1px,color:#4A148C
+    classDef board fill:#E0F2F1,stroke:#1E4A4A,stroke-width:1px,color:#1E4A4A
+
+    class CLIENT client
+    class SERVER server
+    class DB db
+    class DEPLOY deploy
+    class BOARD_LAYOUT board

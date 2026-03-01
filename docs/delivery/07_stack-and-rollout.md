@@ -37,12 +37,13 @@ orqestra/
 │   ├── lib/                    # Utilidades, helpers, constantes
 │   │   ├── db.ts               # Prisma client singleton
 │   │   ├── auth.ts             # Configuración NextAuth
-│   │   └── actions/            # Server Actions (mutations)
+│   │   ├── actions/            # Server Actions (thin transport layer)
+│   │   └── services/           # Business logic (see 09_architecture.md)
 │   ├── hooks/                  # Custom React hooks
 │   └── types/                  # Tipos TypeScript del dominio
 ├── prisma/
 │   ├── schema.prisma           # Schema de base de datos
-│   └── seed.ts                 # Datos semilla (amenities por defecto, usuario demo)
+│   └── seed.ts                 # Datos semilla (usuario demo)
 ├── public/                     # Assets estáticos
 ├── docs/                       # Documentación (ya existente)
 ├── tailwind.config.ts

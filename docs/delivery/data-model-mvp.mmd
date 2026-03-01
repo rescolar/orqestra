@@ -1,0 +1,107 @@
+%% ═══════════════════════════════════════════════════════════════
+%% ORQESTRA — MVP Data Model
+%% ═══════════════════════════════════════════════════════════════
+%% Auth: NextAuth v5 + JWT sessions (no Session/Account tables)
+%% All entities below are persisted in PostgreSQL (Supabase)
+%% ═══════════════════════════════════════════════════════════════
+
+erDiagram
+    User {
+        string id PK "cuid()"
+        string email UK
+        string password "bcrypt hash"
+        string name
+        string avatar_url "optional"
+        UserRole role "organizer | admin"
+        datetime created_at
+    }
+
+    Person {
+        string id PK "cuid()"
+        string user_id FK "→ User"
+        string name_full "José Luis Madrid Gómez"
+        string name_display "auto: José Madrid"
+        string name_initials "auto: JM"
+        PersonRole default_role "participant | facilitator"
+        Gender gender "unknown | female | male | other"
+        string contact_email "optional"
+        string contact_phone "optional"
+        string contact_address "optional"
+        string_arr dietary_requirements "vegetarian, gluten_free..."
+        string allergies_text "optional, free text"
+        string notes "optional, internal"
+        datetime created_at
+    }
+
+    Event {
+        string id PK "cuid()"
+        string user_id FK "→ User"
+        string name
+        datetime date_start
+        datetime date_end
+        int estimated_participants
+        EventStatus status "draft | active | archived"
+    }
+
+    EventPerson {
+        string id PK "cuid()"
+        string event_id FK "→ Event"
+        string person_id FK "→ Person"
+        string group_id FK "→ Group, nullable"
+        string room_id FK "→ Room, nullable"
+        PersonRole role "participant | facilitator"
+        EventPersonStatus status "confirmed | tentative | cancelled"
+        boolean move_with_partner "default false"
+        string_arr dietary_requirements "copied from Person"
+        string allergies_text "copied from Person"
+        boolean dietary_notified "communicated to kitchen"
+        string requests_text "free text requests"
+        boolean requests_managed "organizer handled it"
+    }
+
+    Room {
+        string id PK "cuid()"
+        string event_id FK "→ Event"
+        string internal_number "Hab 01, Hab 02..."
+        string display_name "optional: Luna, Sol..."
+        string icon "optional: Material Symbol"
+        int capacity "free numeric input"
+        boolean has_private_bathroom "default false"
+        GenderRestriction gender_restriction "mixed | women | men"
+        string description "optional, free text"
+        string_arr tags "Planta Baja, Litera..."
+        boolean conflict_acknowledged "default false"
+        boolean locked "default false"
+        string locked_reason "optional"
+    }
+
+    Group {
+        string id PK "cuid()"
+        string event_id FK "→ Event"
+        string name "Pareja Nora + Ian"
+        GroupType type "strong | flexible"
+    }
+
+    UndoEntry {
+        string id PK "cuid()"
+        string event_id FK "→ Event"
+        string batch_id "groups compound ops"
+        UndoType type "assign_person | link_persons"
+        json snapshot "previous state"
+        datetime timestamp
+    }
+
+    %% ─── Relationships ──────────────────────────────────
+
+    User ||--o{ Person : "owns (contact directory)"
+    User ||--o{ Event : "owns"
+
+    Person ||--o{ EventPerson : "instantiated as"
+
+    Event ||--o{ EventPerson : "participants"
+    Event ||--o{ Room : "rooms"
+    Event ||--o{ Group : "groups"
+    Event ||--o{ UndoEntry : "undo stack (session-scoped)"
+
+    Group |o--o{ EventPerson : "members"
+    Room |o--o{ EventPerson : "assigned persons"

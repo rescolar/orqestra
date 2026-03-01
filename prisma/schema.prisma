@@ -10,8 +10,8 @@ datasource db {
 // ─── User ────────────────────────────────────────────────────────────────────
 
 enum UserRole {
-  user
-  superadmin
+  organizer
+  admin
 }
 
 model User {
@@ -20,12 +20,11 @@ model User {
   password   String
   name       String
   avatar_url String?
-  role       UserRole @default(user)
+  role       UserRole @default(organizer)
   created_at DateTime @default(now())
 
-  persons   Person[]
-  events    Event[]
-  amenities Amenity[]
+  persons Person[]
+  events  Event[]
 
   @@map("users")
 }
@@ -109,11 +108,10 @@ model EventPerson {
   group_id             String?
   move_with_partner    Boolean           @default(false)
   dietary_requirements String[]          @default([])
-  dietary_managed      Boolean           @default(false)
-  preferences_text     String?
-  preferences_managed  Boolean           @default(false)
   allergies_text       String?
-  allergies_managed    Boolean           @default(false)
+  dietary_notified     Boolean           @default(false)
+  requests_text        String?
+  requests_managed     Boolean           @default(false)
   room_id              String?
 
   event  Event   @relation(fields: [event_id], references: [id], onDelete: Cascade)
@@ -125,11 +123,6 @@ model EventPerson {
 }
 
 // ─── Room ────────────────────────────────────────────────────────────────────
-
-enum RoomType {
-  general
-  facilitator
-}
 
 enum GenderRestriction {
   mixed
@@ -144,11 +137,10 @@ model Room {
   display_name          String?
   icon                  String?
   capacity              Int
-  room_type             RoomType          @default(general)
+  has_private_bathroom  Boolean           @default(false)
   gender_restriction    GenderRestriction @default(mixed)
   description           String?
   tags                  String[]          @default([])
-  amenity_ids           String[]          @default([])
   conflict_acknowledged Boolean           @default(false)
   locked                Boolean           @default(false)
   locked_reason         String?
@@ -157,21 +149,6 @@ model Room {
   event_persons EventPerson[]
 
   @@map("rooms")
-}
-
-// ─── Amenity ─────────────────────────────────────────────────────────────────
-
-model Amenity {
-  id      String  @id @default(cuid())
-  user_id String
-  code    String
-  label   String
-  icon    String?
-
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@unique([user_id, code])
-  @@map("amenities")
 }
 
 // ─── Group ───────────────────────────────────────────────────────────────────
@@ -186,7 +163,6 @@ model Group {
   event_id String
   name     String
   type     GroupType @default(flexible)
-  locked   Boolean   @default(false)
 
   event   Event         @relation(fields: [event_id], references: [id], onDelete: Cascade)
   members EventPerson[]
