@@ -1,9 +1,11 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { EventService } from "@/lib/services/event.service";
+import { PersonService } from "@/lib/services/person.service";
 import { notFound } from "next/navigation";
 import { BoardHeader } from "@/components/board/board-header";
 import { RoomGrid } from "@/components/board/room-grid";
+import { ParticipantsSidebar } from "@/components/board/participants-sidebar";
 
 export default async function BoardPage({
   params,
@@ -16,6 +18,11 @@ export default async function BoardPage({
   const { id } = await params;
   const event = await EventService.getEventWithRooms(id, session.user.id);
   if (!event) notFound();
+
+  const unassigned = await PersonService.getUnassignedPersons(
+    id,
+    session.user.id
+  );
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-surface">
@@ -31,17 +38,8 @@ export default async function BoardPage({
       />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left panel — participants placeholder */}
-        <aside className="w-64 shrink-0 border-r border-gray-200 bg-white">
-          <div className="p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
-              Participantes
-            </h2>
-            <p className="mt-2 text-xs text-gray-300">
-              Se habilitará en el siguiente epic.
-            </p>
-          </div>
-        </aside>
+        {/* Left panel — participants */}
+        <ParticipantsSidebar eventId={event.id} initialPersons={unassigned} />
 
         {/* Center — room grid */}
         <main className="flex-1 overflow-y-auto p-8">
