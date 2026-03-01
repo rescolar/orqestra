@@ -21,13 +21,13 @@ function formatDateRange(start: Date, end: Date) {
   return `${fmt.format(start)} — ${fmt.format(end)}`;
 }
 
-function KPI({ label, value }: { label: string; value: string | number }) {
+function KPI({ label, value, danger }: { label: string; value: string | number; danger?: boolean }) {
   return (
     <div className="text-center px-4">
       <p className="text-[10px] uppercase tracking-wider text-gray-400">
         {label}
       </p>
-      <p className="text-lg font-semibold text-primary">{value}</p>
+      <p className={`text-lg font-semibold ${danger ? "text-danger" : "text-primary"}`}>{value}</p>
     </div>
   );
 }
@@ -67,7 +67,7 @@ export function BoardHeader({
         />
         <KPI label="Rooms" value={roomCount} />
         <KPI label="No Asignados" value={unassignedCount} />
-        <KPI label="Pendientes" value={pendingCount} />
+        <KPI label="Pendientes" value={pendingCount} danger={pendingCount > 0} />
 
         <div className="ml-4 flex items-center gap-3">
           <button className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50">
