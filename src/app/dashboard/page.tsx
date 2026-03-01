@@ -1,7 +1,6 @@
 import { getEvents } from "@/lib/actions/event";
 import { CreateEventDialog } from "@/components/create-event-dialog";
-import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
+import { EventCard } from "@/components/event-card";
 
 function formatDateRange(start: Date, end: Date): string {
   const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
@@ -32,31 +31,15 @@ export default async function DashboardPage() {
       ) : (
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {events.map((event) => (
-            <Link
+            <EventCard
               key={event.id}
-              href={`/events/${event.id}/board`}
-              className="group flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h2 className="text-lg font-semibold text-gray-900 group-hover:text-primary">
-                  {event.name}
-                </h2>
-                {event.status !== "active" && (
-                  <Badge variant="secondary" className="capitalize">
-                    {event.status}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm text-gray-500">
-                {formatDateRange(event.date_start, event.date_end)}
-              </p>
-              <div className="mt-auto pt-2">
-                <Badge variant="outline">
-                  {event.assigned_count}/{event.estimated_participants}{" "}
-                  asignados
-                </Badge>
-              </div>
-            </Link>
+              id={event.id}
+              name={event.name}
+              dateRange={formatDateRange(event.date_start, event.date_end)}
+              assignedCount={event.assigned_count}
+              estimatedParticipants={event.estimated_participants}
+              status={event.status}
+            />
           ))}
           <CreateEventDialog />
         </div>

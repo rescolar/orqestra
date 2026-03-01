@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { EventService } from "@/lib/services/event.service";
 
 export async function getEvents() {
@@ -9,6 +10,14 @@ export async function getEvents() {
   if (!session?.user?.id) redirect("/login");
 
   return EventService.getEventsByUser(session.user.id);
+}
+
+export async function deleteEvent(eventId: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  await EventService.deleteEvent(eventId, session.user.id);
+  revalidatePath("/dashboard");
 }
 
 export async function createEvent(formData: FormData) {

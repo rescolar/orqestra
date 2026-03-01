@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createEvent } from "@/lib/actions/event";
 import {
   Dialog,
@@ -14,10 +14,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
 
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
 export function CreateEventDialog() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const endDateRef = useRef<HTMLInputElement>(null);
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -32,6 +39,18 @@ export function CreateEventDialog() {
     }
   }
 
+  function handleStartDateChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const startVal = e.target.value;
+    if (startVal && endDateRef.current) {
+      const endInput = endDateRef.current;
+      // Auto-set end date to start + 1 day if empty or before start
+      if (!endInput.value || endInput.value <= startVal) {
+        endInput.value = addDays(startVal, 1);
+      }
+      endInput.min = addDays(startVal, 1);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -40,7 +59,10 @@ export function CreateEventDialog() {
           <span className="text-sm font-medium">Nuevo Evento</span>
         </button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent
+        className="bg-white"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Crear nuevo evento</DialogTitle>
         </DialogHeader>
@@ -62,11 +84,18 @@ export function CreateEventDialog() {
                 name="date_start"
                 type="date"
                 required
+                onChange={handleStartDateChange}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="date_end">Fecha fin</Label>
-              <Input id="date_end" name="date_end" type="date" required />
+              <Input
+                id="date_end"
+                name="date_end"
+                type="date"
+                required
+                ref={endDateRef}
+              />
             </div>
           </div>
           <div className="space-y-2">

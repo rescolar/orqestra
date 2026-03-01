@@ -40,26 +40,42 @@ export const EventService = {
     const n = data.estimated_participants;
     const roomCount = Math.ceil(n / 2);
 
-    const rooms = Array.from({ length: roomCount }, (_, i) => ({
-      internal_number: String(i + 1).padStart(2, "0"),
-      display_name: `Hab ${String(i + 1).padStart(2, "0")}`,
-      capacity: i === roomCount - 1 && n % 2 !== 0 ? 1 : 2,
-      has_private_bathroom: false,
-    }));
+    const event = await db.$transaction(async (tx) => {
+      const created = await tx.event.create({
+        data: {
+          user_id: userId,
+          name: data.name,
+          date_start: data.date_start,
+          date_end: data.date_end,
+          estimated_participants: n,
+          status: "active",
+        },
+      });
 
-    const event = await db.event.create({
-      data: {
-        user_id: userId,
-        name: data.name,
-        date_start: data.date_start,
-        date_end: data.date_end,
-        estimated_participants: n,
-        status: "active",
-        rooms: { create: rooms },
-      },
+      await tx.room.createMany({
+        data: Array.from({ length: roomCount }, (_, i) => ({
+          event_id: created.id,
+          internal_number: String(i + 1).padStart(2, "0"),
+          display_name: `Hab ${String(i + 1).padStart(2, "0")}`,
+          capacity: i === roomCount - 1 && n % 2 !== 0 ? 1 : 2,
+        })),
+      });
+
+      return created;
     });
 
     return event;
+  },
+
+  async deleteEvent(eventId: string, userId: string) {
+    const event = await db.event.findFirst({
+      where: { id: eventId, user_id: userId },
+      select: { id: true },
+    });
+
+    if (!event) throw new Error("Evento no encontrado");
+
+    await db.event.delete({ where: { id: eventId } });
   },
 
   async getEventWithRooms(eventId: string, userId: string) {
