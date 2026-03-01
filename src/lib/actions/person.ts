@@ -30,3 +30,26 @@ export async function getUnassignedPersons(eventId: string) {
 
   return PersonService.getUnassignedPersons(eventId, session.user.id);
 }
+
+export async function assignPerson(
+  eventPersonId: string,
+  roomId: string,
+  eventId: string
+) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  await PersonService.assignPerson(eventPersonId, roomId, session.user.id);
+  revalidatePath(`/events/${eventId}/board`);
+}
+
+export async function unassignPerson(
+  eventPersonId: string,
+  eventId: string
+) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  await PersonService.unassignPerson(eventPersonId, session.user.id);
+  revalidatePath(`/events/${eventId}/board`);
+}

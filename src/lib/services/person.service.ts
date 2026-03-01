@@ -138,4 +138,52 @@ export const PersonService = {
       orderBy: { person: { name_full: "asc" } },
     });
   },
+
+  async assignPerson(eventPersonId: string, roomId: string, userId: string) {
+    const ep = await db.eventPerson.findFirst({
+      where: { id: eventPersonId },
+      include: {
+        event: { select: { user_id: true } },
+        person: { select: { gender: true } },
+      },
+    });
+    if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
+
+    const room = await db.room.findFirst({
+      where: { id: roomId },
+      include: {
+        event_persons: {
+          select: { person: { select: { gender: true } } },
+        },
+      },
+    });
+    if (!room) throw new Error("Habitación no encontrada");
+    if (room.locked) throw new Error("Habitación cerrada");
+
+    // Gender restriction check
+    if (room.gender_restriction !== "mixed" && ep.person.gender !== "unknown") {
+      const expected = room.gender_restriction === "women" ? "female" : "male";
+      if (ep.person.gender !== expected) {
+        throw new Error("Restricción de género: no permitido");
+      }
+    }
+
+    return db.eventPerson.update({
+      where: { id: eventPersonId },
+      data: { room_id: roomId },
+    });
+  },
+
+  async unassignPerson(eventPersonId: string, userId: string) {
+    const ep = await db.eventPerson.findFirst({
+      where: { id: eventPersonId },
+      include: { event: { select: { user_id: true } } },
+    });
+    if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
+
+    return db.eventPerson.update({
+      where: { id: eventPersonId },
+      data: { room_id: null },
+    });
+  },
 };

@@ -157,7 +157,18 @@ export const EventService = {
           include: {
             _count: { select: { event_persons: true } },
             event_persons: {
-              select: { id: true, status: true, person: { select: { gender: true } } },
+              select: {
+                id: true,
+                status: true,
+                role: true,
+                person: {
+                  select: {
+                    gender: true,
+                    name_display: true,
+                    name_initials: true,
+                  },
+                },
+              },
             },
           },
         },

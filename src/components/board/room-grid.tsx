@@ -1,35 +1,22 @@
 import { RoomCard } from "./room-card";
 import { CreateRoomDialog } from "./create-room-dialog";
+import type { RoomData } from "./board-dnd-provider";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RoomGridProps = {
   eventId: string;
-  rooms: {
-    id: string;
-    display_name: string | null;
-    internal_number: string;
-    capacity: number;
-    locked: boolean;
-    has_private_bathroom: boolean;
-    gender_restriction: string;
-    _count: { event_persons: number };
-    event_persons: {
-      id: string;
-      status: string;
-      person: { gender: string };
-    }[];
-  }[];
+  rooms: RoomData[];
+  onUnassign?: (personId: string) => void;
 };
 
-function checkGenderViolation(
-  room: RoomGridProps["rooms"][number]
-): boolean {
+function checkGenderViolation(room: RoomData): boolean {
   if (room.gender_restriction === "mixed") return false;
   const expected = room.gender_restriction === "women" ? "female" : "male";
-  return room.event_persons.some((ep) => ep.person.gender !== expected && ep.person.gender !== "unknown");
+  return room.event_persons.some(
+    (ep) => ep.person.gender !== expected && ep.person.gender !== "unknown"
+  );
 }
 
-export function RoomGrid({ eventId, rooms }: RoomGridProps) {
+export function RoomGrid({ eventId, rooms, onUnassign }: RoomGridProps) {
   return (
     <section>
       <div className="mb-6">
@@ -48,7 +35,6 @@ export function RoomGrid({ eventId, rooms }: RoomGridProps) {
             displayName={room.display_name || `Hab ${room.internal_number}`}
             internalNumber={room.internal_number}
             capacity={room.capacity}
-            assignedCount={room._count.event_persons}
             locked={room.locked}
             hasPrivateBathroom={room.has_private_bathroom}
             genderRestriction={room.gender_restriction}
@@ -56,6 +42,8 @@ export function RoomGrid({ eventId, rooms }: RoomGridProps) {
               (ep) => ep.status === "tentative"
             )}
             hasGenderViolation={checkGenderViolation(room)}
+            assignedPersons={room.event_persons}
+            onUnassign={onUnassign}
           />
         ))}
         <CreateRoomDialog eventId={eventId} />

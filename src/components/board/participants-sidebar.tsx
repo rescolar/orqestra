@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
+import { useDraggable } from "@dnd-kit/core";
 import {
   seedTestParticipants,
   getUnassignedPersons,
@@ -30,12 +31,13 @@ type UnassignedPerson = {
 
 export function ParticipantsSidebar({
   eventId,
-  initialPersons,
+  persons,
+  onPersonsChange,
 }: {
   eventId: string;
-  initialPersons: UnassignedPerson[];
+  persons: UnassignedPerson[];
+  onPersonsChange?: (persons: UnassignedPerson[]) => void;
 }) {
-  const [persons, setPersons] = useState(initialPersons);
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -54,7 +56,7 @@ export function ParticipantsSidebar({
     startTransition(async () => {
       await seedTestParticipants(eventId);
       const updated = await getUnassignedPersons(eventId);
-      setPersons(updated);
+      onPersonsChange?.(updated);
     });
   }
 
@@ -76,7 +78,7 @@ export function ParticipantsSidebar({
         role: role as "participant" | "facilitator",
       });
       const updated = await getUnassignedPersons(eventId);
-      setPersons(updated);
+      onPersonsChange?.(updated);
       setDialogOpen(false);
     } catch (e) {
       if (e instanceof Error && "digest" in e) throw e;
@@ -198,22 +200,40 @@ export function ParticipantsSidebar({
 
       <ul className="flex-1 overflow-y-auto px-2 py-2">
         {filtered.map((ep) => (
-          <li
-            key={ep.id}
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50"
-          >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-              {ep.person.name_initials}
-            </div>
-            <span className="flex-1 truncate text-sm text-gray-700">
-              {ep.person.name_display}
-            </span>
-            <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
-              {ep.role === "facilitator" ? "fac" : "par"}
-            </span>
-          </li>
+          <DraggablePersonItem key={ep.id} ep={ep} />
         ))}
       </ul>
     </aside>
+  );
+}
+
+function DraggablePersonItem({ ep }: { ep: UnassignedPerson }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({ id: ep.id });
+
+  const style = transform
+    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
+    : undefined;
+
+  return (
+    <li
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={style}
+      className={`flex cursor-grab items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 ${
+        isDragging ? "opacity-30" : ""
+      }`}
+    >
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+        {ep.person.name_initials}
+      </div>
+      <span className="flex-1 truncate text-sm text-gray-700">
+        {ep.person.name_display}
+      </span>
+      <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
+        {ep.role === "facilitator" ? "fac" : "par"}
+      </span>
+    </li>
   );
 }

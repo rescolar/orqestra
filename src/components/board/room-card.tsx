@@ -1,16 +1,30 @@
+"use client";
+
+import { useDroppable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
+
+type AssignedPerson = {
+  id: string;
+  role: string;
+  person: {
+    name_display: string;
+    name_initials: string;
+    gender: string;
+  };
+};
 
 type RoomCardProps = {
   id: string;
   displayName: string;
   internalNumber: string;
   capacity: number;
-  assignedCount: number;
   locked: boolean;
   hasPrivateBathroom: boolean;
   genderRestriction: string;
   hasTentatives: boolean;
   hasGenderViolation: boolean;
+  assignedPersons: AssignedPerson[];
+  onUnassign?: (personId: string) => void;
 };
 
 type RoomStatus = "ok" | "warn" | "danger" | "closed";
@@ -52,16 +66,21 @@ const statusTextColor: Record<RoomStatus, string> = {
 };
 
 export function RoomCard({
+  id,
   displayName,
   internalNumber,
   capacity,
-  assignedCount,
   locked,
   hasPrivateBathroom,
   genderRestriction,
   hasTentatives,
   hasGenderViolation,
+  assignedPersons,
+  onUnassign,
 }: RoomCardProps) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  const assignedCount = assignedPersons.length;
   const status = deriveStatus({
     locked,
     assignedCount,
@@ -74,10 +93,12 @@ export function RoomCard({
 
   return (
     <div
+      ref={setNodeRef}
       className={cn(
-        "relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 card-shadow transition-shadow hover:shadow-md",
+        "relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 card-shadow transition-all hover:shadow-md",
         status === "danger" && "border-2 border-danger/30",
-        status === "warn" && "border-warning/40"
+        status === "warn" && "border-warning/40",
+        isOver && !locked && "ring-2 ring-primary/40 border-primary/30 bg-primary/[0.02]"
       )}
     >
       {/* Color bar */}
@@ -127,20 +148,38 @@ export function RoomCard({
 
       {/* Body — person slots */}
       <div className="mb-4 space-y-2">
-        {/* Placeholder for assigned persons (Epic 3) */}
-        {Array.from({ length: assignedCount }).map((_, i) => (
+        {assignedPersons.map((ep) => (
           <div
-            key={`assigned-${i}`}
-            className="flex h-12 items-center rounded-lg bg-gray-50 p-3"
+            key={ep.id}
+            className="group flex h-12 items-center gap-2 rounded-lg bg-gray-50 px-3"
           >
-            <div className="h-3 w-24 rounded bg-gray-200" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+              {ep.person.name_initials}
+            </div>
+            <span className="flex-1 truncate text-sm text-gray-700">
+              {ep.person.name_display}
+            </span>
+            <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
+              {ep.role === "facilitator" ? "fac" : "par"}
+            </span>
+            {onUnassign && (
+              <button
+                onClick={() => onUnassign(ep.id)}
+                className="hidden h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-600 group-hover:flex"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            )}
           </div>
         ))}
         {/* Empty slots */}
         {Array.from({ length: emptySlots }).map((_, i) => (
           <div
             key={`empty-${i}`}
-            className="flex h-12 items-center justify-center rounded-lg border-2 border-dashed border-gray-200"
+            className={cn(
+              "flex h-12 items-center justify-center rounded-lg border-2 border-dashed border-gray-200",
+              isOver && !locked && "border-primary/30 bg-primary/[0.03]"
+            )}
           >
             <span className="text-xs text-gray-300">Vacante</span>
           </div>

@@ -4,8 +4,7 @@ import { EventService } from "@/lib/services/event.service";
 import { PersonService } from "@/lib/services/person.service";
 import { notFound } from "next/navigation";
 import { BoardHeader } from "@/components/board/board-header";
-import { RoomGrid } from "@/components/board/room-grid";
-import { ParticipantsSidebar } from "@/components/board/participants-sidebar";
+import { BoardDndProvider } from "@/components/board/board-dnd-provider";
 
 export default async function BoardPage({
   params,
@@ -37,15 +36,11 @@ export default async function BoardPage({
         userName={session.user.name}
       />
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left panel — participants */}
-        <ParticipantsSidebar eventId={event.id} initialPersons={unassigned} />
-
-        {/* Center — room grid */}
-        <main className="flex-1 overflow-y-auto p-8">
-          <RoomGrid eventId={event.id} rooms={event.rooms} />
-        </main>
-      </div>
+      <BoardDndProvider
+        eventId={event.id}
+        initialRooms={event.rooms}
+        initialUnassigned={unassigned}
+      />
     </div>
   );
 }
