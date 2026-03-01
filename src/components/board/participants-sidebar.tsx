@@ -5,7 +5,7 @@ import { useDraggable } from "@dnd-kit/core";
 import {
   seedTestParticipants,
   getUnassignedPersons,
-  createParticipant,
+  createParticipantsBatch,
 } from "@/lib/actions/person";
 import {
   Dialog,
@@ -15,8 +15,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 type UnassignedPerson = {
   id: string;
@@ -29,28 +27,63 @@ type UnassignedPerson = {
   };
 };
 
+export type SidebarPerson = {
+  id: string;
+  role: string;
+  roomName: string | null;
+  person: {
+    name_full: string;
+    name_display: string;
+    name_initials: string;
+    gender: string;
+  };
+};
+
+type RoleTab = "all" | "participant" | "facilitator";
+
 export function ParticipantsSidebar({
   eventId,
   persons,
+  allPersons,
   onPersonsChange,
 }: {
   eventId: string;
   persons: UnassignedPerson[];
+  allPersons: SidebarPerson[];
   onPersonsChange?: (persons: UnassignedPerson[]) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<RoleTab>("all");
   const [isPending, startTransition] = useTransition();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [formPending, setFormPending] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [batchText, setBatchText] = useState("");
+  const [batchPending, setBatchPending] = useState(false);
+  const [batchError, setBatchError] = useState<string | null>(null);
 
-  const filtered = useMemo(() => {
-    if (!search) return persons;
+  const parsedNames = useMemo(() => {
+    return batchText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+  }, [batchText]);
+
+  // Unassigned list filtered by active tab
+  const filteredUnassigned = useMemo(() => {
+    let list = persons;
+    if (activeTab !== "all") {
+      list = list.filter((p) => p.role === activeTab);
+    }
+    return list;
+  }, [persons, activeTab]);
+
+  // Search results from ALL persons
+  const searchResults = useMemo(() => {
+    if (!search) return null;
     const q = search.toLowerCase();
-    return persons.filter((p) =>
+    return allPersons.filter((p) =>
       p.person.name_full.toLowerCase().includes(q)
     );
-  }, [persons, search]);
+  }, [search, allPersons]);
 
   function handleSeed() {
     startTransition(async () => {
@@ -60,36 +93,35 @@ export function ParticipantsSidebar({
     });
   }
 
-  async function handleCreate(formData: FormData) {
-    setFormError(null);
-    setFormPending(true);
+  async function handleBatchCreate() {
+    if (parsedNames.length === 0) return;
+    setBatchError(null);
+    setBatchPending(true);
     try {
-      const name_full = (formData.get("name_full") as string)?.trim();
-      if (!name_full) {
-        setFormError("El nombre es obligatorio");
-        setFormPending(false);
-        return;
-      }
-      const gender = (formData.get("gender") as string) || "unknown";
-      const role = (formData.get("role") as string) || "participant";
-      await createParticipant(eventId, {
-        name_full,
-        gender: gender as "unknown" | "female" | "male" | "other",
-        role: role as "participant" | "facilitator",
-      });
+      await createParticipantsBatch(eventId, parsedNames);
       const updated = await getUnassignedPersons(eventId);
       onPersonsChange?.(updated);
+      setBatchText("");
       setDialogOpen(false);
     } catch (e) {
       if (e instanceof Error && "digest" in e) throw e;
-      setFormError(e instanceof Error ? e.message : "Error al crear participante");
+      setBatchError(
+        e instanceof Error ? e.message : "Error al crear participantes"
+      );
     } finally {
-      setFormPending(false);
+      setBatchPending(false);
     }
   }
 
+  const tabs: { key: RoleTab; label: string }[] = [
+    { key: "all", label: "Todos" },
+    { key: "participant", label: "Participantes" },
+    { key: "facilitator", label: "Facilitadores" },
+  ];
+
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-100 p-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
@@ -99,7 +131,13 @@ export function ParticipantsSidebar({
             {persons.length} sin asignar
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            setBatchText("");
+            setBatchError(null);
+          }
+        }}>
           <DialogTrigger asChild>
             <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-primary">
               <span className="material-symbols-outlined text-lg">person_add</span>
@@ -110,48 +148,28 @@ export function ParticipantsSidebar({
             onInteractOutside={(e) => e.preventDefault()}
           >
             <DialogHeader>
-              <DialogTitle>Añadir participante</DialogTitle>
+              <DialogTitle>Añadir participantes</DialogTitle>
             </DialogHeader>
-            <form action={handleCreate} className="space-y-4">
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name_full">Nombre completo</Label>
-                <Input
-                  id="name_full"
-                  name="name_full"
-                  placeholder="Ej: María García López"
-                  required
+                <label className="text-sm font-medium text-gray-700">
+                  Nombres (uno por línea)
+                </label>
+                <textarea
+                  value={batchText}
+                  onChange={(e) => setBatchText(e.target.value)}
+                  placeholder={"María García\nCarlos López\nAna Martínez"}
+                  rows={8}
                   autoFocus
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="gender">Género</Label>
-                  <select
-                    id="gender"
-                    name="gender"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-                    defaultValue="unknown"
-                  >
-                    <option value="unknown">No indicado</option>
-                    <option value="female">Mujer</option>
-                    <option value="male">Hombre</option>
-                    <option value="other">Otro</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Rol</Label>
-                  <select
-                    id="role"
-                    name="role"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-                    defaultValue="participant"
-                  >
-                    <option value="participant">Participante</option>
-                    <option value="facilitator">Facilitador</option>
-                  </select>
-                </div>
-              </div>
-              {formError && <p className="text-sm text-red-600">{formError}</p>}
+              {parsedNames.length > 0 && (
+                <p className="text-sm text-gray-500">
+                  Se crearán <span className="font-medium text-gray-700">{parsedNames.length}</span> participante{parsedNames.length !== 1 ? "s" : ""}
+                </p>
+              )}
+              {batchError && <p className="text-sm text-red-600">{batchError}</p>}
               <div className="flex justify-end gap-2 pt-2">
                 <Button
                   type="button"
@@ -160,15 +178,36 @@ export function ParticipantsSidebar({
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={formPending}>
-                  {formPending ? "Creando…" : "Añadir"}
+                <Button
+                  onClick={handleBatchCreate}
+                  disabled={batchPending || parsedNames.length === 0}
+                >
+                  {batchPending ? "Creando…" : "Añadir"}
                 </Button>
               </div>
-            </form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
 
+      {/* Role tabs */}
+      <div className="flex gap-1 border-b border-gray-100 px-3 py-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              activeTab === tab.key
+                ? "bg-primary/10 text-primary"
+                : "text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Seed button */}
       {persons.length === 0 && (
         <div className="p-4">
           <button
@@ -181,28 +220,56 @@ export function ParticipantsSidebar({
         </div>
       )}
 
-      {persons.length > 0 && (
-        <div className="px-4 pt-3">
-          <div className="relative">
-            <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-base text-gray-400">
-              search
-            </span>
-            <input
-              type="text"
-              placeholder="Buscar…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-sm outline-none focus:border-primary"
-            />
-          </div>
+      {/* Search */}
+      <div className="px-4 pt-3">
+        <div className="relative">
+          <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-base text-gray-400">
+            search
+          </span>
+          <input
+            type="text"
+            placeholder="Buscar…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 py-1.5 pl-8 pr-8 text-sm outline-none focus:border-primary"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
-      <ul className="flex-1 overflow-y-auto px-2 py-2">
-        {filtered.map((ep) => (
-          <DraggablePersonItem key={ep.id} ep={ep} />
-        ))}
-      </ul>
+      {/* Content: search results OR unassigned list */}
+      {searchResults ? (
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-4 py-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              Resultados ({searchResults.length})
+            </span>
+          </div>
+          <ul className="px-2 pb-2">
+            {searchResults.length === 0 && (
+              <li className="px-2 py-4 text-center text-xs text-gray-400">
+                Sin resultados
+              </li>
+            )}
+            {searchResults.map((sp) => (
+              <DraggableSearchItem key={sp.id} sp={sp} />
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <ul className="flex-1 overflow-y-auto px-2 py-2">
+          {filteredUnassigned.map((ep) => (
+            <DraggablePersonItem key={ep.id} ep={ep} />
+          ))}
+        </ul>
+      )}
     </aside>
   );
 }
@@ -233,6 +300,42 @@ function DraggablePersonItem({ ep }: { ep: UnassignedPerson }) {
       </span>
       <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
         {ep.role === "facilitator" ? "fac" : "par"}
+      </span>
+    </li>
+  );
+}
+
+function DraggableSearchItem({ sp }: { sp: SidebarPerson }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({ id: sp.id });
+
+  const style = transform
+    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
+    : undefined;
+
+  return (
+    <li
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={style}
+      className={`flex cursor-grab items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 ${
+        isDragging ? "opacity-30" : ""
+      }`}
+    >
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+        {sp.person.name_initials}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm text-gray-700">
+          {sp.person.name_display}
+        </span>
+        <span className="truncate text-[10px] text-gray-400">
+          {sp.roomName ?? "Sin asignar"}
+        </span>
+      </div>
+      <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
+        {sp.role === "facilitator" ? "fac" : "par"}
       </span>
     </li>
   );

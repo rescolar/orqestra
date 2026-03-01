@@ -174,6 +174,53 @@ export const PersonService = {
     });
   },
 
+  async createParticipantsBatch(
+    eventId: string,
+    userId: string,
+    names: string[]
+  ) {
+    const event = await db.event.findFirst({
+      where: { id: eventId, user_id: userId },
+      select: { id: true },
+    });
+    if (!event) throw new Error("Evento no encontrado");
+
+    const results = [];
+    for (const name of names) {
+      const person = await db.person.create({
+        data: {
+          user_id: userId,
+          name_full: name,
+          name_display: getDisplayName(name),
+          name_initials: getInitials(name),
+          gender: "unknown",
+          default_role: "participant",
+        },
+      });
+
+      const ep = await db.eventPerson.create({
+        data: {
+          event_id: eventId,
+          person_id: person.id,
+          role: "participant",
+          status: "confirmed",
+        },
+        include: {
+          person: {
+            select: {
+              name_full: true,
+              name_display: true,
+              name_initials: true,
+              gender: true,
+            },
+          },
+        },
+      });
+      results.push(ep);
+    }
+    return results;
+  },
+
   async unassignPerson(eventPersonId: string, userId: string) {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },

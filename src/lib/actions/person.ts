@@ -24,6 +24,17 @@ export async function createParticipant(
   revalidatePath(`/events/${eventId}/board`);
 }
 
+export async function createParticipantsBatch(
+  eventId: string,
+  names: string[]
+) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  await PersonService.createParticipantsBatch(eventId, session.user.id, names);
+  revalidatePath(`/events/${eventId}/board`);
+}
+
 export async function getUnassignedPersons(eventId: string) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");

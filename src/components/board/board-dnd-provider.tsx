@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -12,7 +12,7 @@ import {
 } from "@dnd-kit/core";
 import { assignPerson, unassignPerson } from "@/lib/actions/person";
 import { BoardHeader } from "./board-header";
-import { ParticipantsSidebar } from "./participants-sidebar";
+import { ParticipantsSidebar, SidebarPerson } from "./participants-sidebar";
 import { RoomGrid } from "./room-grid";
 
 export type PersonData = {
@@ -246,6 +246,31 @@ export function BoardDndProvider({
     [rooms, eventId, initialRooms, initialUnassigned]
   );
 
+  const allPersons: SidebarPerson[] = useMemo(() => {
+    const fromUnassigned: SidebarPerson[] = unassigned.map((p) => ({
+      id: p.id,
+      role: p.role,
+      roomName: null,
+      person: p.person,
+    }));
+    const fromRooms: SidebarPerson[] = rooms.flatMap((r) =>
+      r.event_persons.map((ep) => ({
+        id: ep.id,
+        role: ep.role,
+        roomName: r.display_name || r.internal_number,
+        person: {
+          name_full: ep.person.name_display,
+          name_display: ep.person.name_display,
+          name_initials: ep.person.name_initials,
+          gender: ep.person.gender,
+        },
+      }))
+    );
+    return [...fromUnassigned, ...fromRooms].sort((a, b) =>
+      a.person.name_display.localeCompare(b.person.name_display)
+    );
+  }, [unassigned, rooms]);
+
   const assignedCount = rooms.reduce(
     (acc, r) => acc + r.event_persons.length,
     0
@@ -277,6 +302,7 @@ export function BoardDndProvider({
         <ParticipantsSidebar
           eventId={eventId}
           persons={unassigned}
+          allPersons={allPersons}
           onPersonsChange={setUnassigned}
         />
 
