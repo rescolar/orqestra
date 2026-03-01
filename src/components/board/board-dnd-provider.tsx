@@ -398,6 +398,7 @@ export function BoardDndProvider({
             onClose={() => setSelectedPersonId(null)}
             onPersonUpdated={handlePersonUpdated}
             onPersonRemoved={handlePersonRemoved}
+            onPersonClick={(id) => setSelectedPersonId(id)}
           />
         )}
       </div>

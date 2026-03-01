@@ -7,6 +7,33 @@ import {
   updateEventPerson,
   removeEventPerson,
 } from "@/lib/actions/person";
+import {
+  getEventGroups,
+  createGroup,
+  addMemberToGroup,
+  removeMemberFromGroup,
+  deleteGroup,
+  updateGroupType,
+} from "@/lib/actions/group";
+
+type GroupMember = {
+  id: string;
+  person: { name_display: string };
+};
+
+type GroupData = {
+  id: string;
+  name: string;
+  type: string;
+  members: GroupMember[];
+};
+
+type EventGroupOption = {
+  id: string;
+  name: string;
+  type: string;
+  members: { id: string; person: { name_display: string; name_initials: string } }[];
+};
 
 type EventPersonDetail = {
   id: string;
@@ -18,6 +45,7 @@ type EventPersonDetail = {
   requests_text: string | null;
   requests_managed: boolean;
   move_with_partner: boolean;
+  group: GroupData | null;
   room: {
     display_name: string | null;
     internal_number: string;
@@ -50,6 +78,7 @@ type PersonDetailPanelProps = {
   onClose: () => void;
   onPersonUpdated: (id: string, changes: PersonUpdateData) => void;
   onPersonRemoved: (id: string) => void;
+  onPersonClick?: (id: string) => void;
 };
 
 const ROLE_OPTIONS = [
@@ -82,6 +111,7 @@ export function PersonDetailPanel({
   onClose,
   onPersonUpdated,
   onPersonRemoved,
+  onPersonClick,
 }: PersonDetailPanelProps) {
   const [data, setData] = useState<EventPersonDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,6 +119,11 @@ export function PersonDetailPanel({
   const [contactOpen, setContactOpen] = useState(false);
   const [allergiesLocal, setAllergiesLocal] = useState("");
   const [requestsLocal, setRequestsLocal] = useState("");
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false);
+  const [eventGroups, setEventGroups] = useState<EventGroupOption[]>([]);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupType, setNewGroupType] = useState<"strong" | "flexible">("flexible");
 
   useEffect(() => {
     setLoading(true);
@@ -194,6 +229,68 @@ export function PersonDetailPanel({
     await removeEventPerson(eventPersonId, eventId);
     onPersonRemoved(eventPersonId);
   }, [eventPersonId, eventId, onPersonRemoved]);
+
+  const handleMoveWithPartner = useCallback(
+    (val: boolean) => {
+      setData((prev) => (prev ? { ...prev, move_with_partner: val } : prev));
+      saveField({ move_with_partner: val });
+    },
+    [saveField]
+  );
+
+  const openGroupPicker = useCallback(async () => {
+    const groups = await getEventGroups(eventId);
+    setEventGroups(groups);
+    setGroupPickerOpen(true);
+    setCreatingGroup(false);
+    setNewGroupName("");
+    setNewGroupType("flexible");
+  }, [eventId]);
+
+  const handleJoinGroup = useCallback(
+    async (groupId: string) => {
+      await addMemberToGroup(groupId, eventPersonId, eventId);
+      // Refetch person to get updated group data
+      const updated = await getEventPersonDetail(eventPersonId);
+      setData(updated);
+      setGroupPickerOpen(false);
+    },
+    [eventPersonId, eventId]
+  );
+
+  const handleCreateAndJoinGroup = useCallback(async () => {
+    if (!newGroupName.trim()) return;
+    const group = await createGroup(eventId, {
+      name: newGroupName.trim(),
+      type: newGroupType,
+      memberIds: [eventPersonId],
+    });
+    // Refetch person to get updated group data
+    const updated = await getEventPersonDetail(eventPersonId);
+    setData(updated);
+    setGroupPickerOpen(false);
+    setCreatingGroup(false);
+  }, [eventId, eventPersonId, newGroupName, newGroupType]);
+
+  const handleRemoveFromGroup = useCallback(async () => {
+    await removeMemberFromGroup(eventPersonId, eventId);
+    setData((prev) => (prev ? { ...prev, group: null } : prev));
+  }, [eventPersonId, eventId]);
+
+  const handleDeleteGroup = useCallback(async () => {
+    if (!data?.group) return;
+    await deleteGroup(data.group.id, eventId);
+    setData((prev) => (prev ? { ...prev, group: null } : prev));
+  }, [data?.group, eventId]);
+
+  const handleToggleGroupType = useCallback(async () => {
+    if (!data?.group) return;
+    const newType = data.group.type === "strong" ? "flexible" : "strong";
+    await updateGroupType(data.group.id, eventId, newType as "strong" | "flexible");
+    setData((prev) =>
+      prev?.group ? { ...prev, group: { ...prev.group, type: newType } } : prev
+    );
+  }, [data?.group, eventId]);
 
   if (loading) {
     return (
@@ -340,6 +437,172 @@ export function PersonDetailPanel({
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Group */}
+        <Section label="Grupo">
+          {data.group ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                  {data.group.type === "strong" ? "🔗" : "👥"}
+                  {data.group.name}
+                  <button
+                    onClick={handleRemoveFromGroup}
+                    className="ml-0.5 text-primary/60 hover:text-primary"
+                    title="Salir del grupo"
+                  >
+                    ×
+                  </button>
+                </span>
+                <button
+                  onClick={handleToggleGroupType}
+                  className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500 hover:text-gray-700"
+                  title="Cambiar tipo de grupo"
+                >
+                  {data.group.type === "strong" ? "Inseparable" : "Flexible"}
+                </button>
+                <button
+                  onClick={handleDeleteGroup}
+                  className="ml-auto text-gray-400 hover:text-danger"
+                  title="Eliminar grupo"
+                >
+                  <span className="material-symbols-outlined text-sm">delete</span>
+                </button>
+              </div>
+              {data.group.members.filter((m) => m.id !== data.id).length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {data.group.members
+                    .filter((m) => m.id !== data.id)
+                    .map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => onPersonClick?.(m.id)}
+                        className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-200"
+                      >
+                        {m.person.name_display}
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+          ) : groupPickerOpen ? (
+            <div className="space-y-2">
+              {!creatingGroup ? (
+                <>
+                  {eventGroups.length > 0 && (
+                    <ul className="max-h-32 space-y-1 overflow-y-auto">
+                      {eventGroups.map((g) => (
+                        <li key={g.id}>
+                          <button
+                            onClick={() => handleJoinGroup(g.id)}
+                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-gray-50"
+                          >
+                            <span className="text-xs">
+                              {g.type === "strong" ? "🔗" : "👥"}
+                            </span>
+                            <span className="flex-1 text-left text-gray-700">
+                              {g.name}
+                            </span>
+                            <span className="text-[10px] text-gray-400">
+                              {g.members.length} miembros
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <button
+                    onClick={() => setCreatingGroup(true)}
+                    className="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-2 py-1.5 text-xs text-gray-500 hover:border-primary hover:text-primary"
+                  >
+                    <span className="material-symbols-outlined text-sm">add</span>
+                    Crear nuevo grupo
+                  </button>
+                  <button
+                    onClick={() => setGroupPickerOpen(false)}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="Nombre del grupo"
+                    autoFocus
+                    className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-primary"
+                  />
+                  <div className="flex rounded-lg border border-gray-200 p-0.5">
+                    <button
+                      onClick={() => setNewGroupType("strong")}
+                      className={cn(
+                        "flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+                        newGroupType === "strong"
+                          ? "bg-primary text-white"
+                          : "text-gray-500 hover:text-gray-700"
+                      )}
+                    >
+                      🔗 Inseparable
+                    </button>
+                    <button
+                      onClick={() => setNewGroupType("flexible")}
+                      className={cn(
+                        "flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+                        newGroupType === "flexible"
+                          ? "bg-primary text-white"
+                          : "text-gray-500 hover:text-gray-700"
+                      )}
+                    >
+                      👥 Flexible
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCreatingGroup(false)}
+                      className="flex-1 rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+                    >
+                      Atrás
+                    </button>
+                    <button
+                      onClick={handleCreateAndJoinGroup}
+                      disabled={!newGroupName.trim()}
+                      className="flex-1 rounded-lg bg-primary px-2 py-1 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      Crear
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={openGroupPicker}
+              className="flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-500 hover:border-primary hover:text-primary"
+            >
+              <span className="material-symbols-outlined text-sm">add</span>
+              Añadir a grupo
+            </button>
+          )}
+        </Section>
+
+        {/* Move with partner — facilitators only */}
+        {data.role === "facilitator" && (
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="move_with_partner"
+              checked={data.move_with_partner}
+              onChange={(e) => handleMoveWithPartner(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <label htmlFor="move_with_partner" className="text-xs text-gray-500">
+              Si muevo a este facilitador, sugerir mover también a su pareja
+            </label>
           </div>
         )}
 

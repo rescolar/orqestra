@@ -8,6 +8,10 @@ import {
   createParticipantsBatch,
 } from "@/lib/actions/person";
 import {
+  getEventGroups,
+  createGroup,
+} from "@/lib/actions/group";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -61,6 +65,12 @@ export function ParticipantsSidebar({
   const [batchText, setBatchText] = useState("");
   const [batchPending, setBatchPending] = useState(false);
   const [batchError, setBatchError] = useState<string | null>(null);
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [groupType, setGroupType] = useState<"strong" | "flexible">("flexible");
+  const [groupSelectedMembers, setGroupSelectedMembers] = useState<Set<string>>(new Set());
+  const [groupPending, setGroupPending] = useState(false);
+  const [groupError, setGroupError] = useState<string | null>(null);
 
   const parsedNames = useMemo(() => {
     return batchText
@@ -115,6 +125,39 @@ export function ParticipantsSidebar({
     }
   }
 
+  function toggleGroupMember(id: string) {
+    setGroupSelectedMembers((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleGroupCreate() {
+    if (!groupName.trim() || groupSelectedMembers.size === 0) return;
+    setGroupError(null);
+    setGroupPending(true);
+    try {
+      await createGroup(eventId, {
+        name: groupName.trim(),
+        type: groupType,
+        memberIds: Array.from(groupSelectedMembers),
+      });
+      const updated = await getUnassignedPersons(eventId);
+      onPersonsChange?.(updated);
+      setGroupName("");
+      setGroupType("flexible");
+      setGroupSelectedMembers(new Set());
+      setGroupDialogOpen(false);
+    } catch (e) {
+      if (e instanceof Error && "digest" in e) throw e;
+      setGroupError(e instanceof Error ? e.message : "Error al crear grupo");
+    } finally {
+      setGroupPending(false);
+    }
+  }
+
   const tabs: { key: RoleTab; label: string }[] = [
     { key: "all", label: "Todos" },
     { key: "participant", label: "Participantes" },
@@ -133,6 +176,112 @@ export function ParticipantsSidebar({
             {persons.length} sin asignar
           </p>
         </div>
+        <div className="flex gap-1">
+        <Dialog open={groupDialogOpen} onOpenChange={(open) => {
+          setGroupDialogOpen(open);
+          if (!open) {
+            setGroupName("");
+            setGroupType("flexible");
+            setGroupSelectedMembers(new Set());
+            setGroupError(null);
+          }
+        }}>
+          <DialogTrigger asChild>
+            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-primary" title="Crear grupo">
+              <span className="material-symbols-outlined text-lg">group_add</span>
+            </button>
+          </DialogTrigger>
+          <DialogContent
+            className="bg-white sm:max-w-[400px]"
+            onInteractOutside={(e) => e.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle>Crear grupo</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Nombre</label>
+                <input
+                  type="text"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="Ej: Pareja María y Carlos"
+                  autoFocus
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Tipo</label>
+                <div className="flex rounded-lg border border-gray-200 p-0.5">
+                  <button
+                    onClick={() => setGroupType("strong")}
+                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                      groupType === "strong"
+                        ? "bg-primary text-white"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    🔗 Inseparable
+                  </button>
+                  <button
+                    onClick={() => setGroupType("flexible")}
+                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                      groupType === "flexible"
+                        ? "bg-primary text-white"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    👥 Flexible
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Miembros ({groupSelectedMembers.size} seleccionados)
+                </label>
+                <ul className="max-h-48 space-y-0.5 overflow-y-auto rounded-lg border border-gray-200 p-1">
+                  {allPersons.map((p) => (
+                    <li key={p.id}>
+                      <button
+                        onClick={() => toggleGroupMember(p.id)}
+                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                          groupSelectedMembers.has(p.id)
+                            ? "bg-primary/10 text-primary"
+                            : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        <span className={`material-symbols-outlined text-sm ${
+                          groupSelectedMembers.has(p.id)
+                            ? "text-primary"
+                            : "text-gray-300"
+                        }`}>
+                          {groupSelectedMembers.has(p.id) ? "check_box" : "check_box_outline_blank"}
+                        </span>
+                        {p.person.name_display}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {groupError && <p className="text-sm text-red-600">{groupError}</p>}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setGroupDialogOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleGroupCreate}
+                  disabled={groupPending || !groupName.trim() || groupSelectedMembers.size === 0}
+                >
+                  {groupPending ? "Creando…" : "Crear grupo"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
         <Dialog open={dialogOpen} onOpenChange={(open) => {
           setDialogOpen(open);
           if (!open) {
@@ -190,6 +339,7 @@ export function ParticipantsSidebar({
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Role tabs */}

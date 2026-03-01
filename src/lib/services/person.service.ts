@@ -256,6 +256,23 @@ export const PersonService = {
             internal_number: true,
           },
         },
+        group: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            members: {
+              select: {
+                id: true,
+                person: {
+                  select: {
+                    name_display: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
     if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
