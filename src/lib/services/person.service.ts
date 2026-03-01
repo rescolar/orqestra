@@ -250,6 +250,12 @@ export const PersonService = {
             contact_address: true,
           },
         },
+        room: {
+          select: {
+            display_name: true,
+            internal_number: true,
+          },
+        },
       },
     });
     if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");

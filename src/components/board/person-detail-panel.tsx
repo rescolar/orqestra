@@ -18,6 +18,10 @@ type EventPersonDetail = {
   requests_text: string | null;
   requests_managed: boolean;
   move_with_partner: boolean;
+  room: {
+    display_name: string | null;
+    internal_number: string;
+  } | null;
   person: {
     name_full: string;
     name_display: string;
@@ -229,6 +233,13 @@ export function PersonDetailPanel({
           </h3>
           <p className="text-xs text-gray-400">
             {data.role === "facilitator" ? "Facilitador/a" : "Participante"}
+            {data.room ? (
+              <span className="ml-1">
+                &middot; {data.room.display_name || `Hab ${data.room.internal_number}`}
+              </span>
+            ) : (
+              <span className="ml-1">&middot; Sin asignar</span>
+            )}
           </p>
         </div>
         <button
