@@ -16,7 +16,7 @@ export async function createRoom(eventId: string, formData: FormData) {
   const genderRestriction =
     (formData.get("gender_restriction") as GenderRestriction) || "mixed";
 
-  await RoomService.createRoom(session.user.id, eventId, {
+  await RoomService.createRoom(eventId, session.user.id, {
     display_name: displayName || undefined,
     capacity,
     has_private_bathroom: hasPrivateBathroom,

@@ -91,18 +91,17 @@ export const EventService = {
             },
           },
         },
-        _count: { select: { event_persons: true } },
-        event_persons: {
-          where: { room_id: { not: null } },
-          select: { id: true },
-        },
       },
     });
 
     if (!event) return null;
 
-    const totalPersons = event._count.event_persons;
-    const assignedCount = event.event_persons.length;
+    const totalPersons = await db.eventPerson.count({
+      where: { event_id: eventId },
+    });
+    const assignedCount = await db.eventPerson.count({
+      where: { event_id: eventId, room_id: { not: null } },
+    });
 
     return {
       ...event,
