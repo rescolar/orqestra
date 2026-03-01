@@ -1,6 +1,6 @@
 "use client";
 
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 
 type AssignedPerson = {
@@ -149,28 +149,7 @@ export function RoomCard({
       {/* Body — person slots */}
       <div className="mb-4 space-y-2">
         {assignedPersons.map((ep) => (
-          <div
-            key={ep.id}
-            className="group flex h-12 items-center gap-2 rounded-lg bg-gray-50 px-3"
-          >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-              {ep.person.name_initials}
-            </div>
-            <span className="flex-1 truncate text-sm text-gray-700">
-              {ep.person.name_display}
-            </span>
-            <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
-              {ep.role === "facilitator" ? "fac" : "par"}
-            </span>
-            {onUnassign && (
-              <button
-                onClick={() => onUnassign(ep.id)}
-                className="hidden h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-600 group-hover:flex"
-              >
-                <span className="material-symbols-outlined text-sm">close</span>
-              </button>
-            )}
-          </div>
+          <DraggableRoomPerson key={ep.id} ep={ep} onUnassign={onUnassign} />
         ))}
         {/* Empty slots */}
         {Array.from({ length: emptySlots }).map((_, i) => (
@@ -200,6 +179,56 @@ export function RoomCard({
           {statusLabel[status]}
         </p>
       </div>
+    </div>
+  );
+}
+
+function DraggableRoomPerson({
+  ep,
+  onUnassign,
+}: {
+  ep: AssignedPerson;
+  onUnassign?: (personId: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({ id: ep.id });
+
+  const style = transform
+    ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 50 }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={style}
+      className={cn(
+        "group flex h-12 cursor-grab items-center gap-2 rounded-lg bg-gray-50 px-3",
+        isDragging && "opacity-30"
+      )}
+    >
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+        {ep.person.name_initials}
+      </div>
+      <span className="flex-1 truncate text-sm text-gray-700">
+        {ep.person.name_display}
+      </span>
+      <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
+        {ep.role === "facilitator" ? "fac" : "par"}
+      </span>
+      {onUnassign && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onUnassign(ep.id);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="hidden h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-600 group-hover:flex"
+        >
+          <span className="material-symbols-outlined text-sm">close</span>
+        </button>
+      )}
     </div>
   );
 }
