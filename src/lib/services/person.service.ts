@@ -74,6 +74,48 @@ export const PersonService = {
     }
   },
 
+  async createParticipant(
+    eventId: string,
+    userId: string,
+    data: { name_full: string; gender: Gender; role: "participant" | "facilitator" }
+  ) {
+    const event = await db.event.findFirst({
+      where: { id: eventId, user_id: userId },
+      select: { id: true },
+    });
+    if (!event) throw new Error("Evento no encontrado");
+
+    const person = await db.person.create({
+      data: {
+        user_id: userId,
+        name_full: data.name_full,
+        name_display: getDisplayName(data.name_full),
+        name_initials: getInitials(data.name_full),
+        gender: data.gender,
+        default_role: data.role,
+      },
+    });
+
+    return db.eventPerson.create({
+      data: {
+        event_id: eventId,
+        person_id: person.id,
+        role: data.role,
+        status: "confirmed",
+      },
+      include: {
+        person: {
+          select: {
+            name_full: true,
+            name_display: true,
+            name_initials: true,
+            gender: true,
+          },
+        },
+      },
+    });
+  },
+
   async getUnassignedPersons(eventId: string, userId: string) {
     const event = await db.event.findFirst({
       where: { id: eventId, user_id: userId },

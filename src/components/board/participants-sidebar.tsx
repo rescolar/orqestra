@@ -4,7 +4,18 @@ import { useState, useTransition, useMemo } from "react";
 import {
   seedTestParticipants,
   getUnassignedPersons,
+  createParticipant,
 } from "@/lib/actions/person";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type UnassignedPerson = {
   id: string;
@@ -27,6 +38,9 @@ export function ParticipantsSidebar({
   const [persons, setPersons] = useState(initialPersons);
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [formPending, setFormPending] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     if (!search) return persons;
@@ -44,15 +58,113 @@ export function ParticipantsSidebar({
     });
   }
 
+  async function handleCreate(formData: FormData) {
+    setFormError(null);
+    setFormPending(true);
+    try {
+      const name_full = (formData.get("name_full") as string)?.trim();
+      if (!name_full) {
+        setFormError("El nombre es obligatorio");
+        setFormPending(false);
+        return;
+      }
+      const gender = (formData.get("gender") as string) || "unknown";
+      const role = (formData.get("role") as string) || "participant";
+      await createParticipant(eventId, {
+        name_full,
+        gender: gender as "unknown" | "female" | "male" | "other",
+        role: role as "participant" | "facilitator",
+      });
+      const updated = await getUnassignedPersons(eventId);
+      setPersons(updated);
+      setDialogOpen(false);
+    } catch (e) {
+      if (e instanceof Error && "digest" in e) throw e;
+      setFormError(e instanceof Error ? e.message : "Error al crear participante");
+    } finally {
+      setFormPending(false);
+    }
+  }
+
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
-      <div className="border-b border-gray-100 p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
-          Participantes
-        </h2>
-        <p className="mt-1 text-xs text-gray-400">
-          {persons.length} sin asignar
-        </p>
+      <div className="flex items-center justify-between border-b border-gray-100 p-4">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
+            Participantes
+          </h2>
+          <p className="mt-1 text-xs text-gray-400">
+            {persons.length} sin asignar
+          </p>
+        </div>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-primary">
+              <span className="material-symbols-outlined text-lg">person_add</span>
+            </button>
+          </DialogTrigger>
+          <DialogContent
+            className="bg-white sm:max-w-[400px]"
+            onInteractOutside={(e) => e.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle>Añadir participante</DialogTitle>
+            </DialogHeader>
+            <form action={handleCreate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name_full">Nombre completo</Label>
+                <Input
+                  id="name_full"
+                  name="name_full"
+                  placeholder="Ej: María García López"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Género</Label>
+                  <select
+                    id="gender"
+                    name="gender"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                    defaultValue="unknown"
+                  >
+                    <option value="unknown">No indicado</option>
+                    <option value="female">Mujer</option>
+                    <option value="male">Hombre</option>
+                    <option value="other">Otro</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Rol</Label>
+                  <select
+                    id="role"
+                    name="role"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                    defaultValue="participant"
+                  >
+                    <option value="participant">Participante</option>
+                    <option value="facilitator">Facilitador</option>
+                  </select>
+                </div>
+              </div>
+              {formError && <p className="text-sm text-red-600">{formError}</p>}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={formPending}>
+                  {formPending ? "Creando…" : "Añadir"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {persons.length === 0 && (

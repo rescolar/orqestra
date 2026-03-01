@@ -13,6 +13,17 @@ export async function seedTestParticipants(eventId: string) {
   revalidatePath(`/events/${eventId}/board`);
 }
 
+export async function createParticipant(
+  eventId: string,
+  data: { name_full: string; gender: "unknown" | "female" | "male" | "other"; role: "participant" | "facilitator" }
+) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  await PersonService.createParticipant(eventId, session.user.id, data);
+  revalidatePath(`/events/${eventId}/board`);
+}
+
 export async function getUnassignedPersons(eventId: string) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
