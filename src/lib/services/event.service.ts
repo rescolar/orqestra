@@ -37,34 +37,53 @@ export const EventService = {
       estimated_participants: number;
     }
   ) {
-    const n = data.estimated_participants;
-    const roomCount = Math.ceil(n / 2);
-
-    const event = await db.$transaction(async (tx) => {
-      const created = await tx.event.create({
-        data: {
-          user_id: userId,
-          name: data.name,
-          date_start: data.date_start,
-          date_end: data.date_end,
-          estimated_participants: n,
-          status: "active",
-        },
-      });
-
-      await tx.room.createMany({
-        data: Array.from({ length: roomCount }, (_, i) => ({
-          event_id: created.id,
-          internal_number: String(i + 1).padStart(2, "0"),
-          display_name: `Hab ${String(i + 1).padStart(2, "0")}`,
-          capacity: i === roomCount - 1 && n % 2 !== 0 ? 1 : 2,
-        })),
-      });
-
-      return created;
+    return db.event.create({
+      data: {
+        user_id: userId,
+        name: data.name,
+        date_start: data.date_start,
+        date_end: data.date_end,
+        estimated_participants: data.estimated_participants,
+        status: "active",
+      },
     });
+  },
 
-    return event;
+  async createRoomsFromTypes(
+    eventId: string,
+    userId: string,
+    types: { capacity: number; hasPrivateBathroom: boolean; quantity: number }[]
+  ) {
+    const event = await db.event.findFirst({
+      where: { id: eventId, user_id: userId },
+      select: { id: true },
+    });
+    if (!event) throw new Error("Evento no encontrado");
+
+    const rooms: {
+      event_id: string;
+      internal_number: string;
+      display_name: string;
+      capacity: number;
+      has_private_bathroom: boolean;
+    }[] = [];
+
+    let counter = 1;
+    for (const type of types) {
+      for (let i = 0; i < type.quantity; i++) {
+        const num = String(counter).padStart(2, "0");
+        rooms.push({
+          event_id: eventId,
+          internal_number: num,
+          display_name: `Hab ${num}`,
+          capacity: type.capacity,
+          has_private_bathroom: type.hasPrivateBathroom,
+        });
+        counter++;
+      }
+    }
+
+    await db.room.createMany({ data: rooms });
   },
 
   async deleteEvent(eventId: string, userId: string) {

@@ -44,5 +44,16 @@ export async function createEvent(formData: FormData) {
     estimated_participants: estimatedParticipants,
   });
 
-  redirect(`/events/${event.id}/board`);
+  redirect(`/events/${event.id}/setup`);
+}
+
+export async function createRoomsFromTypes(
+  eventId: string,
+  types: { capacity: number; hasPrivateBathroom: boolean; quantity: number }[]
+) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  await EventService.createRoomsFromTypes(eventId, session.user.id, types);
+  redirect(`/events/${eventId}/board`);
 }
