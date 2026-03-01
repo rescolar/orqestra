@@ -8,6 +8,7 @@ type BoardHeaderProps = {
   totalPersons: number;
   roomCount: number;
   unassignedCount: number;
+  pendingCount: number;
   userName?: string | null;
 };
 
@@ -39,6 +40,7 @@ export function BoardHeader({
   totalPersons,
   roomCount,
   unassignedCount,
+  pendingCount,
   userName,
 }: BoardHeaderProps) {
   return (
@@ -65,7 +67,7 @@ export function BoardHeader({
         />
         <KPI label="Rooms" value={roomCount} />
         <KPI label="No Asignados" value={unassignedCount} />
-        <KPI label="Pendientes" value={0} />
+        <KPI label="Pendientes" value={pendingCount} />
 
         <div className="ml-4 flex items-center gap-3">
           <button className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50">

@@ -251,6 +251,9 @@ export function BoardDndProvider({
     0
   );
   const totalPersons = unassigned.length + assignedCount;
+  const pendingCount = rooms.filter(
+    (r) => r.event_persons.length > r.capacity
+  ).length;
 
   return (
     <DndContext
@@ -266,6 +269,7 @@ export function BoardDndProvider({
         totalPersons={totalPersons}
         roomCount={headerData.roomCount}
         unassignedCount={unassigned.length}
+        pendingCount={pendingCount}
         userName={headerData.userName}
       />
 
