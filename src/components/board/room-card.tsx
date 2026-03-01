@@ -25,6 +25,7 @@ type RoomCardProps = {
   hasGenderViolation: boolean;
   assignedPersons: AssignedPerson[];
   onUnassign?: (personId: string) => void;
+  onPersonClick?: (personId: string) => void;
 };
 
 type RoomStatus = "ok" | "warn" | "danger" | "closed";
@@ -77,6 +78,7 @@ export function RoomCard({
   hasGenderViolation,
   assignedPersons,
   onUnassign,
+  onPersonClick,
 }: RoomCardProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -149,7 +151,7 @@ export function RoomCard({
       {/* Body — person slots */}
       <div className="mb-4 space-y-2">
         {assignedPersons.map((ep) => (
-          <DraggableRoomPerson key={ep.id} ep={ep} onUnassign={onUnassign} />
+          <DraggableRoomPerson key={ep.id} ep={ep} onUnassign={onUnassign} onPersonClick={onPersonClick} />
         ))}
         {/* Empty slots */}
         {Array.from({ length: emptySlots }).map((_, i) => (
@@ -186,9 +188,11 @@ export function RoomCard({
 function DraggableRoomPerson({
   ep,
   onUnassign,
+  onPersonClick,
 }: {
   ep: AssignedPerson;
   onUnassign?: (personId: string) => void;
+  onPersonClick?: (personId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: ep.id });
@@ -203,6 +207,7 @@ function DraggableRoomPerson({
       {...listeners}
       {...attributes}
       style={style}
+      onClick={() => onPersonClick?.(ep.id)}
       className={cn(
         "group flex h-12 cursor-grab items-center gap-2 rounded-lg bg-gray-50 px-3",
         isDragging && "opacity-30"

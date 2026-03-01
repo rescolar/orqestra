@@ -64,3 +64,48 @@ export async function unassignPerson(
   await PersonService.unassignPerson(eventPersonId, session.user.id);
   revalidatePath(`/events/${eventId}/board`);
 }
+
+export async function getEventPersonDetail(eventPersonId: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  return PersonService.getEventPerson(eventPersonId, session.user.id);
+}
+
+export async function updateEventPerson(
+  eventPersonId: string,
+  eventId: string,
+  data: {
+    role?: "participant" | "facilitator";
+    status?: "confirmed" | "tentative" | "cancelled";
+    gender?: "unknown" | "female" | "male" | "other";
+    dietary_requirements?: string[];
+    dietary_notified?: boolean;
+    allergies_text?: string | null;
+    requests_text?: string | null;
+    requests_managed?: boolean;
+    move_with_partner?: boolean;
+  }
+) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const result = await PersonService.updateEventPerson(
+    eventPersonId,
+    session.user.id,
+    data
+  );
+  revalidatePath(`/events/${eventId}/board`);
+  return result;
+}
+
+export async function removeEventPerson(
+  eventPersonId: string,
+  eventId: string
+) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  await PersonService.removeEventPerson(eventPersonId, session.user.id);
+  revalidatePath(`/events/${eventId}/board`);
+}

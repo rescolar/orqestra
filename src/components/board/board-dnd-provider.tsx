@@ -14,6 +14,7 @@ import { assignPerson, unassignPerson } from "@/lib/actions/person";
 import { BoardHeader } from "./board-header";
 import { ParticipantsSidebar, SidebarPerson } from "./participants-sidebar";
 import { RoomGrid } from "./room-grid";
+import { PersonDetailPanel, PersonUpdateData } from "./person-detail-panel";
 
 export type PersonData = {
   id: string;
@@ -69,6 +70,7 @@ export function BoardDndProvider({
   const [rooms, setRooms] = useState(initialRooms);
   const [unassigned, setUnassigned] = useState(initialUnassigned);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -246,6 +248,67 @@ export function BoardDndProvider({
     [rooms, eventId, initialRooms, initialUnassigned]
   );
 
+  const handlePersonClick = useCallback((personId: string) => {
+    setSelectedPersonId(personId);
+  }, []);
+
+  const handlePersonUpdated = useCallback(
+    (id: string, changes: PersonUpdateData) => {
+      // Update person in rooms
+      setRooms((prev) =>
+        prev.map((r) => ({
+          ...r,
+          event_persons: r.event_persons.map((ep) => {
+            if (ep.id !== id) return ep;
+            return {
+              ...ep,
+              role: (changes.role as string) ?? ep.role,
+              status: (changes.status as string) ?? ep.status,
+              person: {
+                ...ep.person,
+                gender: (changes.gender as string) ?? ep.person.gender,
+              },
+            };
+          }),
+        }))
+      );
+      // Update person in unassigned
+      setUnassigned((prev) =>
+        prev.map((ep) => {
+          if (ep.id !== id) return ep;
+          return {
+            ...ep,
+            role: (changes.role as string) ?? ep.role,
+            person: {
+              ...ep.person,
+              gender: (changes.gender as string) ?? ep.person.gender,
+            },
+          };
+        })
+      );
+    },
+    []
+  );
+
+  const handlePersonRemoved = useCallback(
+    (id: string) => {
+      setSelectedPersonId(null);
+      setRooms((prev) =>
+        prev.map((r) => {
+          const filtered = r.event_persons.filter((ep) => ep.id !== id);
+          if (filtered.length === r.event_persons.length) return r;
+          return {
+            ...r,
+            event_persons: filtered,
+            _count: { event_persons: filtered.length },
+          };
+        })
+      );
+      setUnassigned((prev) => prev.filter((ep) => ep.id !== id));
+    },
+    []
+  );
+
   const allPersons: SidebarPerson[] = useMemo(() => {
     const fromUnassigned: SidebarPerson[] = unassigned.map((p) => ({
       id: p.id,
@@ -304,6 +367,7 @@ export function BoardDndProvider({
           persons={unassigned}
           allPersons={allPersons}
           onPersonsChange={setUnassigned}
+          onPersonClick={handlePersonClick}
         />
 
         <main className="flex-1 overflow-y-auto p-8">
@@ -322,8 +386,20 @@ export function BoardDndProvider({
             eventId={eventId}
             rooms={rooms}
             onUnassign={handleUnassign}
+            onPersonClick={handlePersonClick}
           />
         </main>
+
+        {selectedPersonId && (
+          <PersonDetailPanel
+            key={selectedPersonId}
+            eventPersonId={selectedPersonId}
+            eventId={eventId}
+            onClose={() => setSelectedPersonId(null)}
+            onPersonUpdated={handlePersonUpdated}
+            onPersonRemoved={handlePersonRemoved}
+          />
+        )}
       </div>
 
       <DragOverlay>

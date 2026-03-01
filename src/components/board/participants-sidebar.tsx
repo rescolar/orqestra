@@ -46,11 +46,13 @@ export function ParticipantsSidebar({
   persons,
   allPersons,
   onPersonsChange,
+  onPersonClick,
 }: {
   eventId: string;
   persons: UnassignedPerson[];
   allPersons: SidebarPerson[];
   onPersonsChange?: (persons: UnassignedPerson[]) => void;
+  onPersonClick?: (personId: string) => void;
 }) {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<RoleTab>("all");
@@ -259,14 +261,14 @@ export function ParticipantsSidebar({
               </li>
             )}
             {searchResults.map((sp) => (
-              <DraggableSearchItem key={sp.id} sp={sp} />
+              <DraggableSearchItem key={sp.id} sp={sp} onPersonClick={onPersonClick} />
             ))}
           </ul>
         </div>
       ) : (
         <ul className="flex-1 overflow-y-auto px-2 py-2">
           {filteredUnassigned.map((ep) => (
-            <DraggablePersonItem key={ep.id} ep={ep} />
+            <DraggablePersonItem key={ep.id} ep={ep} onPersonClick={onPersonClick} />
           ))}
         </ul>
       )}
@@ -274,7 +276,7 @@ export function ParticipantsSidebar({
   );
 }
 
-function DraggablePersonItem({ ep }: { ep: UnassignedPerson }) {
+function DraggablePersonItem({ ep, onPersonClick }: { ep: UnassignedPerson; onPersonClick?: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: ep.id });
 
@@ -288,6 +290,7 @@ function DraggablePersonItem({ ep }: { ep: UnassignedPerson }) {
       {...listeners}
       {...attributes}
       style={style}
+      onClick={() => onPersonClick?.(ep.id)}
       className={`flex cursor-grab items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 ${
         isDragging ? "opacity-30" : ""
       }`}
@@ -305,7 +308,7 @@ function DraggablePersonItem({ ep }: { ep: UnassignedPerson }) {
   );
 }
 
-function DraggableSearchItem({ sp }: { sp: SidebarPerson }) {
+function DraggableSearchItem({ sp, onPersonClick }: { sp: SidebarPerson; onPersonClick?: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: sp.id });
 
@@ -319,6 +322,7 @@ function DraggableSearchItem({ sp }: { sp: SidebarPerson }) {
       {...listeners}
       {...attributes}
       style={style}
+      onClick={() => onPersonClick?.(sp.id)}
       className={`flex cursor-grab items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 ${
         isDragging ? "opacity-30" : ""
       }`}

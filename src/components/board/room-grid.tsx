@@ -6,6 +6,7 @@ type RoomGridProps = {
   eventId: string;
   rooms: RoomData[];
   onUnassign?: (personId: string) => void;
+  onPersonClick?: (personId: string) => void;
 };
 
 function checkGenderViolation(room: RoomData): boolean {
@@ -16,7 +17,7 @@ function checkGenderViolation(room: RoomData): boolean {
   );
 }
 
-export function RoomGrid({ eventId, rooms, onUnassign }: RoomGridProps) {
+export function RoomGrid({ eventId, rooms, onUnassign, onPersonClick }: RoomGridProps) {
   return (
     <section>
       <div className="mb-6">
@@ -44,6 +45,7 @@ export function RoomGrid({ eventId, rooms, onUnassign }: RoomGridProps) {
             hasGenderViolation={checkGenderViolation(room)}
             assignedPersons={room.event_persons}
             onUnassign={onUnassign}
+            onPersonClick={onPersonClick}
           />
         ))}
         <CreateRoomDialog eventId={eventId} />

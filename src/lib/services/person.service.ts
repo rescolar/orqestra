@@ -233,4 +233,85 @@ export const PersonService = {
       data: { room_id: null },
     });
   },
+
+  async getEventPerson(eventPersonId: string, userId: string) {
+    const ep = await db.eventPerson.findFirst({
+      where: { id: eventPersonId },
+      include: {
+        event: { select: { user_id: true } },
+        person: {
+          select: {
+            name_full: true,
+            name_display: true,
+            name_initials: true,
+            gender: true,
+            contact_email: true,
+            contact_phone: true,
+            contact_address: true,
+          },
+        },
+      },
+    });
+    if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
+    return ep;
+  },
+
+  async updateEventPerson(
+    eventPersonId: string,
+    userId: string,
+    data: {
+      role?: "participant" | "facilitator";
+      status?: "confirmed" | "tentative" | "cancelled";
+      gender?: Gender;
+      dietary_requirements?: string[];
+      dietary_notified?: boolean;
+      allergies_text?: string | null;
+      requests_text?: string | null;
+      requests_managed?: boolean;
+      move_with_partner?: boolean;
+    }
+  ) {
+    const ep = await db.eventPerson.findFirst({
+      where: { id: eventPersonId },
+      include: { event: { select: { user_id: true } } },
+    });
+    if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
+
+    const { gender, ...eventPersonData } = data;
+
+    // Update gender on Person if changed
+    if (gender !== undefined) {
+      await db.person.update({
+        where: { id: ep.person_id },
+        data: { gender },
+      });
+    }
+
+    return db.eventPerson.update({
+      where: { id: eventPersonId },
+      data: eventPersonData,
+      include: {
+        person: {
+          select: {
+            name_full: true,
+            name_display: true,
+            name_initials: true,
+            gender: true,
+          },
+        },
+      },
+    });
+  },
+
+  async removeEventPerson(eventPersonId: string, userId: string) {
+    const ep = await db.eventPerson.findFirst({
+      where: { id: eventPersonId },
+      include: { event: { select: { user_id: true } } },
+    });
+    if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
+
+    return db.eventPerson.delete({
+      where: { id: eventPersonId },
+    });
+  },
 };
