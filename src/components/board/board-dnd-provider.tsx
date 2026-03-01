@@ -11,9 +11,9 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { assignPerson, unassignPerson } from "@/lib/actions/person";
+import { BoardHeader } from "./board-header";
 import { ParticipantsSidebar } from "./participants-sidebar";
 import { RoomGrid } from "./room-grid";
-import { CreateRoomDialog } from "./create-room-dialog";
 
 export type PersonData = {
   id: string;
@@ -51,13 +51,20 @@ type BoardDndProviderProps = {
       gender: string;
     };
   }[];
-  userName?: string | null;
+  headerData: {
+    eventName: string;
+    dateStart: Date;
+    dateEnd: Date;
+    roomCount: number;
+    userName?: string | null;
+  };
 };
 
 export function BoardDndProvider({
   eventId,
   initialRooms,
   initialUnassigned,
+  headerData,
 }: BoardDndProviderProps) {
   const [rooms, setRooms] = useState(initialRooms);
   const [unassigned, setUnassigned] = useState(initialUnassigned);
@@ -239,13 +246,11 @@ export function BoardDndProvider({
     [rooms, eventId, initialRooms, initialUnassigned]
   );
 
-  const totalPersons =
-    unassigned.length +
-    rooms.reduce((acc, r) => acc + r.event_persons.length, 0);
   const assignedCount = rooms.reduce(
     (acc, r) => acc + r.event_persons.length,
     0
   );
+  const totalPersons = unassigned.length + assignedCount;
 
   return (
     <DndContext
@@ -253,6 +258,17 @@ export function BoardDndProvider({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
+      <BoardHeader
+        eventName={headerData.eventName}
+        dateStart={headerData.dateStart}
+        dateEnd={headerData.dateEnd}
+        assignedCount={assignedCount}
+        totalPersons={totalPersons}
+        roomCount={headerData.roomCount}
+        unassignedCount={unassigned.length}
+        userName={headerData.userName}
+      />
+
       <div className="flex flex-1 overflow-hidden">
         <ParticipantsSidebar
           eventId={eventId}
