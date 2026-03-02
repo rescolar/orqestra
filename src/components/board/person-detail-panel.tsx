@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import {
@@ -110,14 +110,13 @@ export function PersonDetailPanel({
   const [data, setData] = useState<EventPersonDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
-  const [contactOpen, setContactOpen] = useState(false);
+  const [relationsIsOver, setRelationsIsOver] = useState(false);
   const [allergiesLocal, setAllergiesLocal] = useState("");
   const [requestsLocal, setRequestsLocal] = useState("");
 
   useEffect(() => {
     setLoading(true);
     setConfirmDiscard(false);
-    setContactOpen(false);
     getEventPersonDetail(eventPersonId).then((result) => {
       setData(result);
       setAllergiesLocal(result.allergies_text ?? "");
@@ -258,14 +257,40 @@ export function PersonDetailPanel({
 
   if (!data) return null;
 
-  const hasContact =
-    data.person.contact_email ||
-    data.person.contact_phone ||
-    data.person.contact_address;
-
   const otherMembers = data.group
     ? data.group.members.filter((m) => m.id !== data.id)
     : [];
+
+  // Compute summaries
+  const roleSummary = ROLE_OPTIONS.find((o) => o.value === data.role)?.label ?? "";
+  const statusSummary = STATUS_OPTIONS.find((o) => o.value === data.status)?.label ?? "";
+  const genderSummary = GENDER_OPTIONS.find((o) => o.value === data.person.gender)?.label ?? "ND";
+  const contactSummary =
+    data.person.contact_email || data.person.contact_phone || data.person.contact_address || "\u2014";
+  const inseparablePartner = otherMembers.find((m) => m.id === data.inseparable_with_id);
+  const relationsSummary = inseparablePartner
+    ? inseparablePartner.person.name_display
+    : otherMembers.length > 0
+      ? "Si"
+      : "No";
+  const activeDiets = DIETARY_OPTIONS.filter((o) => data.dietary_requirements.includes(o.value)).map((o) => o.label);
+  const dietSummary = activeDiets.length > 0 ? activeDiets.join(", ") : "No";
+  const allergiesSummary = data.allergies_text ? "Si" : "No";
+  const preferencesSummary = data.requests_text ? "Si" : "No";
+
+  const dietaryTrailing = (
+    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+      <span className="text-[10px] text-gray-400">Gestionado</span>
+      <ToggleSwitch checked={data.dietary_notified} onChange={handleDietaryNotified} />
+    </div>
+  );
+
+  const preferencesTrailing = (
+    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+      <span className="text-[10px] text-gray-400">Gestionado</span>
+      <ToggleSwitch checked={data.requests_managed} onChange={handleRequestsManaged} />
+    </div>
+  );
 
   return (
     <aside className="flex w-96 shrink-0 flex-col border-l border-gray-200 bg-white overflow-y-auto">
@@ -297,9 +322,9 @@ export function PersonDetailPanel({
         </button>
       </div>
 
-      <div className="flex-1 space-y-5 p-4">
+      <div className="flex-1 divide-y divide-gray-100 px-4">
         {/* Role toggle */}
-        <Section label="Rol">
+        <CollapsibleSection label="Rol" summary={roleSummary}>
           <div className="flex rounded-lg border border-gray-200 p-0.5">
             {ROLE_OPTIONS.map((opt) => (
               <button
@@ -316,10 +341,10 @@ export function PersonDetailPanel({
               </button>
             ))}
           </div>
-        </Section>
+        </CollapsibleSection>
 
         {/* Status */}
-        <Section label="Estado">
+        <CollapsibleSection label="Estado" summary={statusSummary}>
           <select
             value={data.status}
             onChange={(e) => handleStatusChange(e.target.value)}
@@ -331,10 +356,10 @@ export function PersonDetailPanel({
               </option>
             ))}
           </select>
-        </Section>
+        </CollapsibleSection>
 
         {/* Gender */}
-        <Section label="Genero">
+        <CollapsibleSection label="Genero" summary={genderSummary}>
           <div className="flex gap-1">
             {GENDER_OPTIONS.map((opt) => (
               <button
@@ -351,47 +376,37 @@ export function PersonDetailPanel({
               </button>
             ))}
           </div>
-        </Section>
+        </CollapsibleSection>
 
-        {/* Contact accordion */}
-        {hasContact && (
-          <div>
-            <button
-              onClick={() => setContactOpen(!contactOpen)}
-              className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wider text-gray-400"
-            >
-              Contacto
-              <span className="material-symbols-outlined text-sm">
-                {contactOpen ? "expand_less" : "expand_more"}
-              </span>
-            </button>
-            {contactOpen && (
-              <div className="mt-2 space-y-1.5 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
-                {data.person.contact_email && (
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-gray-400">mail</span>
-                    {data.person.contact_email}
-                  </div>
-                )}
-                {data.person.contact_phone && (
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-gray-400">phone</span>
-                    {data.person.contact_phone}
-                  </div>
-                )}
-                {data.person.contact_address && (
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-gray-400">location_on</span>
-                    {data.person.contact_address}
-                  </div>
-                )}
+        {/* Contact */}
+        <CollapsibleSection label="Contacto" summary={contactSummary}>
+          <div className="space-y-1.5 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
+            {data.person.contact_email && (
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm text-gray-400">mail</span>
+                {data.person.contact_email}
               </div>
             )}
+            {data.person.contact_phone && (
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm text-gray-400">phone</span>
+                {data.person.contact_phone}
+              </div>
+            )}
+            {data.person.contact_address && (
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm text-gray-400">location_on</span>
+                {data.person.contact_address}
+              </div>
+            )}
+            {!data.person.contact_email && !data.person.contact_phone && !data.person.contact_address && (
+              <p className="text-xs text-gray-400">Sin datos de contacto</p>
+            )}
           </div>
-        )}
+        </CollapsibleSection>
 
         {/* Relations */}
-        <Section label="Relaciones">
+        <CollapsibleSection label="Relaciones" summary={relationsSummary} forceOpen={relationsIsOver}>
           <RelationsDropZone
             eventPersonId={data.id}
             inseparableWithId={data.inseparable_with_id}
@@ -399,11 +414,12 @@ export function PersonDetailPanel({
             onRemoveMember={handleRemoveMember}
             onToggleInseparable={handleToggleInseparable}
             onPersonClick={onPersonClick}
+            onIsOverChange={setRelationsIsOver}
           />
-        </Section>
+        </CollapsibleSection>
 
         {/* Dietary */}
-        <Section label="Dieta">
+        <CollapsibleSection label="Dieta" summary={dietSummary} trailing={dietaryTrailing}>
           <div className="flex items-center gap-1">
             {DIETARY_OPTIONS.map((opt) => (
               <button
@@ -419,18 +435,11 @@ export function PersonDetailPanel({
                 {opt.label}
               </button>
             ))}
-            <div className="ml-auto flex items-center gap-1.5">
-              <span className="text-[10px] text-gray-400">Gestionado</span>
-              <ToggleSwitch
-                checked={data.dietary_notified}
-                onChange={handleDietaryNotified}
-              />
-            </div>
           </div>
-        </Section>
+        </CollapsibleSection>
 
         {/* Allergies */}
-        <Section label="Alergias">
+        <CollapsibleSection label="Alergias" summary={allergiesSummary}>
           <textarea
             value={allergiesLocal}
             onChange={(e) => setAllergiesLocal(e.target.value)}
@@ -444,22 +453,10 @@ export function PersonDetailPanel({
                 : "border-gray-200 focus:border-primary"
             )}
           />
-        </Section>
+        </CollapsibleSection>
 
         {/* Preferences / Requests */}
-        <div>
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Preferencias
-            </span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-gray-400">Gestionado</span>
-              <ToggleSwitch
-                checked={data.requests_managed}
-                onChange={handleRequestsManaged}
-              />
-            </div>
-          </div>
+        <CollapsibleSection label="Preferencias" summary={preferencesSummary} trailing={preferencesTrailing}>
           <textarea
             value={requestsLocal}
             onChange={(e) => setRequestsLocal(e.target.value)}
@@ -468,7 +465,7 @@ export function PersonDetailPanel({
             rows={2}
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary"
           />
-        </div>
+        </CollapsibleSection>
       </div>
 
       {/* Footer — Discard */}
@@ -514,6 +511,7 @@ function RelationsDropZone({
   onRemoveMember,
   onToggleInseparable,
   onPersonClick,
+  onIsOverChange,
 }: {
   eventPersonId: string;
   inseparableWithId: string | null;
@@ -521,10 +519,19 @@ function RelationsDropZone({
   onRemoveMember: (memberId: string) => void;
   onToggleInseparable: (partnerId: string) => void;
   onPersonClick?: (id: string) => void;
+  onIsOverChange?: (isOver: boolean) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `relations-${eventPersonId}`,
   });
+
+  const prevIsOver = useRef(isOver);
+  useEffect(() => {
+    if (prevIsOver.current !== isOver) {
+      prevIsOver.current = isOver;
+      onIsOverChange?.(isOver);
+    }
+  }, [isOver, onIsOverChange]);
 
   // Sort: inseparable first, then alphabetical
   const sorted = [...otherMembers].sort((a, b) => {
@@ -606,19 +613,45 @@ function RelationsDropZone({
   );
 }
 
-function Section({
+function CollapsibleSection({
   label,
+  summary,
   children,
+  trailing,
+  forceOpen,
 }: {
   label: string;
+  summary: string;
   children: React.ReactNode;
+  trailing?: React.ReactNode;
+  forceOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (forceOpen) setOpen(true);
+  }, [forceOpen]);
+
   return (
-    <div>
-      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-400">
-        {label}
-      </span>
-      {children}
+    <div className="py-3">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center gap-2"
+      >
+        <span className="material-symbols-outlined text-base text-gray-400 transition-transform" style={{ transform: open ? "rotate(90deg)" : undefined }}>
+          chevron_right
+        </span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+          {label}
+        </span>
+        <span className="flex-1" />
+        <span className="truncate text-xs text-gray-500 max-w-[140px] text-right">
+          {summary}
+        </span>
+        {trailing && <span className="ml-1 shrink-0">{trailing}</span>}
+      </button>
+      {open && <div className="mt-2">{children}</div>}
     </div>
   );
 }
