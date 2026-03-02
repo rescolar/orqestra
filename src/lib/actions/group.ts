@@ -4,36 +4,42 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { GroupService } from "@/lib/services/group.service";
-import { GroupType } from "@prisma/client";
+import { db } from "@/lib/db";
 
-export async function getEventGroups(eventId: string) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  return GroupService.getGroupsForEvent(eventId, session.user.id);
-}
-
-export async function createGroup(
+export async function createRelationship(
   eventId: string,
-  data: { name: string; type: GroupType; memberIds: string[] }
+  personAId: string,
+  personBId: string
 ) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const group = await GroupService.createGroup(eventId, session.user.id, data);
-  revalidatePath(`/events/${eventId}/board`);
-  return group;
-}
+  // Look up both persons' current group
+  const [personA, personB] = await Promise.all([
+    db.eventPerson.findFirst({
+      where: { id: personAId, event_id: eventId },
+      select: { group_id: true },
+    }),
+    db.eventPerson.findFirst({
+      where: { id: personBId, event_id: eventId },
+      select: { group_id: true },
+    }),
+  ]);
 
-export async function addMemberToGroup(
-  groupId: string,
-  eventPersonId: string,
-  eventId: string
-) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  if (!personA || !personB) throw new Error("Persona no encontrada");
 
-  await GroupService.addMemberToGroup(groupId, eventPersonId, session.user.id);
+  if (personA.group_id && personB.group_id) {
+    if (personA.group_id === personB.group_id) return;
+    await GroupService.removeMemberFromGroup(personBId, session.user.id);
+    await GroupService.addMemberToGroup(personA.group_id, personBId, session.user.id);
+  } else if (personA.group_id) {
+    await GroupService.addMemberToGroup(personA.group_id, personBId, session.user.id);
+  } else if (personB.group_id) {
+    await GroupService.addMemberToGroup(personB.group_id, personAId, session.user.id);
+  } else {
+    await GroupService.createGroup(eventId, session.user.id, [personAId, personBId]);
+  }
+
   revalidatePath(`/events/${eventId}/board`);
 }
 
@@ -48,22 +54,14 @@ export async function removeMemberFromGroup(
   revalidatePath(`/events/${eventId}/board`);
 }
 
-export async function deleteGroup(groupId: string, eventId: string) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await GroupService.deleteGroup(groupId, session.user.id);
-  revalidatePath(`/events/${eventId}/board`);
-}
-
-export async function updateGroupType(
-  groupId: string,
-  eventId: string,
-  type: GroupType
+export async function toggleInseparable(
+  eventPersonId: string,
+  partnerId: string,
+  eventId: string
 ) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  await GroupService.updateGroupType(groupId, session.user.id, type);
+  await GroupService.toggleInseparable(eventPersonId, partnerId, session.user.id);
   revalidatePath(`/events/${eventId}/board`);
 }

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { PersonService } from "@/lib/services/person.service";
+import { EventService } from "@/lib/services/event.service";
 
 export async function seedTestParticipants(eventId: string) {
   const session = await auth();
@@ -94,6 +95,46 @@ export async function updateEventPerson(
     eventPersonId,
     session.user.id,
     data
+  );
+  revalidatePath(`/events/${eventId}/board`);
+  return result;
+}
+
+export async function getBoardState(eventId: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const event = await EventService.getEventWithRooms(eventId, session.user.id);
+  if (!event) throw new Error("Evento no encontrado");
+
+  const unassigned = await PersonService.getUnassignedPersons(
+    eventId,
+    session.user.id
+  );
+
+  return { rooms: event.rooms, unassigned };
+}
+
+export async function getAllPersons(eventId: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  return PersonService.getAllPersonsForUser(session.user.id, eventId);
+}
+
+export async function addPersonToEventAndAssign(
+  personId: string,
+  roomId: string,
+  eventId: string
+) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const result = await PersonService.addPersonToEventAndAssign(
+    personId,
+    roomId,
+    session.user.id,
+    eventId
   );
   revalidatePath(`/events/${eventId}/board`);
   return result;

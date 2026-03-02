@@ -161,6 +161,7 @@ export const EventService = {
                 id: true,
                 status: true,
                 role: true,
+                inseparable_with_id: true,
                 person: {
                   select: {
                     gender: true,

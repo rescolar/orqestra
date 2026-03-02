@@ -51,7 +51,8 @@ export const PersonService = {
     });
     if (existingCount > 0) return;
 
-    for (const entry of TEST_PERSONS) {
+    for (let i = 0; i < TEST_PERSONS.length; i++) {
+      const entry = TEST_PERSONS[i];
       const person = await db.person.create({
         data: {
           user_id: userId,
@@ -63,15 +64,115 @@ export const PersonService = {
         },
       });
 
-      await db.eventPerson.create({
-        data: {
-          event_id: eventId,
-          person_id: person.id,
-          role: "participant",
-          status: "confirmed",
-        },
-      });
+      // Only first 5 get added to the event as EventPersons
+      if (i < 5) {
+        await db.eventPerson.create({
+          data: {
+            event_id: eventId,
+            person_id: person.id,
+            role: "participant",
+            status: "confirmed",
+          },
+        });
+      }
     }
+  },
+
+  async getAllPersonsForUser(userId: string, eventId: string) {
+    return db.person.findMany({
+      where: { user_id: userId },
+      select: {
+        id: true,
+        name_full: true,
+        name_display: true,
+        name_initials: true,
+        gender: true,
+        default_role: true,
+        event_persons: {
+          where: { event_id: eventId },
+          select: {
+            id: true,
+            role: true,
+            room: {
+              select: {
+                display_name: true,
+                internal_number: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { name_full: "asc" },
+    });
+  },
+
+  async addPersonToEventAndAssign(
+    personId: string,
+    roomId: string,
+    userId: string,
+    eventId: string
+  ) {
+    // Verify event belongs to user
+    const event = await db.event.findFirst({
+      where: { id: eventId, user_id: userId },
+      select: { id: true },
+    });
+    if (!event) throw new Error("Evento no encontrado");
+
+    // Verify person belongs to user
+    const person = await db.person.findFirst({
+      where: { id: personId, user_id: userId },
+      select: { id: true, gender: true, default_role: true },
+    });
+    if (!person) throw new Error("Persona no encontrada");
+
+    // Check person not already in event
+    const existing = await db.eventPerson.findFirst({
+      where: { event_id: eventId, person_id: personId },
+      select: { id: true },
+    });
+    if (existing) throw new Error("Ya esta en el evento");
+
+    // Validate room
+    const room = await db.room.findFirst({
+      where: { id: roomId, event_id: eventId },
+      include: {
+        event_persons: {
+          select: { person: { select: { gender: true } } },
+        },
+      },
+    });
+    if (!room) throw new Error("Habitacion no encontrada");
+    if (room.locked) throw new Error("Habitacion cerrada");
+
+    // Gender restriction check
+    if (room.gender_restriction !== "mixed" && person.gender !== "unknown") {
+      const expected = room.gender_restriction === "women" ? "female" : "male";
+      if (person.gender !== expected) {
+        throw new Error("Restriccion de genero: no permitido");
+      }
+    }
+
+    // Create EventPerson and assign to room
+    return db.eventPerson.create({
+      data: {
+        event_id: eventId,
+        person_id: personId,
+        role: person.default_role,
+        status: "confirmed",
+        room_id: roomId,
+      },
+      include: {
+        person: {
+          select: {
+            name_full: true,
+            name_display: true,
+            name_initials: true,
+            gender: true,
+          },
+        },
+      },
+    });
   },
 
   async createParticipant(
@@ -125,7 +226,10 @@ export const PersonService = {
 
     return db.eventPerson.findMany({
       where: { event_id: eventId, room_id: null },
-      include: {
+      select: {
+        id: true,
+        role: true,
+        inseparable_with_id: true,
         person: {
           select: {
             name_full: true,
@@ -260,10 +364,10 @@ export const PersonService = {
           select: {
             id: true,
             name: true,
-            type: true,
             members: {
               select: {
                 id: true,
+                inseparable_with_id: true,
                 person: {
                   select: {
                     name_display: true,

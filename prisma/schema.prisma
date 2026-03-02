@@ -109,6 +109,7 @@ model EventPerson {
   role                 PersonRole        @default(participant)
   status               EventPersonStatus @default(confirmed)
   group_id             String?
+  inseparable_with_id  String?
   move_with_partner    Boolean           @default(false)
   dietary_requirements String[]          @default([])
   allergies_text       String?
@@ -117,10 +118,10 @@ model EventPerson {
   requests_managed     Boolean           @default(false)
   room_id              String?
 
-  event  Event   @relation(fields: [event_id], references: [id], onDelete: Cascade)
-  person Person  @relation(fields: [person_id], references: [id], onDelete: Cascade)
-  group  Group?  @relation(fields: [group_id], references: [id], onDelete: SetNull)
-  room   Room?   @relation(fields: [room_id], references: [id], onDelete: SetNull)
+  event            Event        @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  person           Person       @relation(fields: [person_id], references: [id], onDelete: Cascade)
+  group            Group?       @relation(fields: [group_id], references: [id], onDelete: SetNull)
+  room             Room?        @relation(fields: [room_id], references: [id], onDelete: SetNull)
 
   @@map("event_persons")
 }
@@ -156,16 +157,10 @@ model Room {
 
 // ─── Group ───────────────────────────────────────────────────────────────────
 
-enum GroupType {
-  strong
-  flexible
-}
-
 model Group {
-  id       String    @id @default(cuid())
+  id       String @id @default(cuid())
   event_id String
   name     String
-  type     GroupType @default(flexible)
 
   event   Event         @relation(fields: [event_id], references: [id], onDelete: Cascade)
   members EventPerson[]

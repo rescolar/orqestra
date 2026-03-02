@@ -8,10 +8,6 @@ import {
   createParticipantsBatch,
 } from "@/lib/actions/person";
 import {
-  getEventGroups,
-  createGroup,
-} from "@/lib/actions/group";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -23,6 +19,7 @@ import { Button } from "@/components/ui/button";
 type UnassignedPerson = {
   id: string;
   role: string;
+  inseparable_with_id: string | null;
   person: {
     name_full: string;
     name_display: string;
@@ -43,34 +40,48 @@ export type SidebarPerson = {
   };
 };
 
+export type DirectoryPerson = {
+  id: string;
+  name_full: string;
+  name_display: string;
+  name_initials: string;
+  gender: string;
+  default_role: string;
+  eventPerson: {
+    id: string;
+    role: string;
+    roomName: string | null;
+  } | null;
+};
+
+type ScopeTab = "todos" | "evento";
 type RoleTab = "all" | "participant" | "facilitator";
 
 export function ParticipantsSidebar({
   eventId,
   persons,
-  allPersons,
+  allEventPersons,
+  directoryPersons,
   onPersonsChange,
   onPersonClick,
+  onLoadDirectory,
 }: {
   eventId: string;
   persons: UnassignedPerson[];
-  allPersons: SidebarPerson[];
+  allEventPersons: SidebarPerson[];
+  directoryPersons: DirectoryPerson[];
   onPersonsChange?: (persons: UnassignedPerson[]) => void;
   onPersonClick?: (personId: string) => void;
+  onLoadDirectory?: () => void;
 }) {
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<RoleTab>("all");
+  const [scope, setScope] = useState<ScopeTab>("evento");
+  const [roleFilter, setRoleFilter] = useState<RoleTab>("all");
   const [isPending, startTransition] = useTransition();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [batchText, setBatchText] = useState("");
   const [batchPending, setBatchPending] = useState(false);
   const [batchError, setBatchError] = useState<string | null>(null);
-  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
-  const [groupName, setGroupName] = useState("");
-  const [groupType, setGroupType] = useState<"strong" | "flexible">("flexible");
-  const [groupSelectedMembers, setGroupSelectedMembers] = useState<Set<string>>(new Set());
-  const [groupPending, setGroupPending] = useState(false);
-  const [groupError, setGroupError] = useState<string | null>(null);
 
   const parsedNames = useMemo(() => {
     return batchText
@@ -79,29 +90,38 @@ export function ParticipantsSidebar({
       .filter(Boolean);
   }, [batchText]);
 
-  // Unassigned list filtered by active tab
-  const filteredUnassigned = useMemo(() => {
-    let list = persons;
-    if (activeTab !== "all") {
-      list = list.filter((p) => p.role === activeTab);
+  // Filtered list for "Evento" scope — all event persons with role filter + search
+  const filteredEventPersons = useMemo(() => {
+    let list = allEventPersons;
+    if (roleFilter !== "all") {
+      list = list.filter((p) => p.role === roleFilter);
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((p) => p.person.name_full.toLowerCase().includes(q));
     }
     return list;
-  }, [persons, activeTab]);
+  }, [allEventPersons, roleFilter, search]);
 
-  // Search results from ALL persons
-  const searchResults = useMemo(() => {
-    if (!search) return null;
-    const q = search.toLowerCase();
-    return allPersons.filter((p) =>
-      p.person.name_full.toLowerCase().includes(q)
-    );
-  }, [search, allPersons]);
+  // Filtered list for "Todos" scope — directory persons with role filter + search
+  const filteredDirectoryPersons = useMemo(() => {
+    let list = directoryPersons;
+    if (roleFilter !== "all") {
+      list = list.filter((p) => p.default_role === roleFilter);
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((p) => p.name_full.toLowerCase().includes(q));
+    }
+    return list;
+  }, [directoryPersons, roleFilter, search]);
 
   function handleSeed() {
     startTransition(async () => {
       await seedTestParticipants(eventId);
       const updated = await getUnassignedPersons(eventId);
       onPersonsChange?.(updated);
+      onLoadDirectory?.();
     });
   }
 
@@ -125,44 +145,21 @@ export function ParticipantsSidebar({
     }
   }
 
-  function toggleGroupMember(id: string) {
-    setGroupSelectedMembers((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  async function handleGroupCreate() {
-    if (!groupName.trim() || groupSelectedMembers.size === 0) return;
-    setGroupError(null);
-    setGroupPending(true);
-    try {
-      await createGroup(eventId, {
-        name: groupName.trim(),
-        type: groupType,
-        memberIds: Array.from(groupSelectedMembers),
-      });
-      const updated = await getUnassignedPersons(eventId);
-      onPersonsChange?.(updated);
-      setGroupName("");
-      setGroupType("flexible");
-      setGroupSelectedMembers(new Set());
-      setGroupDialogOpen(false);
-    } catch (e) {
-      if (e instanceof Error && "digest" in e) throw e;
-      setGroupError(e instanceof Error ? e.message : "Error al crear grupo");
-    } finally {
-      setGroupPending(false);
+  function handleScopeChange(newScope: ScopeTab) {
+    setScope(newScope);
+    if (newScope === "todos" && directoryPersons.length === 0) {
+      onLoadDirectory?.();
     }
   }
 
-  const tabs: { key: RoleTab; label: string }[] = [
+  const roleTabs: { key: RoleTab; label: string }[] = [
     { key: "all", label: "Todos" },
     { key: "participant", label: "Participantes" },
     { key: "facilitator", label: "Facilitadores" },
   ];
+
+  const eventPersonCount = allEventPersons.length;
+  const unassignedCount = persons.length;
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
@@ -173,183 +170,117 @@ export function ParticipantsSidebar({
             Participantes
           </h2>
           <p className="mt-1 text-xs text-gray-400">
-            {persons.length} sin asignar
+            {scope === "evento"
+              ? `${eventPersonCount} en evento · ${unassignedCount} sin asignar`
+              : `${directoryPersons.length} personas`}
           </p>
         </div>
-        <div className="flex gap-1">
-        <Dialog open={groupDialogOpen} onOpenChange={(open) => {
-          setGroupDialogOpen(open);
-          if (!open) {
-            setGroupName("");
-            setGroupType("flexible");
-            setGroupSelectedMembers(new Set());
-            setGroupError(null);
-          }
-        }}>
-          <DialogTrigger asChild>
-            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-primary" title="Crear grupo">
-              <span className="material-symbols-outlined text-lg">group_add</span>
-            </button>
-          </DialogTrigger>
-          <DialogContent
-            className="bg-white sm:max-w-[400px]"
-            onInteractOutside={(e) => e.preventDefault()}
-          >
-            <DialogHeader>
-              <DialogTitle>Crear grupo</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Nombre</label>
-                <input
-                  type="text"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  placeholder="Ej: Pareja María y Carlos"
-                  autoFocus
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Tipo</label>
-                <div className="flex rounded-lg border border-gray-200 p-0.5">
-                  <button
-                    onClick={() => setGroupType("strong")}
-                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                      groupType === "strong"
-                        ? "bg-primary text-white"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    🔗 Inseparable
-                  </button>
-                  <button
-                    onClick={() => setGroupType("flexible")}
-                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                      groupType === "flexible"
-                        ? "bg-primary text-white"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    👥 Flexible
-                  </button>
+        {scope === "evento" && (
+          <div className="flex gap-1">
+            <Dialog
+              open={dialogOpen}
+              onOpenChange={(open) => {
+                setDialogOpen(open);
+                if (!open) {
+                  setBatchText("");
+                  setBatchError(null);
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-primary">
+                  <span className="material-symbols-outlined text-lg">
+                    person_add
+                  </span>
+                </button>
+              </DialogTrigger>
+              <DialogContent
+                className="bg-white sm:max-w-[400px]"
+                onInteractOutside={(e) => e.preventDefault()}
+              >
+                <DialogHeader>
+                  <DialogTitle>Anadir participantes</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Nombres (uno por linea)
+                    </label>
+                    <textarea
+                      value={batchText}
+                      onChange={(e) => setBatchText(e.target.value)}
+                      placeholder={"Maria Garcia\nCarlos Lopez\nAna Martinez"}
+                      rows={8}
+                      autoFocus
+                      className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary"
+                    />
+                  </div>
+                  {parsedNames.length > 0 && (
+                    <p className="text-sm text-gray-500">
+                      Se crearan{" "}
+                      <span className="font-medium text-gray-700">
+                        {parsedNames.length}
+                      </span>{" "}
+                      participante{parsedNames.length !== 1 ? "s" : ""}
+                    </p>
+                  )}
+                  {batchError && (
+                    <p className="text-sm text-red-600">{batchError}</p>
+                  )}
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setDialogOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleBatchCreate}
+                      disabled={batchPending || parsedNames.length === 0}
+                    >
+                      {batchPending ? "Creando..." : "Anadir"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Miembros ({groupSelectedMembers.size} seleccionados)
-                </label>
-                <ul className="max-h-48 space-y-0.5 overflow-y-auto rounded-lg border border-gray-200 p-1">
-                  {allPersons.map((p) => (
-                    <li key={p.id}>
-                      <button
-                        onClick={() => toggleGroupMember(p.id)}
-                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-                          groupSelectedMembers.has(p.id)
-                            ? "bg-primary/10 text-primary"
-                            : "text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        <span className={`material-symbols-outlined text-sm ${
-                          groupSelectedMembers.has(p.id)
-                            ? "text-primary"
-                            : "text-gray-300"
-                        }`}>
-                          {groupSelectedMembers.has(p.id) ? "check_box" : "check_box_outline_blank"}
-                        </span>
-                        {p.person.name_display}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              {groupError && <p className="text-sm text-red-600">{groupError}</p>}
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setGroupDialogOpen(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleGroupCreate}
-                  disabled={groupPending || !groupName.trim() || groupSelectedMembers.size === 0}
-                >
-                  {groupPending ? "Creando…" : "Crear grupo"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-        <Dialog open={dialogOpen} onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) {
-            setBatchText("");
-            setBatchError(null);
-          }
-        }}>
-          <DialogTrigger asChild>
-            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-primary">
-              <span className="material-symbols-outlined text-lg">person_add</span>
-            </button>
-          </DialogTrigger>
-          <DialogContent
-            className="bg-white sm:max-w-[400px]"
-            onInteractOutside={(e) => e.preventDefault()}
-          >
-            <DialogHeader>
-              <DialogTitle>Añadir participantes</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Nombres (uno por línea)
-                </label>
-                <textarea
-                  value={batchText}
-                  onChange={(e) => setBatchText(e.target.value)}
-                  placeholder={"María García\nCarlos López\nAna Martínez"}
-                  rows={8}
-                  autoFocus
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary"
-                />
-              </div>
-              {parsedNames.length > 0 && (
-                <p className="text-sm text-gray-500">
-                  Se crearán <span className="font-medium text-gray-700">{parsedNames.length}</span> participante{parsedNames.length !== 1 ? "s" : ""}
-                </p>
-              )}
-              {batchError && <p className="text-sm text-red-600">{batchError}</p>}
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setDialogOpen(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleBatchCreate}
-                  disabled={batchPending || parsedNames.length === 0}
-                >
-                  {batchPending ? "Creando…" : "Añadir"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-        </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
+      </div>
+
+      {/* Scope toggle */}
+      <div className="flex gap-1 border-b border-gray-100 px-3 py-2">
+        <button
+          onClick={() => handleScopeChange("evento")}
+          className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+            scope === "evento"
+              ? "bg-primary/10 text-primary"
+              : "text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          Evento
+        </button>
+        <button
+          onClick={() => handleScopeChange("todos")}
+          className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+            scope === "todos"
+              ? "bg-primary/10 text-primary"
+              : "text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          Todos
+        </button>
       </div>
 
       {/* Role tabs */}
       <div className="flex gap-1 border-b border-gray-100 px-3 py-2">
-        {tabs.map((tab) => (
+        {roleTabs.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => setRoleFilter(tab.key)}
             className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-              activeTab === tab.key
+              roleFilter === tab.key
                 ? "bg-primary/10 text-primary"
                 : "text-gray-400 hover:text-gray-600"
             }`}
@@ -359,15 +290,15 @@ export function ParticipantsSidebar({
         ))}
       </div>
 
-      {/* Seed button */}
-      {persons.length === 0 && (
+      {/* Seed button — only in "Evento" scope when empty */}
+      {scope === "evento" && allEventPersons.length === 0 && (
         <div className="p-4">
           <button
             onClick={handleSeed}
             disabled={isPending}
             className="w-full rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500 hover:border-primary hover:text-primary disabled:opacity-50"
           >
-            {isPending ? "Creando…" : "Añadir 20 de prueba"}
+            {isPending ? "Creando..." : "Anadir 20 de prueba"}
           </button>
         </div>
       )}
@@ -380,7 +311,7 @@ export function ParticipantsSidebar({
           </span>
           <input
             type="text"
-            placeholder="Buscar…"
+            placeholder="Buscar..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-gray-200 py-1.5 pl-8 pr-8 text-sm outline-none focus:border-primary"
@@ -390,35 +321,43 @@ export function ParticipantsSidebar({
               onClick={() => setSearch("")}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
-              <span className="material-symbols-outlined text-base">close</span>
+              <span className="material-symbols-outlined text-base">
+                close
+              </span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Content: search results OR unassigned list */}
-      {searchResults ? (
-        <div className="flex-1 overflow-y-auto">
-          <div className="px-4 py-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              Resultados ({searchResults.length})
-            </span>
-          </div>
-          <ul className="px-2 pb-2">
-            {searchResults.length === 0 && (
-              <li className="px-2 py-4 text-center text-xs text-gray-400">
-                Sin resultados
-              </li>
-            )}
-            {searchResults.map((sp) => (
-              <DraggableSearchItem key={sp.id} sp={sp} onPersonClick={onPersonClick} />
-            ))}
-          </ul>
-        </div>
+      {/* Content */}
+      {scope === "evento" ? (
+        <ul className="flex-1 overflow-y-auto px-2 py-2">
+          {filteredEventPersons.length === 0 && (
+            <li className="px-2 py-4 text-center text-xs text-gray-400">
+              Sin resultados
+            </li>
+          )}
+          {filteredEventPersons.map((sp) => (
+            <DraggableEventItem
+              key={sp.id}
+              sp={sp}
+              onPersonClick={onPersonClick}
+            />
+          ))}
+        </ul>
       ) : (
         <ul className="flex-1 overflow-y-auto px-2 py-2">
-          {filteredUnassigned.map((ep) => (
-            <DraggablePersonItem key={ep.id} ep={ep} onPersonClick={onPersonClick} />
+          {filteredDirectoryPersons.length === 0 && (
+            <li className="px-2 py-4 text-center text-xs text-gray-400">
+              Sin resultados
+            </li>
+          )}
+          {filteredDirectoryPersons.map((dp) => (
+            <DraggableDirectoryItem
+              key={dp.id}
+              dp={dp}
+              onPersonClick={onPersonClick}
+            />
           ))}
         </ul>
       )}
@@ -426,39 +365,13 @@ export function ParticipantsSidebar({
   );
 }
 
-function DraggablePersonItem({ ep, onPersonClick }: { ep: UnassignedPerson; onPersonClick?: (id: string) => void }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: ep.id });
-
-  const style = transform
-    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
-    : undefined;
-
-  return (
-    <li
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      style={style}
-      onClick={() => onPersonClick?.(ep.id)}
-      className={`flex cursor-grab items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 ${
-        isDragging ? "opacity-30" : ""
-      }`}
-    >
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-        {ep.person.name_initials}
-      </div>
-      <span className="flex-1 truncate text-sm text-gray-700">
-        {ep.person.name_display}
-      </span>
-      <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
-        {ep.role === "facilitator" ? "fac" : "par"}
-      </span>
-    </li>
-  );
-}
-
-function DraggableSearchItem({ sp, onPersonClick }: { sp: SidebarPerson; onPersonClick?: (id: string) => void }) {
+function DraggableEventItem({
+  sp,
+  onPersonClick,
+}: {
+  sp: SidebarPerson;
+  onPersonClick?: (id: string) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: sp.id });
 
@@ -484,12 +397,76 @@ function DraggableSearchItem({ sp, onPersonClick }: { sp: SidebarPerson; onPerso
         <span className="truncate text-sm text-gray-700">
           {sp.person.name_display}
         </span>
-        <span className="truncate text-[10px] text-gray-400">
-          {sp.roomName ?? "Sin asignar"}
-        </span>
+        {sp.roomName && (
+          <span className="truncate text-[10px] text-gray-400">
+            {sp.roomName}
+          </span>
+        )}
+        {!sp.roomName && (
+          <span className="truncate text-[10px] text-gray-400">
+            Sin asignar
+          </span>
+        )}
       </div>
       <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
         {sp.role === "facilitator" ? "fac" : "par"}
+      </span>
+    </li>
+  );
+}
+
+function DraggableDirectoryItem({
+  dp,
+  onPersonClick,
+}: {
+  dp: DirectoryPerson;
+  onPersonClick?: (id: string) => void;
+}) {
+  // Use "person-{Person.id}" prefix to distinguish from EventPerson IDs
+  const draggableId = `person-${dp.id}`;
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({ id: draggableId });
+
+  const style = transform
+    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
+    : undefined;
+
+  const inEvent = dp.eventPerson !== null;
+
+  return (
+    <li
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={style}
+      onClick={() => {
+        if (dp.eventPerson) onPersonClick?.(dp.eventPerson.id);
+      }}
+      className={`flex cursor-grab items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 ${
+        isDragging ? "opacity-30" : ""
+      }`}
+    >
+      <div
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${
+          inEvent
+            ? "bg-primary/10 text-primary"
+            : "bg-gray-100 text-gray-500"
+        }`}
+      >
+        {dp.name_initials}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm text-gray-700">
+          {dp.name_display}
+        </span>
+        {inEvent && (
+          <span className="truncate text-[10px] text-emerald-600">
+            {dp.eventPerson!.roomName ?? "En evento"}
+          </span>
+        )}
+      </div>
+      <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
+        {dp.default_role === "facilitator" ? "fac" : "par"}
       </span>
     </li>
   );
