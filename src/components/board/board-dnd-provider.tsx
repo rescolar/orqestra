@@ -26,7 +26,7 @@ import {
   DirectoryPerson,
 } from "./participants-sidebar";
 import { RoomGrid } from "./room-grid";
-import { PersonDetailPanel, PersonUpdateData } from "./person-detail-panel";
+import { PersonDetailPanel, PersonUpdateData, OptimisticRelation } from "./person-detail-panel";
 import { RoomDetailPanel } from "./room-detail-panel";
 import { PendingsPanel } from "./pendings-panel";
 
@@ -103,6 +103,7 @@ export function BoardDndProvider({
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [showPendingsPanel, setShowPendingsPanel] = useState(false);
   const [panelRefreshKey, setPanelRefreshKey] = useState(0);
+  const [optimisticRelation, setOptimisticRelation] = useState<OptimisticRelation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [directoryPersons, setDirectoryPersons] = useState<DirectoryPerson[]>(
     []
@@ -211,13 +212,17 @@ export function BoardDndProvider({
           const personId = dragId.replace("person-", "");
           const dp = directoryPersons.find((p) => p.id === personId);
           if (!dp || dp.eventPerson) return;
+          // Optimistic: show chip immediately (use temp ID, will be replaced on refresh)
+          setOptimisticRelation({ id: `temp-${personId}`, name_display: dp.name_display });
           try {
             const ep = await addPersonToEvent(personId, eventId);
             await createRelationship(eventId, targetPersonId, ep.id);
             await handleBoardRefresh();
             await loadDirectory();
+            setOptimisticRelation(null);
             setPanelRefreshKey((k) => k + 1);
           } catch (e) {
+            setOptimisticRelation(null);
             setError(
               e instanceof Error ? e.message : "Error al crear relacion"
             );
@@ -227,10 +232,19 @@ export function BoardDndProvider({
 
         // Standard EventPerson relation drop
         if (dragId === targetPersonId) return;
+        // Optimistic: show chip immediately
+        const draggedPerson =
+          unassigned.find((p) => p.id === dragId) ||
+          rooms.flatMap((r) => r.event_persons).find((p) => p.id === dragId);
+        if (draggedPerson) {
+          setOptimisticRelation({ id: dragId, name_display: draggedPerson.person.name_display });
+        }
         try {
           await createRelationship(eventId, targetPersonId, dragId);
+          setOptimisticRelation(null);
           setPanelRefreshKey((k) => k + 1);
         } catch (e) {
+          setOptimisticRelation(null);
           setError(
             e instanceof Error ? e.message : "Error al crear relacion"
           );
@@ -716,6 +730,7 @@ export function BoardDndProvider({
             eventPersonId={selectedPersonId}
             eventId={eventId}
             refreshKey={panelRefreshKey}
+            optimisticRelation={optimisticRelation}
             onClose={() => setSelectedPersonId(null)}
             onPersonUpdated={handlePersonUpdated}
             onPersonRemoved={handlePersonRemoved}

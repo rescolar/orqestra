@@ -147,7 +147,9 @@ volumes:
 # 2. Importar el repositorio orqestra
 # 3. Vercel detecta Next.js automáticamente
 # 4. Configurar variables de entorno en Vercel:
-#    DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL
+#    DATABASE_URL  → Transaction pooler URI from Supabase (port 6543)
+#    NEXTAUTH_SECRET → openssl rand -base64 32
+#    (NEXTAUTH_URL is NOT needed — Vercel sets VERCEL_URL automatically)
 # 5. Deploy automático en cada push a main
 
 # 6. Comprar dominio (ej: orqestra.app)
@@ -157,6 +159,25 @@ volumes:
 #    ns2.vercel-dns.com
 # 9. SSL se configura automáticamente
 ```
+
+**Supabase connection strings** (Connect button → Connection String tab):
+
+| Use case | Method | Port | Notes |
+|----------|--------|------|-------|
+| Vercel runtime (`DATABASE_URL`) | **Transaction pooler** | 6543 | Serverless-compatible, IPv4, brief connections |
+| Schema migrations (`prisma db push`) | **Session pooler** | 5432 | Supports PREPARE statements that Prisma needs |
+| Local development | **Direct** or local Docker | 5432 | Persistent connection, fine for dev |
+
+```bash
+# Push schema to Supabase (use Session pooler — Transaction pooler hangs)
+DATABASE_URL='postgresql://postgres.[ref]:[password]@aws-1-eu-west-1.pooler.supabase.com:5432/postgres' npx prisma db push
+
+# Use single quotes to prevent zsh from interpreting special chars in password
+```
+
+**Middleware edge bundle:** Auth config is split into `auth.config.ts` (edge-compatible, no Prisma/bcrypt)
+and `auth.ts` (full server-side with Credentials authorize). Middleware imports only `auth.config.ts`
+to stay under Vercel's 1 MB edge function limit.
 
 **Flujo de deploy continuo:**
 ```
@@ -180,13 +201,15 @@ No optimizar prematuramente. Migrar cuando los números lo justifiquen.
 ## 5. Variables de entorno
 
 ```bash
-# .env.example
+# .env.example — LOCAL DEVELOPMENT
 DATABASE_URL="postgresql://orqestra:orqestra@localhost:5432/orqestra"
-NEXTAUTH_SECRET=""          # openssl rand -base64 32
+NEXTAUTH_SECRET="dev-secret-change-in-production"
 NEXTAUTH_URL="http://localhost:3000"
 
-# Supabase (si se usa directamente)
-# DATABASE_URL="postgresql://postgres:[password]@db.[ref].supabase.co:5432/postgres"
+# VERCEL PRODUCTION (set in Vercel dashboard → Settings → Environment Variables)
+# DATABASE_URL → Supabase Transaction pooler URI (port 6543)
+# NEXTAUTH_SECRET → random string (openssl rand -base64 32)
+# NEXTAUTH_URL → NOT needed (Vercel auto-sets VERCEL_URL)
 ```
 
 **Importante:** `.env.local` y `.env` nunca se suben al repositorio. Incluir en `.gitignore`.

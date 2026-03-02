@@ -65,10 +65,16 @@ export type PersonUpdateData = {
   requests_managed?: boolean;
 };
 
+export type OptimisticRelation = {
+  id: string;
+  name_display: string;
+};
+
 type PersonDetailPanelProps = {
   eventPersonId: string;
   eventId: string;
   refreshKey?: number;
+  optimisticRelation?: OptimisticRelation | null;
   onClose: () => void;
   onPersonUpdated: (id: string, changes: PersonUpdateData) => void;
   onPersonRemoved: (id: string) => void;
@@ -120,6 +126,7 @@ export function PersonDetailPanel({
   eventPersonId,
   eventId,
   refreshKey,
+  optimisticRelation,
   onClose,
   onPersonUpdated,
   onPersonRemoved,
@@ -320,9 +327,20 @@ export function PersonDetailPanel({
 
   if (!data) return null;
 
-  const otherMembers = data.group
-    ? data.group.members.filter((m) => m.id !== data.id)
-    : [];
+  const otherMembers = (() => {
+    const members = data.group
+      ? data.group.members.filter((m) => m.id !== data.id)
+      : [];
+    // Inject optimistic relation if not already present
+    if (optimisticRelation && !members.some((m) => m.id === optimisticRelation.id)) {
+      members.push({
+        id: optimisticRelation.id,
+        inseparable_with_id: null,
+        person: { name_display: optimisticRelation.name_display },
+      });
+    }
+    return members;
+  })();
 
   // Compute summaries
   const roleSummary = ROLE_OPTIONS.find((o) => o.value === data.role)?.label ?? "";
