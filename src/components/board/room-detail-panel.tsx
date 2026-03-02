@@ -12,6 +12,7 @@ type AssignedPerson = {
   id: string;
   role: string;
   person: {
+    name_full: string;
     name_display: string;
     name_initials: string;
     gender: string;
@@ -420,20 +421,17 @@ export function RoomDetailPanel({
               {data.event_persons.map((ep) => (
                 <div
                   key={ep.id}
-                  className="group flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50"
+                  className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50"
                 >
                   <button
                     onClick={() => onPersonClick?.(ep.id)}
                     className="flex flex-1 items-center gap-2 min-w-0"
                   >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-                      {ep.person.name_initials}
-                    </div>
-                    <span className="truncate text-sm text-gray-700">
-                      {ep.person.name_display}
-                    </span>
-                    <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
+                    <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400 shrink-0">
                       {ep.role === "facilitator" ? "fac" : "par"}
+                    </span>
+                    <span className="truncate text-sm text-gray-700">
+                      {ep.person.name_full}
                     </span>
                   </button>
                   {onUnassign && (

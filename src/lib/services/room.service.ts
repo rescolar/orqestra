@@ -72,6 +72,7 @@ export const RoomService = {
           include: {
             person: {
               select: {
+                name_full: true,
                 name_display: true,
                 name_initials: true,
                 gender: true,
