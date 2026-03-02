@@ -290,19 +290,44 @@ export function PersonDetailPanel({
 
   const handleRemoveMember = useCallback(
     async (memberId: string) => {
-      await removeMemberFromGroup(memberId, eventId);
-      const updated = await getEventPersonDetail(eventPersonId);
-      setData(updated);
+      // Optimistic: remove chip immediately
+      setData((prev) => {
+        if (!prev?.group) return prev;
+        const filtered = prev.group.members.filter((m) => m.id !== memberId);
+        if (filtered.length <= 1) return { ...prev, group: null };
+        return { ...prev, group: { ...prev.group, members: filtered } };
+      });
+      try {
+        await removeMemberFromGroup(memberId, eventId);
+        const updated = await getEventPersonDetail(eventPersonId);
+        setData(updated);
+      } catch {
+        // Revert on error by refetching
+        const updated = await getEventPersonDetail(eventPersonId);
+        setData(updated);
+      }
     },
     [eventPersonId, eventId]
   );
 
   const handleToggleInseparable = useCallback(
     async (partnerId: string) => {
-      await toggleInseparable(eventPersonId, partnerId, eventId);
-      const updated = await getEventPersonDetail(eventPersonId);
-      setData(updated);
-      onBoardRefresh?.();
+      // Optimistic: toggle inseparable immediately
+      setData((prev) => {
+        if (!prev) return prev;
+        const newInseparable = prev.inseparable_with_id === partnerId ? null : partnerId;
+        return { ...prev, inseparable_with_id: newInseparable };
+      });
+      try {
+        await toggleInseparable(eventPersonId, partnerId, eventId);
+        const updated = await getEventPersonDetail(eventPersonId);
+        setData(updated);
+        onBoardRefresh?.();
+      } catch {
+        // Revert on error by refetching
+        const updated = await getEventPersonDetail(eventPersonId);
+        setData(updated);
+      }
     },
     [eventPersonId, eventId, onBoardRefresh]
   );
