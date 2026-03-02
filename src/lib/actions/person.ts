@@ -122,6 +122,22 @@ export async function getAllPersons(eventId: string) {
   return PersonService.getAllPersonsForUser(session.user.id, eventId);
 }
 
+export async function addPersonToEvent(
+  personId: string,
+  eventId: string
+) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const ep = await PersonService.addPersonToEvent(
+    personId,
+    session.user.id,
+    eventId
+  );
+  revalidatePath(`/events/${eventId}/board`);
+  return ep;
+}
+
 export async function addPersonToEventAndAssign(
   personId: string,
   roomId: string,

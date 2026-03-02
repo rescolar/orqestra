@@ -15,6 +15,7 @@ import {
   unassignPerson,
   getBoardState,
   getAllPersons,
+  addPersonToEvent,
   addPersonToEventAndAssign,
 } from "@/lib/actions/person";
 import { createRelationship } from "@/lib/actions/group";
@@ -122,6 +123,45 @@ export function BoardDndProvider({
       })()
     : null;
 
+  const handleBoardRefresh = useCallback(async () => {
+    try {
+      const state = await getBoardState(eventId);
+      setRooms(state.rooms);
+      setUnassigned(state.unassigned);
+    } catch {
+      // ignore
+    }
+  }, [eventId]);
+
+  const loadDirectory = useCallback(async () => {
+    try {
+      const persons = await getAllPersons(eventId);
+      setDirectoryPersons(
+        persons.map((p) => ({
+          id: p.id,
+          name_full: p.name_full,
+          name_display: p.name_display,
+          name_initials: p.name_initials,
+          gender: p.gender,
+          default_role: p.default_role,
+          eventPerson:
+            p.event_persons.length > 0
+              ? {
+                  id: p.event_persons[0].id,
+                  role: p.event_persons[0].role,
+                  roomName: p.event_persons[0].room
+                    ? p.event_persons[0].room.display_name ||
+                      p.event_persons[0].room.internal_number
+                    : null,
+                }
+              : null,
+        }))
+      );
+    } catch {
+      // ignore
+    }
+  }, [eventId]);
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
     setError(null);
@@ -136,10 +176,30 @@ export function BoardDndProvider({
       const dragId = active.id as string;
       const overId = over.id as string;
 
-      // Handle relations drop (only for EventPerson IDs, not directory)
+      // Handle relations drop
       if (overId.startsWith("relations-")) {
-        if (dragId.startsWith("person-")) return; // Can't create relation with directory person
         const targetPersonId = overId.replace("relations-", "");
+
+        if (dragId.startsWith("person-")) {
+          // Directory person → add to event first, then create relationship
+          const personId = dragId.replace("person-", "");
+          const dp = directoryPersons.find((p) => p.id === personId);
+          if (!dp || dp.eventPerson) return;
+          try {
+            const ep = await addPersonToEvent(personId, eventId);
+            await createRelationship(eventId, targetPersonId, ep.id);
+            await handleBoardRefresh();
+            await loadDirectory();
+            setPanelRefreshKey((k) => k + 1);
+          } catch (e) {
+            setError(
+              e instanceof Error ? e.message : "Error al crear relacion"
+            );
+          }
+          return;
+        }
+
+        // Standard EventPerson relation drop
         if (dragId === targetPersonId) return;
         try {
           await createRelationship(eventId, targetPersonId, dragId);
@@ -368,7 +428,7 @@ export function BoardDndProvider({
         setError(e instanceof Error ? e.message : "Error al asignar");
       }
     },
-    [rooms, unassigned, eventId, initialRooms, initialUnassigned, directoryPersons]
+    [rooms, unassigned, eventId, initialRooms, initialUnassigned, directoryPersons, handleBoardRefresh, loadDirectory]
   );
 
   const handleUnassign = useCallback(
@@ -512,45 +572,6 @@ export function BoardDndProvider({
       a.person.name_display.localeCompare(b.person.name_display)
     );
   }, [unassigned, rooms]);
-
-  const handleBoardRefresh = useCallback(async () => {
-    try {
-      const state = await getBoardState(eventId);
-      setRooms(state.rooms);
-      setUnassigned(state.unassigned);
-    } catch {
-      // ignore
-    }
-  }, [eventId]);
-
-  const loadDirectory = useCallback(async () => {
-    try {
-      const persons = await getAllPersons(eventId);
-      setDirectoryPersons(
-        persons.map((p) => ({
-          id: p.id,
-          name_full: p.name_full,
-          name_display: p.name_display,
-          name_initials: p.name_initials,
-          gender: p.gender,
-          default_role: p.default_role,
-          eventPerson:
-            p.event_persons.length > 0
-              ? {
-                  id: p.event_persons[0].id,
-                  role: p.event_persons[0].role,
-                  roomName: p.event_persons[0].room
-                    ? p.event_persons[0].room.display_name ||
-                      p.event_persons[0].room.internal_number
-                    : null,
-                }
-              : null,
-        }))
-      );
-    } catch {
-      // ignore
-    }
-  }, [eventId]);
 
   const assignedCount = rooms.reduce(
     (acc, r) => acc + r.event_persons.length,

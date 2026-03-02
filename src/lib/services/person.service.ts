@@ -106,6 +106,39 @@ export const PersonService = {
     });
   },
 
+  async addPersonToEvent(
+    personId: string,
+    userId: string,
+    eventId: string
+  ) {
+    const event = await db.event.findFirst({
+      where: { id: eventId, user_id: userId },
+      select: { id: true },
+    });
+    if (!event) throw new Error("Evento no encontrado");
+
+    const person = await db.person.findFirst({
+      where: { id: personId, user_id: userId },
+      select: { id: true, default_role: true },
+    });
+    if (!person) throw new Error("Persona no encontrada");
+
+    const existing = await db.eventPerson.findFirst({
+      where: { event_id: eventId, person_id: personId },
+      select: { id: true },
+    });
+    if (existing) return existing;
+
+    return db.eventPerson.create({
+      data: {
+        event_id: eventId,
+        person_id: personId,
+        role: person.default_role,
+        status: "confirmed",
+      },
+    });
+  },
+
   async addPersonToEventAndAssign(
     personId: string,
     roomId: string,
