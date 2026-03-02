@@ -115,6 +115,14 @@ export function BoardDndProvider({
   // Find active person across all sources (unassigned, rooms, directory)
   const activePerson = activeId
     ? (() => {
+        // Check if it's a sidebar drag (assigned person dragged from sidebar)
+        if (activeId.startsWith("sidebar-")) {
+          const strippedId = activeId.replace("sidebar-", "");
+          return (
+            unassigned.find((p) => p.id === strippedId) ||
+            rooms.flatMap((r) => r.event_persons).find((p) => p.id === strippedId)
+          );
+        }
         // Check if it's a directory person
         if (activeId.startsWith("person-")) {
           const personId = activeId.replace("person-", "");
@@ -189,7 +197,9 @@ export function BoardDndProvider({
       const { active, over } = event;
       if (!over) return;
 
-      const dragId = active.id as string;
+      const rawDragId = active.id as string;
+      const isSidebarDrag = rawDragId.startsWith("sidebar-");
+      const dragId = isSidebarDrag ? rawDragId.replace("sidebar-", "") : rawDragId;
       const overId = over.id as string;
 
       // Handle relations drop

@@ -379,7 +379,7 @@ function DraggableEventItem({
   onPersonClick?: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: sp.id });
+    useDraggable({ id: `sidebar-${sp.id}` });
 
   const style = transform
     ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
