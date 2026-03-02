@@ -27,6 +27,7 @@ import {
 } from "./participants-sidebar";
 import { RoomGrid } from "./room-grid";
 import { PersonDetailPanel, PersonUpdateData } from "./person-detail-panel";
+import { RoomDetailPanel } from "./room-detail-panel";
 
 export type PersonData = {
   id: string;
@@ -86,6 +87,7 @@ export function BoardDndProvider({
   const [unassigned, setUnassigned] = useState(initialUnassigned);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [panelRefreshKey, setPanelRefreshKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [directoryPersons, setDirectoryPersons] = useState<DirectoryPerson[]>(
@@ -491,6 +493,12 @@ export function BoardDndProvider({
 
   const handlePersonClick = useCallback((personId: string) => {
     setSelectedPersonId(personId);
+    setSelectedRoomId(null);
+  }, []);
+
+  const handleRoomClick = useCallback((roomId: string) => {
+    setSelectedRoomId(roomId);
+    setSelectedPersonId(null);
   }, []);
 
   const handlePersonUpdated = useCallback(
@@ -577,7 +585,7 @@ export function BoardDndProvider({
     (acc, r) => acc + r.event_persons.length,
     0
   );
-  const totalPersons = unassigned.length + assignedCount;
+  const totalCapacity = rooms.reduce((acc, r) => acc + r.capacity, 0);
   const pendingCount = rooms.filter(
     (r) => r.event_persons.length > r.capacity
   ).length;
@@ -594,7 +602,7 @@ export function BoardDndProvider({
         dateStart={headerData.dateStart}
         dateEnd={headerData.dateEnd}
         assignedCount={assignedCount}
-        totalPersons={totalPersons}
+        totalPersons={totalCapacity}
         roomCount={headerData.roomCount}
         unassignedCount={unassigned.length}
         pendingCount={pendingCount}
@@ -629,6 +637,7 @@ export function BoardDndProvider({
             rooms={rooms}
             onUnassign={handleUnassign}
             onPersonClick={handlePersonClick}
+            onRoomClick={handleRoomClick}
           />
         </main>
 
@@ -643,6 +652,18 @@ export function BoardDndProvider({
             onPersonRemoved={handlePersonRemoved}
             onPersonClick={(id) => setSelectedPersonId(id)}
             onBoardRefresh={handleBoardRefresh}
+          />
+        )}
+
+        {selectedRoomId && (
+          <RoomDetailPanel
+            key={selectedRoomId}
+            roomId={selectedRoomId}
+            eventId={eventId}
+            onClose={() => setSelectedRoomId(null)}
+            onRoomUpdated={handleBoardRefresh}
+            onPersonClick={handlePersonClick}
+            onUnassign={handleUnassign}
           />
         )}
       </div>

@@ -47,9 +47,30 @@ export async function updateRoom(roomId: string, formData: FormData) {
   revalidatePath(`/events/${room.event_id}/board`);
 }
 
-export async function deleteRoom(roomId: string) {
+export async function getRoomDetail(roomId: string) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  return RoomService.getRoomDetail(roomId, session.user.id);
+}
 
+export async function updateRoomField(
+  roomId: string,
+  eventId: string,
+  data: Record<string, unknown>
+) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  await RoomService.updateRoom(
+    roomId,
+    session.user.id,
+    data as Parameters<typeof RoomService.updateRoom>[2]
+  );
+  revalidatePath(`/events/${eventId}/board`);
+}
+
+export async function deleteRoom(roomId: string, eventId: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
   await RoomService.deleteRoom(roomId, session.user.id);
+  revalidatePath(`/events/${eventId}/board`);
 }

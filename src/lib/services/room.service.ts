@@ -64,6 +64,28 @@ export const RoomService = {
     });
   },
 
+  async getRoomDetail(roomId: string, userId: string) {
+    const room = await db.room.findFirst({
+      where: { id: roomId, event: { user_id: userId } },
+      include: {
+        event_persons: {
+          include: {
+            person: {
+              select: {
+                name_display: true,
+                name_initials: true,
+                gender: true,
+              },
+            },
+          },
+          orderBy: { person: { name_full: "asc" } },
+        },
+      },
+    });
+    if (!room) throw new Error("Habitación no encontrada");
+    return room;
+  },
+
   async deleteRoom(roomId: string, userId: string) {
     const room = await db.room.findFirst({
       where: { id: roomId, event: { user_id: userId } },

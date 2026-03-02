@@ -26,6 +26,7 @@ type RoomCardProps = {
   assignedPersons: AssignedPerson[];
   onUnassign?: (personId: string) => void;
   onPersonClick?: (personId: string) => void;
+  onRoomClick?: (roomId: string) => void;
 };
 
 type RoomStatus = "ok" | "warn" | "danger" | "closed";
@@ -79,6 +80,7 @@ export function RoomCard({
   assignedPersons,
   onUnassign,
   onPersonClick,
+  onRoomClick,
 }: RoomCardProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -112,7 +114,10 @@ export function RoomCard({
       />
 
       {/* Header */}
-      <div className="mb-4 flex items-start justify-between">
+      <div
+        className="mb-4 flex cursor-pointer items-start justify-between"
+        onClick={() => onRoomClick?.(id)}
+      >
         <div>
           <h3 className="text-lg font-bold text-primary">{displayName}</h3>
           <p className="text-[10px] uppercase tracking-wider text-gray-400">
