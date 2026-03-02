@@ -14,6 +14,7 @@ import {
   DoorOpen,
   Users,
   ArrowLeft,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -26,9 +27,9 @@ type RoomType = {
 
 type EditingState = {
   id: string;
-  capacity: number;
+  capacity: string;
   hasPrivateBathroom: boolean;
-  quantity: number;
+  quantity: string;
 };
 
 export function RoomSetupForm({
@@ -41,32 +42,35 @@ export function RoomSetupForm({
   const [types, setTypes] = useState<RoomType[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Add form state
-  const [newCapacity, setNewCapacity] = useState(2);
+  // Add form state (strings to allow empty field while typing)
+  const [newCapacity, setNewCapacity] = useState("2");
   const [newBathroom, setNewBathroom] = useState(false);
-  const [newQuantity, setNewQuantity] = useState(1);
+  const [newQuantity, setNewQuantity] = useState("1");
 
   // Edit state
   const [editing, setEditing] = useState<EditingState | null>(null);
+
+  const newCapacityNum = parseInt(newCapacity) || 0;
+  const newQuantityNum = parseInt(newQuantity) || 0;
 
   const totalRooms = types.reduce((sum, t) => sum + t.quantity, 0);
   const totalSlots = types.reduce((sum, t) => sum + t.capacity * t.quantity, 0);
 
   function handleAdd() {
-    if (newCapacity < 1 || newQuantity < 1) return;
+    if (newCapacityNum < 1 || newQuantityNum < 1) return;
     setTypes((prev) => [
       ...prev,
       {
         id: crypto.randomUUID(),
-        capacity: newCapacity,
+        capacity: newCapacityNum,
         hasPrivateBathroom: newBathroom,
-        quantity: newQuantity,
+        quantity: newQuantityNum,
       },
     ]);
     // Reset
-    setNewCapacity(2);
+    setNewCapacity("2");
     setNewBathroom(false);
-    setNewQuantity(1);
+    setNewQuantity("1");
   }
 
   function handleDelete(id: string) {
@@ -77,22 +81,25 @@ export function RoomSetupForm({
   function startEdit(t: RoomType) {
     setEditing({
       id: t.id,
-      capacity: t.capacity,
+      capacity: String(t.capacity),
       hasPrivateBathroom: t.hasPrivateBathroom,
-      quantity: t.quantity,
+      quantity: String(t.quantity),
     });
   }
 
   function saveEdit() {
-    if (!editing || editing.capacity < 1 || editing.quantity < 1) return;
+    if (!editing) return;
+    const cap = parseInt(editing.capacity) || 0;
+    const qty = parseInt(editing.quantity) || 0;
+    if (cap < 1 || qty < 1) return;
     setTypes((prev) =>
       prev.map((t) =>
         t.id === editing.id
           ? {
               ...t,
-              capacity: editing.capacity,
+              capacity: cap,
               hasPrivateBathroom: editing.hasPrivateBathroom,
-              quantity: editing.quantity,
+              quantity: qty,
             }
           : t
       )
@@ -136,7 +143,7 @@ export function RoomSetupForm({
             type="number"
             min={1}
             value={newCapacity}
-            onChange={(e) => setNewCapacity(Number(e.target.value))}
+            onChange={(e) => setNewCapacity(e.target.value)}
             className="bg-white"
           />
 
@@ -156,7 +163,7 @@ export function RoomSetupForm({
             type="number"
             min={1}
             value={newQuantity}
-            onChange={(e) => setNewQuantity(Number(e.target.value))}
+            onChange={(e) => setNewQuantity(e.target.value)}
             className="bg-white"
           />
 
@@ -165,6 +172,24 @@ export function RoomSetupForm({
             Añadir
           </Button>
         </div>
+
+        {/* Inline warnings for unusual values */}
+        {(newCapacityNum > 9 || newQuantityNum > 99) && (
+          <div className="mt-3 flex flex-col gap-1">
+            {newCapacityNum > 9 && (
+              <p className="flex items-center gap-1.5 text-xs text-amber-600">
+                <AlertTriangle className="size-3.5 shrink-0" />
+                Capacidad alta ({newCapacityNum}). ¿Seguro que no es el número de habitaciones?
+              </p>
+            )}
+            {newQuantityNum > 99 && (
+              <p className="flex items-center gap-1.5 text-xs text-amber-600">
+                <AlertTriangle className="size-3.5 shrink-0" />
+                Más de 99 habitaciones ({newQuantityNum}). Comprueba que el valor es correcto.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -208,7 +233,7 @@ export function RoomSetupForm({
                           onChange={(e) =>
                             setEditing({
                               ...editing,
-                              capacity: Number(e.target.value),
+                              capacity: e.target.value,
                             })
                           }
                           className="w-20"
@@ -240,14 +265,26 @@ export function RoomSetupForm({
                           onChange={(e) =>
                             setEditing({
                               ...editing,
-                              quantity: Number(e.target.value),
+                              quantity: e.target.value,
                             })
                           }
                           className="w-20"
                         />
                       </td>
                       <td className="px-4 py-2.5 text-gray-500">
-                        {editing.capacity * editing.quantity}
+                        {(parseInt(editing.capacity) || 0) * (parseInt(editing.quantity) || 0)}
+                        {(parseInt(editing.capacity) || 0) > 9 && (
+                          <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-600">
+                            <AlertTriangle className="size-3 shrink-0" />
+                            Capacidad alta
+                          </p>
+                        )}
+                        {(parseInt(editing.quantity) || 0) > 99 && (
+                          <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-600">
+                            <AlertTriangle className="size-3 shrink-0" />
+                            +99 habitaciones
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex gap-1">

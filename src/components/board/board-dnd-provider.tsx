@@ -214,6 +214,14 @@ export function BoardDndProvider({
           if (!dp || dp.eventPerson) return;
           // Optimistic: show chip immediately (use temp ID, will be replaced on refresh)
           setOptimisticRelation({ id: `temp-${personId}`, name_display: dp.name_display });
+          // Optimistic: mark person as in-event so repeat drags are blocked
+          setDirectoryPersons((prev) =>
+            prev.map((p) =>
+              p.id === personId
+                ? { ...p, eventPerson: { id: "pending", role: p.default_role, roomName: null } }
+                : p
+            )
+          );
           try {
             const ep = await addPersonToEvent(personId, eventId);
             await createRelationship(eventId, targetPersonId, ep.id);
@@ -223,6 +231,12 @@ export function BoardDndProvider({
             setPanelRefreshKey((k) => k + 1);
           } catch (e) {
             setOptimisticRelation(null);
+            // Revert optimistic directory update
+            setDirectoryPersons((prev) =>
+              prev.map((p) =>
+                p.id === personId ? { ...p, eventPerson: null } : p
+              )
+            );
             setError(
               e instanceof Error ? e.message : "Error al crear relacion"
             );
@@ -287,8 +301,17 @@ export function BoardDndProvider({
           }
         }
 
+        // Optimistic: mark person as in-event so repeat drags are blocked
+        setDirectoryPersons((prev) =>
+          prev.map((p) =>
+            p.id === personId
+              ? { ...p, eventPerson: { id: "pending", role: p.default_role, roomName: null } }
+              : p
+          )
+        );
+
         try {
-          const ep = await addPersonToEventAndAssign(
+          await addPersonToEventAndAssign(
             personId,
             roomId,
             eventId
@@ -297,6 +320,12 @@ export function BoardDndProvider({
           await handleBoardRefresh();
           await loadDirectory();
         } catch (e) {
+          // Revert optimistic directory update
+          setDirectoryPersons((prev) =>
+            prev.map((p) =>
+              p.id === personId ? { ...p, eventPerson: null } : p
+            )
+          );
           setError(
             e instanceof Error ? e.message : "Error al agregar persona"
           );

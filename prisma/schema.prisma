@@ -123,6 +123,7 @@ model EventPerson {
   group            Group?       @relation(fields: [group_id], references: [id], onDelete: SetNull)
   room             Room?        @relation(fields: [room_id], references: [id], onDelete: SetNull)
 
+  @@unique([event_id, person_id])
   @@map("event_persons")
 }
 

@@ -167,12 +167,6 @@ export function PendingsPanel({
 
   if (!data) return null;
 
-  const totalCount =
-    data.dietary.length +
-    data.conflicts.length +
-    data.tentatives.length +
-    data.requests.length;
-
   return (
     <aside className="flex w-96 shrink-0 flex-col border-l border-gray-200 bg-white overflow-y-auto">
       {/* Header */}
@@ -184,16 +178,6 @@ export function PendingsPanel({
           <h3 className="text-base font-semibold text-gray-800">
             Pendientes
           </h3>
-          <span
-            className={cn(
-              "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",
-              totalCount > 0
-                ? "bg-danger/10 text-danger"
-                : "bg-success/10 text-success"
-            )}
-          >
-            {totalCount}
-          </span>
         </div>
         <button
           onClick={onClose}

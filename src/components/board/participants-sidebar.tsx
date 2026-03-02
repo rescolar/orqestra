@@ -297,7 +297,7 @@ export function ParticipantsSidebar({
       </div>
 
       {/* Seed button — only in "Evento" scope when empty */}
-      {scope === "evento" && allEventPersons.length === 0 && (
+      {scope === "evento" && allEventPersons.length === 0 && directoryPersons.length === 0 && (
         <div className="p-4">
           <button
             onClick={handleSeed}

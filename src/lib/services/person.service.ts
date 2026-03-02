@@ -46,10 +46,11 @@ export const PersonService = {
     });
     if (!event) throw new Error("Evento no encontrado");
 
-    const existingCount = await db.eventPerson.count({
-      where: { event_id: eventId },
-    });
-    if (existingCount > 0) return;
+    const [existingEventPersons, existingPersons] = await Promise.all([
+      db.eventPerson.count({ where: { event_id: eventId } }),
+      db.person.count({ where: { user_id: userId } }),
+    ]);
+    if (existingEventPersons > 0 || existingPersons > 0) return;
 
     for (let i = 0; i < TEST_PERSONS.length; i++) {
       const entry = TEST_PERSONS[i];
