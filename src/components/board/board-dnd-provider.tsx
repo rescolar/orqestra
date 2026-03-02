@@ -28,12 +28,18 @@ import {
 import { RoomGrid } from "./room-grid";
 import { PersonDetailPanel, PersonUpdateData } from "./person-detail-panel";
 import { RoomDetailPanel } from "./room-detail-panel";
+import { PendingsPanel } from "./pendings-panel";
 
 export type PersonData = {
   id: string;
   role: string;
   status: string;
   inseparable_with_id: string | null;
+  dietary_requirements: string[];
+  dietary_notified: boolean;
+  allergies_text: string | null;
+  requests_text: string | null;
+  requests_managed: boolean;
   person: {
     name_display: string;
     name_initials: string;
@@ -49,6 +55,7 @@ export type RoomData = {
   locked: boolean;
   has_private_bathroom: boolean;
   gender_restriction: string;
+  conflict_acknowledged: boolean;
   event_persons: PersonData[];
   _count: { event_persons: number };
 };
@@ -59,7 +66,13 @@ type BoardDndProviderProps = {
   initialUnassigned: {
     id: string;
     role: string;
+    status: string;
     inseparable_with_id: string | null;
+    dietary_requirements: string[];
+    dietary_notified: boolean;
+    allergies_text: string | null;
+    requests_text: string | null;
+    requests_managed: boolean;
     person: {
       name_full: string;
       name_display: string;
@@ -88,6 +101,7 @@ export function BoardDndProvider({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [showPendingsPanel, setShowPendingsPanel] = useState(false);
   const [panelRefreshKey, setPanelRefreshKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [directoryPersons, setDirectoryPersons] = useState<DirectoryPerson[]>(
@@ -348,6 +362,11 @@ export function BoardDndProvider({
           role: personData.role,
           status: "status" in personData ? personData.status : "confirmed",
           inseparable_with_id: inseparableId,
+          dietary_requirements: "dietary_requirements" in personData ? (personData as PersonData).dietary_requirements : [],
+          dietary_notified: "dietary_notified" in personData ? (personData as PersonData).dietary_notified : false,
+          allergies_text: "allergies_text" in personData ? (personData as PersonData).allergies_text : null,
+          requests_text: "requests_text" in personData ? (personData as PersonData).requests_text : null,
+          requests_managed: "requests_managed" in personData ? (personData as PersonData).requests_managed : false,
           person: {
             name_display: personData.person.name_display,
             name_initials: personData.person.name_initials,
@@ -370,6 +389,11 @@ export function BoardDndProvider({
                 ? (partnerData as { inseparable_with_id: string | null })
                     .inseparable_with_id
                 : null,
+            dietary_requirements: "dietary_requirements" in partnerData ? (partnerData as PersonData).dietary_requirements : [],
+            dietary_notified: "dietary_notified" in partnerData ? (partnerData as PersonData).dietary_notified : false,
+            allergies_text: "allergies_text" in partnerData ? (partnerData as PersonData).allergies_text : null,
+            requests_text: "requests_text" in partnerData ? (partnerData as PersonData).requests_text : null,
+            requests_managed: "requests_managed" in partnerData ? (partnerData as PersonData).requests_managed : false,
             person: {
               name_display: partnerData.person.name_display,
               name_initials: partnerData.person.name_initials,
@@ -468,7 +492,13 @@ export function BoardDndProvider({
           {
             id: person.id,
             role: person.role,
+            status: person.status,
             inseparable_with_id: person.inseparable_with_id,
+            dietary_requirements: person.dietary_requirements,
+            dietary_notified: person.dietary_notified,
+            allergies_text: person.allergies_text,
+            requests_text: person.requests_text,
+            requests_managed: person.requests_managed,
             person: {
               name_full: person.person.name_display, // best we have
               name_display: person.person.name_display,
@@ -494,11 +524,19 @@ export function BoardDndProvider({
   const handlePersonClick = useCallback((personId: string) => {
     setSelectedPersonId(personId);
     setSelectedRoomId(null);
+    setShowPendingsPanel(false);
   }, []);
 
   const handleRoomClick = useCallback((roomId: string) => {
     setSelectedRoomId(roomId);
     setSelectedPersonId(null);
+    setShowPendingsPanel(false);
+  }, []);
+
+  const handlePendingClick = useCallback(() => {
+    setShowPendingsPanel(true);
+    setSelectedPersonId(null);
+    setSelectedRoomId(null);
   }, []);
 
   const handlePersonUpdated = useCallback(
@@ -586,9 +624,32 @@ export function BoardDndProvider({
     0
   );
   const totalCapacity = rooms.reduce((acc, r) => acc + r.capacity, 0);
-  const pendingCount = rooms.filter(
-    (r) => r.event_persons.length > r.capacity
-  ).length;
+  const pendingCount = useMemo(() => {
+    const allPersons = [
+      ...rooms.flatMap((r) => r.event_persons),
+      ...unassigned,
+    ];
+    // Room conflicts: capacity overflow or gender violation
+    const roomConflicts = rooms.filter((r) => {
+      if (r.event_persons.length > r.capacity) return true;
+      if (r.gender_restriction !== "mixed") {
+        const expected = r.gender_restriction === "women" ? "female" : "male";
+        if (r.event_persons.some((ep) => ep.person.gender !== expected && ep.person.gender !== "unknown")) return true;
+      }
+      return false;
+    }).length;
+    // Dietary/allergies not notified
+    const dietaryPending = allPersons.filter(
+      (ep) => !ep.dietary_notified && (ep.dietary_requirements.length > 0 || ep.allergies_text)
+    ).length;
+    // Tentative participants
+    const tentativePending = allPersons.filter((ep) => ep.status === "tentative").length;
+    // Unresolved requests
+    const requestsPending = allPersons.filter(
+      (ep) => ep.requests_text && !ep.requests_managed
+    ).length;
+    return roomConflicts + dietaryPending + tentativePending + requestsPending;
+  }, [rooms, unassigned]);
 
   return (
     <DndContext
@@ -607,6 +668,7 @@ export function BoardDndProvider({
         unassignedCount={unassigned.length}
         pendingCount={pendingCount}
         userName={headerData.userName}
+        onPendingClick={handlePendingClick}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -664,6 +726,17 @@ export function BoardDndProvider({
             onRoomUpdated={handleBoardRefresh}
             onPersonClick={handlePersonClick}
             onUnassign={handleUnassign}
+          />
+        )}
+
+        {showPendingsPanel && (
+          <PendingsPanel
+            eventId={eventId}
+            refreshKey={panelRefreshKey}
+            onClose={() => setShowPendingsPanel(false)}
+            onPersonClick={handlePersonClick}
+            onRoomClick={handleRoomClick}
+            onItemResolved={handleBoardRefresh}
           />
         )}
       </div>

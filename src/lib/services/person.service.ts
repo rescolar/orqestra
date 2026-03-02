@@ -262,7 +262,13 @@ export const PersonService = {
       select: {
         id: true,
         role: true,
+        status: true,
         inseparable_with_id: true,
+        dietary_requirements: true,
+        dietary_notified: true,
+        allergies_text: true,
+        requests_text: true,
+        requests_managed: true,
         person: {
           select: {
             name_full: true,

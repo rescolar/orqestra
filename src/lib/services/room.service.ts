@@ -50,6 +50,7 @@ export const RoomService = {
       locked?: boolean;
       locked_reason?: string;
       description?: string;
+      conflict_acknowledged?: boolean;
     }
   ) {
     const room = await db.room.findFirst({

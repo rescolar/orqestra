@@ -19,7 +19,13 @@ import { Button } from "@/components/ui/button";
 type UnassignedPerson = {
   id: string;
   role: string;
+  status: string;
   inseparable_with_id: string | null;
+  dietary_requirements: string[];
+  dietary_notified: boolean;
+  allergies_text: string | null;
+  requests_text: string | null;
+  requests_managed: boolean;
   person: {
     name_full: string;
     name_display: string;

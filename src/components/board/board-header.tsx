@@ -10,6 +10,7 @@ type BoardHeaderProps = {
   unassignedCount: number;
   pendingCount: number;
   userName?: string | null;
+  onPendingClick?: () => void;
 };
 
 function formatDateRange(start: Date, end: Date) {
@@ -42,9 +43,10 @@ export function BoardHeader({
   unassignedCount,
   pendingCount,
   userName,
+  onPendingClick,
 }: BoardHeaderProps) {
   return (
-    <header className="flex items-center justify-between border-b bg-white px-6 py-4">
+    <header className={`flex items-center justify-between border-b px-6 py-4 ${pendingCount === 0 ? "bg-success/5" : "bg-white"}`}>
       <div className="flex items-center gap-3">
         <Link
           href="/dashboard"
@@ -67,7 +69,12 @@ export function BoardHeader({
         />
         <KPI label="Rooms" value={roomCount} />
         <KPI label="No Asignados" value={unassignedCount} />
-        <KPI label="Pendientes" value={pendingCount} danger={pendingCount > 0} />
+        <button
+          onClick={onPendingClick}
+          className="cursor-pointer rounded-lg px-1 py-1 transition-colors hover:bg-gray-100"
+        >
+          <KPI label="Pendientes" value={pendingCount} danger={pendingCount > 0} />
+        </button>
 
         <div className="ml-4 flex items-center gap-3">
           <button className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50">

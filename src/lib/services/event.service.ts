@@ -162,6 +162,11 @@ export const EventService = {
                 status: true,
                 role: true,
                 inseparable_with_id: true,
+                dietary_requirements: true,
+                dietary_notified: true,
+                allergies_text: true,
+                requests_text: true,
+                requests_managed: true,
                 person: {
                   select: {
                     gender: true,
