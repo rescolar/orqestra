@@ -55,6 +55,9 @@ export type PersonUpdateData = {
   role?: string;
   status?: string;
   gender?: string;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  contact_address?: string | null;
   dietary_requirements?: string[];
   dietary_notified?: boolean;
   allergies_text?: string | null;
@@ -111,6 +114,9 @@ export function PersonDetailPanel({
   const [loading, setLoading] = useState(true);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [relationsIsOver, setRelationsIsOver] = useState(false);
+  const [emailLocal, setEmailLocal] = useState("");
+  const [phoneLocal, setPhoneLocal] = useState("");
+  const [addressLocal, setAddressLocal] = useState("");
   const [allergiesLocal, setAllergiesLocal] = useState("");
   const [requestsLocal, setRequestsLocal] = useState("");
 
@@ -119,6 +125,9 @@ export function PersonDetailPanel({
     setConfirmDiscard(false);
     getEventPersonDetail(eventPersonId).then((result) => {
       setData(result);
+      setEmailLocal(result.person.contact_email ?? "");
+      setPhoneLocal(result.person.contact_phone ?? "");
+      setAddressLocal(result.person.contact_address ?? "");
       setAllergiesLocal(result.allergies_text ?? "");
       setRequestsLocal(result.requests_text ?? "");
       setLoading(false);
@@ -197,6 +206,30 @@ export function PersonDetailPanel({
     [saveField]
   );
 
+  const handleEmailBlur = useCallback(() => {
+    if (!data) return;
+    const newVal = emailLocal || null;
+    if (newVal === data.person.contact_email) return;
+    setData((prev) => prev ? { ...prev, person: { ...prev.person, contact_email: newVal } } : prev);
+    saveField({ contact_email: newVal });
+  }, [data, emailLocal, saveField]);
+
+  const handlePhoneBlur = useCallback(() => {
+    if (!data) return;
+    const newVal = phoneLocal || null;
+    if (newVal === data.person.contact_phone) return;
+    setData((prev) => prev ? { ...prev, person: { ...prev.person, contact_phone: newVal } } : prev);
+    saveField({ contact_phone: newVal });
+  }, [data, phoneLocal, saveField]);
+
+  const handleAddressBlur = useCallback(() => {
+    if (!data) return;
+    const newVal = addressLocal || null;
+    if (newVal === data.person.contact_address) return;
+    setData((prev) => prev ? { ...prev, person: { ...prev.person, contact_address: newVal } } : prev);
+    saveField({ contact_address: newVal });
+  }, [data, addressLocal, saveField]);
+
   const handleAllergiesBlur = useCallback(() => {
     if (!data) return;
     const newVal = allergiesLocal || null;
@@ -265,8 +298,8 @@ export function PersonDetailPanel({
   const roleSummary = ROLE_OPTIONS.find((o) => o.value === data.role)?.label ?? "";
   const statusSummary = STATUS_OPTIONS.find((o) => o.value === data.status)?.label ?? "";
   const genderSummary = GENDER_OPTIONS.find((o) => o.value === data.person.gender)?.label ?? "ND";
-  const contactSummary =
-    data.person.contact_email || data.person.contact_phone || data.person.contact_address || "\u2014";
+  const hasContact = data.person.contact_email || data.person.contact_phone || data.person.contact_address;
+  const contactSummary = hasContact ? "Si" : "No";
   const inseparablePartner = otherMembers.find((m) => m.id === data.inseparable_with_id);
   const relationsSummary = inseparablePartner
     ? inseparablePartner.person.name_display
@@ -380,28 +413,39 @@ export function PersonDetailPanel({
 
         {/* Contact */}
         <CollapsibleSection label="Contacto" summary={contactSummary}>
-          <div className="space-y-1.5 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
-            {data.person.contact_email && (
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-sm text-gray-400">mail</span>
-                {data.person.contact_email}
-              </div>
-            )}
-            {data.person.contact_phone && (
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-sm text-gray-400">phone</span>
-                {data.person.contact_phone}
-              </div>
-            )}
-            {data.person.contact_address && (
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-sm text-gray-400">location_on</span>
-                {data.person.contact_address}
-              </div>
-            )}
-            {!data.person.contact_email && !data.person.contact_phone && !data.person.contact_address && (
-              <p className="text-xs text-gray-400">Sin datos de contacto</p>
-            )}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm text-gray-400">mail</span>
+              <input
+                type="email"
+                value={emailLocal}
+                onChange={(e) => setEmailLocal(e.target.value)}
+                onBlur={handleEmailBlur}
+                placeholder="Email"
+                className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm text-gray-400">phone</span>
+              <input
+                type="tel"
+                value={phoneLocal}
+                onChange={(e) => setPhoneLocal(e.target.value)}
+                onBlur={handlePhoneBlur}
+                placeholder="Telefono"
+                className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm text-gray-400">location_on</span>
+              <input
+                value={addressLocal}
+                onChange={(e) => setAddressLocal(e.target.value)}
+                onBlur={handleAddressBlur}
+                placeholder="Direccion"
+                className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+              />
+            </div>
           </div>
         </CollapsibleSection>
 

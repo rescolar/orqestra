@@ -80,6 +80,9 @@ export async function updateEventPerson(
     role?: "participant" | "facilitator";
     status?: "confirmed" | "tentative" | "cancelled";
     gender?: "unknown" | "female" | "male" | "other";
+    contact_email?: string | null;
+    contact_phone?: string | null;
+    contact_address?: string | null;
     dietary_requirements?: string[];
     dietary_notified?: boolean;
     allergies_text?: string | null;

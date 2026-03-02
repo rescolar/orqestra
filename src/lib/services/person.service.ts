@@ -423,6 +423,9 @@ export const PersonService = {
       role?: "participant" | "facilitator";
       status?: "confirmed" | "tentative" | "cancelled";
       gender?: Gender;
+      contact_email?: string | null;
+      contact_phone?: string | null;
+      contact_address?: string | null;
       dietary_requirements?: string[];
       dietary_notified?: boolean;
       allergies_text?: string | null;
@@ -437,13 +440,19 @@ export const PersonService = {
     });
     if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
 
-    const { gender, ...eventPersonData } = data;
+    const { gender, contact_email, contact_phone, contact_address, ...eventPersonData } = data;
 
-    // Update gender on Person if changed
-    if (gender !== undefined) {
+    // Update Person-level fields if changed
+    const personUpdates: Record<string, unknown> = {};
+    if (gender !== undefined) personUpdates.gender = gender;
+    if (contact_email !== undefined) personUpdates.contact_email = contact_email;
+    if (contact_phone !== undefined) personUpdates.contact_phone = contact_phone;
+    if (contact_address !== undefined) personUpdates.contact_address = contact_address;
+
+    if (Object.keys(personUpdates).length > 0) {
       await db.person.update({
         where: { id: ep.person_id },
-        data: { gender },
+        data: personUpdates,
       });
     }
 
