@@ -100,6 +100,22 @@ const DIETARY_OPTIONS = [
   { value: "lactose_free", label: "SL" },
 ] as const;
 
+const STORAGE_KEY_PREFIX = "orqestra:sections:";
+
+function readOpenSections(eventId: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PREFIX + eventId);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {}
+  return new Set<string>();
+}
+
+function writeOpenSections(eventId: string, sections: Set<string>) {
+  try {
+    localStorage.setItem(STORAGE_KEY_PREFIX + eventId, JSON.stringify([...sections]));
+  } catch {}
+}
+
 export function PersonDetailPanel({
   eventPersonId,
   eventId,
@@ -114,6 +130,20 @@ export function PersonDetailPanel({
   const [loading, setLoading] = useState(true);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [relationsIsOver, setRelationsIsOver] = useState(false);
+  const [openSections, setOpenSections] = useState<Set<string>>(() => readOpenSections(eventId));
+
+  const toggleSection = useCallback(
+    (label: string) => {
+      setOpenSections((prev) => {
+        const next = new Set(prev);
+        if (next.has(label)) next.delete(label);
+        else next.add(label);
+        writeOpenSections(eventId, next);
+        return next;
+      });
+    },
+    [eventId]
+  );
   const [emailLocal, setEmailLocal] = useState("");
   const [phoneLocal, setPhoneLocal] = useState("");
   const [addressLocal, setAddressLocal] = useState("");
@@ -357,7 +387,7 @@ export function PersonDetailPanel({
 
       <div className="flex-1 divide-y divide-gray-100 px-4">
         {/* Role toggle */}
-        <CollapsibleSection label="Rol" summary={roleSummary}>
+        <CollapsibleSection label="Rol" summary={roleSummary} open={openSections.has("Rol")} onToggle={() => toggleSection("Rol")}>
           <div className="flex rounded-lg border border-gray-200 p-0.5">
             {ROLE_OPTIONS.map((opt) => (
               <button
@@ -377,7 +407,7 @@ export function PersonDetailPanel({
         </CollapsibleSection>
 
         {/* Status */}
-        <CollapsibleSection label="Estado" summary={statusSummary}>
+        <CollapsibleSection label="Estado" summary={statusSummary} open={openSections.has("Estado")} onToggle={() => toggleSection("Estado")}>
           <select
             value={data.status}
             onChange={(e) => handleStatusChange(e.target.value)}
@@ -392,7 +422,7 @@ export function PersonDetailPanel({
         </CollapsibleSection>
 
         {/* Gender */}
-        <CollapsibleSection label="Genero" summary={genderSummary}>
+        <CollapsibleSection label="Genero" summary={genderSummary} open={openSections.has("Genero")} onToggle={() => toggleSection("Genero")}>
           <div className="flex gap-1">
             {GENDER_OPTIONS.map((opt) => (
               <button
@@ -412,7 +442,7 @@ export function PersonDetailPanel({
         </CollapsibleSection>
 
         {/* Contact */}
-        <CollapsibleSection label="Contacto" summary={contactSummary}>
+        <CollapsibleSection label="Contacto" summary={contactSummary} open={openSections.has("Contacto")} onToggle={() => toggleSection("Contacto")}>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-sm text-gray-400">mail</span>
@@ -450,7 +480,7 @@ export function PersonDetailPanel({
         </CollapsibleSection>
 
         {/* Relations */}
-        <CollapsibleSection label="Relaciones" summary={relationsSummary} forceOpen={relationsIsOver}>
+        <CollapsibleSection label="Relaciones" summary={relationsSummary} open={openSections.has("Relaciones")} onToggle={() => toggleSection("Relaciones")} forceOpen={relationsIsOver}>
           <RelationsDropZone
             eventPersonId={data.id}
             inseparableWithId={data.inseparable_with_id}
@@ -463,7 +493,7 @@ export function PersonDetailPanel({
         </CollapsibleSection>
 
         {/* Dietary */}
-        <CollapsibleSection label="Dieta" summary={dietSummary} trailing={dietaryTrailing}>
+        <CollapsibleSection label="Dieta" summary={dietSummary} open={openSections.has("Dieta")} onToggle={() => toggleSection("Dieta")} trailing={dietaryTrailing}>
           <div className="flex items-center gap-1">
             {DIETARY_OPTIONS.map((opt) => (
               <button
@@ -483,7 +513,7 @@ export function PersonDetailPanel({
         </CollapsibleSection>
 
         {/* Allergies */}
-        <CollapsibleSection label="Alergias" summary={allergiesSummary}>
+        <CollapsibleSection label="Alergias" summary={allergiesSummary} open={openSections.has("Alergias")} onToggle={() => toggleSection("Alergias")}>
           <textarea
             value={allergiesLocal}
             onChange={(e) => setAllergiesLocal(e.target.value)}
@@ -500,7 +530,7 @@ export function PersonDetailPanel({
         </CollapsibleSection>
 
         {/* Preferences / Requests */}
-        <CollapsibleSection label="Preferencias" summary={preferencesSummary} trailing={preferencesTrailing}>
+        <CollapsibleSection label="Preferencias" summary={preferencesSummary} open={openSections.has("Preferencias")} onToggle={() => toggleSection("Preferencias")} trailing={preferencesTrailing}>
           <textarea
             value={requestsLocal}
             onChange={(e) => setRequestsLocal(e.target.value)}
@@ -662,25 +692,27 @@ function CollapsibleSection({
   summary,
   children,
   trailing,
+  open,
+  onToggle,
   forceOpen,
 }: {
   label: string;
   summary: string;
   children: React.ReactNode;
   trailing?: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
   forceOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-
   useEffect(() => {
-    if (forceOpen) setOpen(true);
-  }, [forceOpen]);
+    if (forceOpen && !open) onToggle();
+  }, [forceOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="py-3">
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={onToggle}
         className="flex w-full items-center gap-2"
       >
         <span className="material-symbols-outlined text-base text-gray-400 transition-transform" style={{ transform: open ? "rotate(90deg)" : undefined }}>
