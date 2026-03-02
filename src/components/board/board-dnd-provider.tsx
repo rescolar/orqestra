@@ -541,37 +541,34 @@ export function BoardDndProvider({
 
   const handlePersonUpdated = useCallback(
     (id: string, changes: PersonUpdateData) => {
+      const applyChanges = (ep: PersonData) => ({
+        ...ep,
+        role: (changes.role as string) ?? ep.role,
+        status: (changes.status as string) ?? ep.status,
+        dietary_requirements: changes.dietary_requirements ?? ep.dietary_requirements,
+        dietary_notified: changes.dietary_notified ?? ep.dietary_notified,
+        allergies_text: changes.allergies_text !== undefined ? changes.allergies_text : ep.allergies_text,
+        requests_text: changes.requests_text !== undefined ? changes.requests_text : ep.requests_text,
+        requests_managed: changes.requests_managed ?? ep.requests_managed,
+        person: {
+          ...ep.person,
+          gender: (changes.gender as string) ?? ep.person.gender,
+        },
+      });
       // Update person in rooms
       setRooms((prev) =>
         prev.map((r) => ({
           ...r,
-          event_persons: r.event_persons.map((ep) => {
-            if (ep.id !== id) return ep;
-            return {
-              ...ep,
-              role: (changes.role as string) ?? ep.role,
-              status: (changes.status as string) ?? ep.status,
-              person: {
-                ...ep.person,
-                gender: (changes.gender as string) ?? ep.person.gender,
-              },
-            };
-          }),
+          event_persons: r.event_persons.map((ep) =>
+            ep.id === id ? applyChanges(ep) : ep
+          ),
         }))
       );
       // Update person in unassigned
       setUnassigned((prev) =>
-        prev.map((ep) => {
-          if (ep.id !== id) return ep;
-          return {
-            ...ep,
-            role: (changes.role as string) ?? ep.role,
-            person: {
-              ...ep.person,
-              gender: (changes.gender as string) ?? ep.person.gender,
-            },
-          };
-        })
+        prev.map((ep) =>
+          ep.id === id ? { ...applyChanges(ep as unknown as PersonData), person: { ...ep.person, gender: (changes.gender as string) ?? ep.person.gender } } : ep
+        )
       );
     },
     []
