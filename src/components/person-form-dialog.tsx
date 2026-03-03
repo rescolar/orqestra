@@ -18,6 +18,8 @@ type PersonFormData = {
   default_role: "participant" | "facilitator";
   contact_email: string;
   contact_phone: string;
+  dietary_requirements: string[];
+  allergies_text: string;
 };
 
 interface PersonFormDialogProps {
@@ -35,6 +37,12 @@ const GENDERS: { value: Gender; label: string }[] = [
   { value: "unknown", label: "Sin especificar" },
 ];
 
+const DIETARY_OPTIONS = [
+  { value: "vegetarian", label: "Vegetariano" },
+  { value: "gluten_free", label: "Sin gluten" },
+  { value: "lactose_free", label: "Sin lactosa" },
+] as const;
+
 export function PersonFormDialog({
   open,
   onOpenChange,
@@ -49,6 +57,8 @@ export function PersonFormDialog({
   );
   const [email, setEmail] = useState(initial?.contact_email ?? "");
   const [phone, setPhone] = useState(initial?.contact_phone ?? "");
+  const [dietaryReqs, setDietaryReqs] = useState<string[]>(initial?.dietary_requirements ?? []);
+  const [allergies, setAllergies] = useState(initial?.allergies_text ?? "");
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent) {
@@ -61,6 +71,8 @@ export function PersonFormDialog({
         default_role: role,
         contact_email: email.trim(),
         contact_phone: phone.trim(),
+        dietary_requirements: dietaryReqs,
+        allergies_text: allergies.trim(),
       });
       if (!initial) {
         setName("");
@@ -68,6 +80,8 @@ export function PersonFormDialog({
         setRole("participant");
         setEmail("");
         setPhone("");
+        setDietaryReqs([]);
+        setAllergies("");
       }
       onOpenChange(false);
     });
@@ -129,6 +143,42 @@ export function PersonFormDialog({
                 </button>
               ))}
             </div>
+          </div>
+
+          <div>
+            <Label>Dieta</Label>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {DIETARY_OPTIONS.map((d) => (
+                <button
+                  key={d.value}
+                  type="button"
+                  onClick={() =>
+                    setDietaryReqs((prev) =>
+                      prev.includes(d.value)
+                        ? prev.filter((v) => v !== d.value)
+                        : [...prev, d.value]
+                    )
+                  }
+                  className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                    dietaryReqs.includes(d.value)
+                      ? "border-amber-400 bg-amber-50 text-amber-700"
+                      : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="pf-allergies">Alergias</Label>
+            <Input
+              id="pf-allergies"
+              value={allergies}
+              onChange={(e) => setAllergies(e.target.value)}
+              placeholder="Ninguna conocida"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

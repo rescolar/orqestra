@@ -6,9 +6,11 @@ import { db } from "@/lib/db";
 
 export type PendingDietary = {
   id: string;
-  person: { name_display: string };
-  dietary_requirements: string[];
-  allergies_text: string | null;
+  person: {
+    name_display: string;
+    dietary_requirements: string[];
+    allergies_text: string | null;
+  };
 };
 
 export type PendingConflict = {
@@ -52,21 +54,25 @@ export async function getPendingItems(eventId: string): Promise<PendingData> {
   });
   if (!event) throw new Error("Evento no encontrado");
 
-  // Dietary/allergies not notified
+  // Dietary/allergies not notified (dietary data lives on Person)
   const dietaryRaw = await db.eventPerson.findMany({
     where: {
       event_id: eventId,
       dietary_notified: false,
       OR: [
-        { dietary_requirements: { isEmpty: false } },
-        { allergies_text: { not: null } },
+        { person: { dietary_requirements: { isEmpty: false } } },
+        { person: { allergies_text: { not: null } } },
       ],
     },
     select: {
       id: true,
-      dietary_requirements: true,
-      allergies_text: true,
-      person: { select: { name_display: true } },
+      person: {
+        select: {
+          name_display: true,
+          dietary_requirements: true,
+          allergies_text: true,
+        },
+      },
     },
     orderBy: { person: { name_display: "asc" } },
   });

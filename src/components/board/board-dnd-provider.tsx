@@ -35,15 +35,15 @@ export type PersonData = {
   role: string;
   status: string;
   inseparable_with_id: string | null;
-  dietary_requirements: string[];
   dietary_notified: boolean;
-  allergies_text: string | null;
   requests_text: string | null;
   requests_managed: boolean;
   person: {
     name_display: string;
     name_initials: string;
     gender: string;
+    dietary_requirements: string[];
+    allergies_text: string | null;
   };
 };
 
@@ -68,9 +68,7 @@ type BoardDndProviderProps = {
     role: string;
     status: string;
     inseparable_with_id: string | null;
-    dietary_requirements: string[];
     dietary_notified: boolean;
-    allergies_text: string | null;
     requests_text: string | null;
     requests_managed: boolean;
     person: {
@@ -78,6 +76,8 @@ type BoardDndProviderProps = {
       name_display: string;
       name_initials: string;
       gender: string;
+      dietary_requirements: string[];
+      allergies_text: string | null;
     };
   }[];
   headerData: {
@@ -415,15 +415,15 @@ export function BoardDndProvider({
           role: personData.role,
           status: "status" in personData ? personData.status : "confirmed",
           inseparable_with_id: inseparableId,
-          dietary_requirements: "dietary_requirements" in personData ? (personData as PersonData).dietary_requirements : [],
           dietary_notified: "dietary_notified" in personData ? (personData as PersonData).dietary_notified : false,
-          allergies_text: "allergies_text" in personData ? (personData as PersonData).allergies_text : null,
           requests_text: "requests_text" in personData ? (personData as PersonData).requests_text : null,
           requests_managed: "requests_managed" in personData ? (personData as PersonData).requests_managed : false,
           person: {
             name_display: personData.person.name_display,
             name_initials: personData.person.name_initials,
             gender: personData.person.gender,
+            dietary_requirements: "dietary_requirements" in personData.person ? (personData.person as PersonData["person"]).dietary_requirements : [],
+            allergies_text: "allergies_text" in personData.person ? (personData.person as PersonData["person"]).allergies_text : null,
           },
         },
         fromUnassigned: !!fromUnassigned,
@@ -442,15 +442,15 @@ export function BoardDndProvider({
                 ? (partnerData as { inseparable_with_id: string | null })
                     .inseparable_with_id
                 : null,
-            dietary_requirements: "dietary_requirements" in partnerData ? (partnerData as PersonData).dietary_requirements : [],
             dietary_notified: "dietary_notified" in partnerData ? (partnerData as PersonData).dietary_notified : false,
-            allergies_text: "allergies_text" in partnerData ? (partnerData as PersonData).allergies_text : null,
             requests_text: "requests_text" in partnerData ? (partnerData as PersonData).requests_text : null,
             requests_managed: "requests_managed" in partnerData ? (partnerData as PersonData).requests_managed : false,
             person: {
               name_display: partnerData.person.name_display,
               name_initials: partnerData.person.name_initials,
               gender: partnerData.person.gender,
+              dietary_requirements: "dietary_requirements" in partnerData.person ? (partnerData.person as PersonData["person"]).dietary_requirements : [],
+              allergies_text: "allergies_text" in partnerData.person ? (partnerData.person as PersonData["person"]).allergies_text : null,
             },
           },
           fromUnassigned: partnerFromUnassigned,
@@ -547,9 +547,7 @@ export function BoardDndProvider({
             role: person.role,
             status: person.status,
             inseparable_with_id: person.inseparable_with_id,
-            dietary_requirements: person.dietary_requirements,
             dietary_notified: person.dietary_notified,
-            allergies_text: person.allergies_text,
             requests_text: person.requests_text,
             requests_managed: person.requests_managed,
             person: {
@@ -557,6 +555,8 @@ export function BoardDndProvider({
               name_display: person.person.name_display,
               name_initials: person.person.name_initials,
               gender: person.person.gender,
+              dietary_requirements: person.person.dietary_requirements,
+              allergies_text: person.person.allergies_text,
             },
           },
         ].sort((a, b) =>
@@ -598,14 +598,14 @@ export function BoardDndProvider({
         ...ep,
         role: (changes.role as string) ?? ep.role,
         status: (changes.status as string) ?? ep.status,
-        dietary_requirements: changes.dietary_requirements ?? ep.dietary_requirements,
         dietary_notified: changes.dietary_notified ?? ep.dietary_notified,
-        allergies_text: changes.allergies_text !== undefined ? changes.allergies_text : ep.allergies_text,
         requests_text: changes.requests_text !== undefined ? changes.requests_text : ep.requests_text,
         requests_managed: changes.requests_managed ?? ep.requests_managed,
         person: {
           ...ep.person,
           gender: (changes.gender as string) ?? ep.person.gender,
+          dietary_requirements: changes.dietary_requirements ?? ep.person.dietary_requirements,
+          allergies_text: changes.allergies_text !== undefined ? changes.allergies_text : ep.person.allergies_text,
         },
       });
       // Update person in rooms
@@ -688,9 +688,9 @@ export function BoardDndProvider({
       }
       return false;
     }).length;
-    // Dietary/allergies not notified
+    // Dietary/allergies not notified (dietary data lives on person)
     const dietaryPending = allPersons.filter(
-      (ep) => !ep.dietary_notified && (ep.dietary_requirements.length > 0 || ep.allergies_text)
+      (ep) => !ep.dietary_notified && (ep.person.dietary_requirements.length > 0 || ep.person.allergies_text)
     ).length;
     // Tentative participants
     const tentativePending = allPersons.filter((ep) => ep.status === "tentative").length;

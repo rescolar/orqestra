@@ -30,10 +30,10 @@ const DIETARY_LABELS: Record<string, string> = {
 
 function describeDiet(ep: PendingDietary): string {
   const parts: string[] = [];
-  for (const d of ep.dietary_requirements) {
+  for (const d of ep.person.dietary_requirements) {
     parts.push(DIETARY_LABELS[d] ?? d);
   }
-  if (ep.allergies_text) parts.push(`Alergia: ${ep.allergies_text}`);
+  if (ep.person.allergies_text) parts.push(`Alergia: ${ep.person.allergies_text}`);
   return parts.join(", ");
 }
 

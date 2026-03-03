@@ -111,8 +111,6 @@ model EventPerson {
   group_id             String?
   inseparable_with_id  String?
   move_with_partner    Boolean           @default(false)
-  dietary_requirements String[]          @default([])
-  allergies_text       String?
   dietary_notified     Boolean           @default(false)
   requests_text        String?
   requests_managed     Boolean           @default(false)

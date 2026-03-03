@@ -51,6 +51,8 @@ export const PersonService = {
         default_role: true,
         contact_email: true,
         contact_phone: true,
+        dietary_requirements: true,
+        allergies_text: true,
         _count: { select: { event_persons: true } },
       },
       orderBy: { name_full: "asc" },
@@ -69,6 +71,8 @@ export const PersonService = {
       default_role: "participant" | "facilitator";
       contact_email?: string | null;
       contact_phone?: string | null;
+      dietary_requirements?: string[];
+      allergies_text?: string | null;
     }
   ) {
     return db.person.create({
@@ -81,6 +85,8 @@ export const PersonService = {
         default_role: data.default_role,
         contact_email: data.contact_email ?? null,
         contact_phone: data.contact_phone ?? null,
+        dietary_requirements: data.dietary_requirements ?? [],
+        allergies_text: data.allergies_text ?? null,
       },
     });
   },
@@ -94,6 +100,8 @@ export const PersonService = {
       default_role?: "participant" | "facilitator";
       contact_email?: string | null;
       contact_phone?: string | null;
+      dietary_requirements?: string[];
+      allergies_text?: string | null;
     }
   ) {
     const person = await db.person.findFirst({
@@ -112,6 +120,8 @@ export const PersonService = {
     if (data.default_role !== undefined) updates.default_role = data.default_role;
     if (data.contact_email !== undefined) updates.contact_email = data.contact_email;
     if (data.contact_phone !== undefined) updates.contact_phone = data.contact_phone;
+    if (data.dietary_requirements !== undefined) updates.dietary_requirements = data.dietary_requirements;
+    if (data.allergies_text !== undefined) updates.allergies_text = data.allergies_text;
 
     return db.person.update({ where: { id: personId }, data: updates });
   },
@@ -352,9 +362,7 @@ export const PersonService = {
         role: true,
         status: true,
         inseparable_with_id: true,
-        dietary_requirements: true,
         dietary_notified: true,
-        allergies_text: true,
         requests_text: true,
         requests_managed: true,
         person: {
@@ -363,6 +371,8 @@ export const PersonService = {
             name_display: true,
             name_initials: true,
             gender: true,
+            dietary_requirements: true,
+            allergies_text: true,
           },
         },
       },
@@ -472,6 +482,7 @@ export const PersonService = {
         event: { select: { user_id: true } },
         person: {
           select: {
+            id: true,
             name_full: true,
             name_display: true,
             name_initials: true,
@@ -479,6 +490,8 @@ export const PersonService = {
             contact_email: true,
             contact_phone: true,
             contact_address: true,
+            dietary_requirements: true,
+            allergies_text: true,
           },
         },
         room: {
@@ -534,14 +547,24 @@ export const PersonService = {
     });
     if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
 
-    const { gender, contact_email, contact_phone, contact_address, ...eventPersonData } = data;
+    const {
+      gender,
+      contact_email,
+      contact_phone,
+      contact_address,
+      dietary_requirements,
+      allergies_text,
+      ...eventPersonData
+    } = data;
 
-    // Update Person-level fields if changed
+    // Update Person-level fields if changed (identity + dietary)
     const personUpdates: Record<string, unknown> = {};
     if (gender !== undefined) personUpdates.gender = gender;
     if (contact_email !== undefined) personUpdates.contact_email = contact_email;
     if (contact_phone !== undefined) personUpdates.contact_phone = contact_phone;
     if (contact_address !== undefined) personUpdates.contact_address = contact_address;
+    if (dietary_requirements !== undefined) personUpdates.dietary_requirements = dietary_requirements;
+    if (allergies_text !== undefined) personUpdates.allergies_text = allergies_text;
 
     if (Object.keys(personUpdates).length > 0) {
       await db.person.update({

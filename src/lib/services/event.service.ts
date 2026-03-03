@@ -13,12 +13,16 @@ export const EventService = {
             id: true,
             room_id: true,
             status: true,
-            dietary_requirements: true,
             dietary_notified: true,
-            allergies_text: true,
             requests_text: true,
             requests_managed: true,
-            person: { select: { gender: true } },
+            person: {
+              select: {
+                gender: true,
+                dietary_requirements: true,
+                allergies_text: true,
+              },
+            },
           },
         },
         rooms: {
@@ -42,7 +46,7 @@ export const EventService = {
       const dietaryCount = event.event_persons.filter(
         (ep) =>
           !ep.dietary_notified &&
-          (ep.dietary_requirements.length > 0 || ep.allergies_text !== null)
+          (ep.person.dietary_requirements.length > 0 || ep.person.allergies_text !== null)
       ).length;
 
       const conflictCount = event.rooms.filter((r) => {
@@ -211,9 +215,7 @@ export const EventService = {
                 status: true,
                 role: true,
                 inseparable_with_id: true,
-                dietary_requirements: true,
                 dietary_notified: true,
-                allergies_text: true,
                 requests_text: true,
                 requests_managed: true,
                 person: {
@@ -221,6 +223,8 @@ export const EventService = {
                     gender: true,
                     name_display: true,
                     name_initials: true,
+                    dietary_requirements: true,
+                    allergies_text: true,
                   },
                 },
               },

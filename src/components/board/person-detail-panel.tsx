@@ -30,9 +30,7 @@ type EventPersonDetail = {
   role: string;
   status: string;
   inseparable_with_id: string | null;
-  dietary_requirements: string[];
   dietary_notified: boolean;
-  allergies_text: string | null;
   requests_text: string | null;
   requests_managed: boolean;
   group: GroupData | null;
@@ -41,6 +39,7 @@ type EventPersonDetail = {
     internal_number: string;
   } | null;
   person: {
+    id: string;
     name_full: string;
     name_display: string;
     name_initials: string;
@@ -48,6 +47,8 @@ type EventPersonDetail = {
     contact_email: string | null;
     contact_phone: string | null;
     contact_address: string | null;
+    dietary_requirements: string[];
+    allergies_text: string | null;
   };
 };
 
@@ -165,7 +166,7 @@ export function PersonDetailPanel({
       setEmailLocal(result.person.contact_email ?? "");
       setPhoneLocal(result.person.contact_phone ?? "");
       setAddressLocal(result.person.contact_address ?? "");
-      setAllergiesLocal(result.allergies_text ?? "");
+      setAllergiesLocal(result.person.allergies_text ?? "");
       setRequestsLocal(result.requests_text ?? "");
       setLoading(false);
     });
@@ -211,12 +212,12 @@ export function PersonDetailPanel({
   const handleDietaryToggle = useCallback(
     (value: string) => {
       if (!data) return;
-      const current = data.dietary_requirements;
+      const current = data.person.dietary_requirements;
       const updated = current.includes(value)
         ? current.filter((v) => v !== value)
         : [...current, value];
       setData((prev) =>
-        prev ? { ...prev, dietary_requirements: updated } : prev
+        prev ? { ...prev, person: { ...prev.person, dietary_requirements: updated } } : prev
       );
       saveField({ dietary_requirements: updated });
     },
@@ -270,8 +271,8 @@ export function PersonDetailPanel({
   const handleAllergiesBlur = useCallback(() => {
     if (!data) return;
     const newVal = allergiesLocal || null;
-    if (newVal === data.allergies_text) return;
-    setData((prev) => (prev ? { ...prev, allergies_text: newVal } : prev));
+    if (newVal === data.person.allergies_text) return;
+    setData((prev) => (prev ? { ...prev, person: { ...prev.person, allergies_text: newVal } } : prev));
     saveField({ allergies_text: newVal });
   }, [data, allergiesLocal, saveField]);
 
@@ -379,9 +380,9 @@ export function PersonDetailPanel({
     : otherMembers.length > 0
       ? "Si"
       : "No";
-  const activeDiets = DIETARY_OPTIONS.filter((o) => data.dietary_requirements.includes(o.value)).map((o) => o.label);
+  const activeDiets = DIETARY_OPTIONS.filter((o) => data.person.dietary_requirements.includes(o.value)).map((o) => o.label);
   const dietSummary = activeDiets.length > 0 ? activeDiets.join(", ") : "No";
-  const allergiesSummary = data.allergies_text ? "Si" : "No";
+  const allergiesSummary = data.person.allergies_text ? "Si" : "No";
   const preferencesSummary = data.requests_text ? "Si" : "No";
 
   const dietaryTrailing = (
@@ -544,7 +545,7 @@ export function PersonDetailPanel({
                 onClick={() => handleDietaryToggle(opt.value)}
                 className={cn(
                   "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                  data.dietary_requirements.includes(opt.value)
+                  data.person.dietary_requirements.includes(opt.value)
                     ? "bg-warning/20 text-warning"
                     : "bg-gray-100 text-gray-500 hover:text-gray-700"
                 )}

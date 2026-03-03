@@ -26,6 +26,8 @@ export async function createPerson(data: {
   default_role: "participant" | "facilitator";
   contact_email?: string | null;
   contact_phone?: string | null;
+  dietary_requirements?: string[];
+  allergies_text?: string | null;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -43,6 +45,8 @@ export async function updatePerson(
     default_role?: "participant" | "facilitator";
     contact_email?: string | null;
     contact_phone?: string | null;
+    dietary_requirements?: string[];
+    allergies_text?: string | null;
   }
 ) {
   const session = await auth();

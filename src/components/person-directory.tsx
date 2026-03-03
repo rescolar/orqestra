@@ -28,6 +28,8 @@ type PersonRow = {
   default_role: string;
   contact_email: string | null;
   contact_phone: string | null;
+  dietary_requirements: string[];
+  allergies_text: string | null;
   _count: { event_persons: number };
 };
 
@@ -210,6 +212,8 @@ export function PersonDirectory({ persons }: PersonDirectoryProps) {
             default_role: data.default_role,
             contact_email: data.contact_email || null,
             contact_phone: data.contact_phone || null,
+            dietary_requirements: data.dietary_requirements,
+            allergies_text: data.allergies_text || null,
           });
         }}
       />
@@ -227,6 +231,8 @@ export function PersonDirectory({ persons }: PersonDirectoryProps) {
             default_role: editPerson.default_role as "participant" | "facilitator",
             contact_email: editPerson.contact_email ?? "",
             contact_phone: editPerson.contact_phone ?? "",
+            dietary_requirements: editPerson.dietary_requirements,
+            allergies_text: editPerson.allergies_text ?? "",
           }}
           onSubmit={async (data) => {
             await updatePerson(editPerson.id, {
@@ -235,6 +241,8 @@ export function PersonDirectory({ persons }: PersonDirectoryProps) {
               default_role: data.default_role,
               contact_email: data.contact_email || null,
               contact_phone: data.contact_phone || null,
+              dietary_requirements: data.dietary_requirements,
+              allergies_text: data.allergies_text || null,
             });
             setEditPerson(null);
           }}
