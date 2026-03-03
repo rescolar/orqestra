@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { PersonService } from "@/lib/services/person.service";
 import { EventService } from "@/lib/services/event.service";
+import { PreAssignService } from "@/lib/services/preassign.service";
 
 export async function seedTestParticipants(eventId: string) {
   const session = await auth();
@@ -168,4 +169,13 @@ export async function removeEventPerson(
 
   await PersonService.removeEventPerson(eventPersonId, session.user.id);
   revalidatePath(`/events/${eventId}/board`);
+}
+
+export async function preAssignParticipants(eventId: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const result = await PreAssignService.preAssign(eventId, session.user.id);
+  revalidatePath(`/events/${eventId}/board`);
+  return result;
 }

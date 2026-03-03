@@ -11,6 +11,8 @@ type BoardHeaderProps = {
   pendingCount: number;
   userName?: string | null;
   onPendingClick?: () => void;
+  onPreAssign?: () => void;
+  preAssigning?: boolean;
 };
 
 function formatDateRange(start: Date, end: Date) {
@@ -44,6 +46,8 @@ export function BoardHeader({
   pendingCount,
   userName,
   onPendingClick,
+  onPreAssign,
+  preAssigning,
 }: BoardHeaderProps) {
   return (
     <header className={`flex items-center justify-between border-b px-6 py-4 ${pendingCount === 0 ? "bg-success/5" : "bg-white"}`}>
@@ -77,6 +81,14 @@ export function BoardHeader({
         </button>
 
         <div className="ml-4 flex items-center gap-3">
+          <button
+            onClick={onPreAssign}
+            disabled={unassignedCount === 0 || preAssigning}
+            className="flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span className="material-symbols-outlined text-base">auto_fix_high</span>
+            {preAssigning ? "Asignando..." : "Pre-asignar"}
+          </button>
           <button className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50">
             <span className="material-symbols-outlined text-base">undo</span>
             Deshacer

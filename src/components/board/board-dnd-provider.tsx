@@ -17,6 +17,7 @@ import {
   getAllPersons,
   addPersonToEvent,
   addPersonToEventAndAssign,
+  preAssignParticipants,
 } from "@/lib/actions/person";
 import { createRelationship } from "@/lib/actions/group";
 import { BoardHeader } from "./board-header";
@@ -105,6 +106,8 @@ export function BoardDndProvider({
   const [panelRefreshKey, setPanelRefreshKey] = useState(0);
   const [optimisticRelation, setOptimisticRelation] = useState<OptimisticRelation | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [preAssigning, setPreAssigning] = useState(false);
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const [directoryPersons, setDirectoryPersons] = useState<DirectoryPerson[]>(
     []
   );
@@ -157,6 +160,26 @@ export function BoardDndProvider({
       // ignore
     }
   }, [eventId]);
+
+  const handlePreAssign = useCallback(async () => {
+    setPreAssigning(true);
+    setError(null);
+    setSuccessBanner(null);
+    try {
+      const result = await preAssignParticipants(eventId);
+      await handleBoardRefresh();
+      const msg =
+        result.skipped > 0
+          ? `${result.assigned} asignados, ${result.skipped} sin espacio`
+          : `${result.assigned} personas asignadas`;
+      setSuccessBanner(msg);
+      setTimeout(() => setSuccessBanner(null), 4000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error en pre-asignación");
+    } finally {
+      setPreAssigning(false);
+    }
+  }, [eventId, handleBoardRefresh]);
 
   const loadDirectory = useCallback(async () => {
     try {
@@ -719,6 +742,8 @@ export function BoardDndProvider({
         pendingCount={pendingCount}
         userName={headerData.userName}
         onPendingClick={handlePendingClick}
+        onPreAssign={handlePreAssign}
+        preAssigning={preAssigning}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -742,6 +767,12 @@ export function BoardDndProvider({
               >
                 Cerrar
               </button>
+            </div>
+          )}
+          {successBanner && (
+            <div className="mb-4 rounded-lg border border-success/30 bg-success/5 px-4 py-2 text-sm text-success">
+              <span className="material-symbols-outlined mr-1 align-middle text-base">check_circle</span>
+              {successBanner}
             </div>
           )}
           <RoomGrid
