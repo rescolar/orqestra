@@ -6,7 +6,7 @@ import { updateEventDetails } from "@/lib/actions/event";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, DoorOpen, Users, Calendar, ImageIcon } from "lucide-react";
+import { ArrowLeft, DoorOpen, Users, Calendar, ImageIcon, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 
 interface EventDetailFormProps {
@@ -173,6 +173,12 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
           Atrás
         </Link>
         <div className="flex gap-3">
+          <Link href={`/events/${event.id}/kitchen`}>
+            <Button variant="outline" size="sm">
+              <UtensilsCrossed className="mr-1 size-4" />
+              Informe cocina
+            </Button>
+          </Link>
           {!isDirty && (
             <Link href={`/events/${event.id}/board`}>
               <Button variant="outline">Ir al tablero</Button>

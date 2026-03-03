@@ -112,6 +112,8 @@ model EventPerson {
   inseparable_with_id  String?
   move_with_partner    Boolean           @default(false)
   dietary_notified     Boolean           @default(false)
+  arrives_for_dinner   Boolean           @default(true)
+  last_meal_lunch      Boolean           @default(true)
   requests_text        String?
   requests_managed     Boolean           @default(false)
   room_id              String?
