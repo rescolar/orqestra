@@ -79,10 +79,6 @@ export const KitchenService = {
       where: {
         event_id: eventId,
         dietary_notified: false,
-        OR: [
-          { person: { dietary_requirements: { isEmpty: false } } },
-          { person: { allergies_text: { not: null } } },
-        ],
       },
       data: { dietary_notified: true },
     });

@@ -52,13 +52,7 @@ export function KitchenReportClient({
   }
 
   function markNotified() {
-    setRows((prev) =>
-      prev.map((r) =>
-        r.person.dietary_requirements.length > 0 || r.person.allergies_text
-          ? { ...r, dietary_notified: true }
-          : r
-      )
-    );
+    setRows((prev) => prev.map((r) => ({ ...r, dietary_notified: true })));
     startTransition(() => {
       markAllDietaryNotified(eventId);
     });
@@ -220,9 +214,15 @@ export function KitchenReportClient({
                 </td>
                 <td className="px-4 py-3 text-center">
                   {r.dietary_notified ? (
-                    <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                      Sí
-                    </span>
+                    r.person.dietary_requirements.length > 0 || r.person.allergies_text ? (
+                      <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                        Sí
+                      </span>
+                    ) : (
+                      <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                        Sí
+                      </span>
+                    )
                   ) : (
                     <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
                       No
