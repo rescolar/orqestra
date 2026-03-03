@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { updateMealFlags } from "@/lib/actions/kitchen";
+import { updateMealFlags, markAllDietaryNotified } from "@/lib/actions/kitchen";
 import type { KitchenReportRow } from "@/lib/services/kitchen.service";
 
 interface KitchenReportClientProps {
@@ -51,6 +51,19 @@ export function KitchenReportClient({
     });
   }
 
+  function markNotified() {
+    setRows((prev) =>
+      prev.map((r) =>
+        r.person.dietary_requirements.length > 0 || r.person.allergies_text
+          ? { ...r, dietary_notified: true }
+          : r
+      )
+    );
+    startTransition(() => {
+      markAllDietaryNotified(eventId);
+    });
+  }
+
   function handleExportCsv() {
     const headers = [
       "Nombre",
@@ -90,9 +103,11 @@ export function KitchenReportClient({
     a.download = `cocina-${safeName}-${date}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    markNotified();
   }
 
   function handlePrint() {
+    markNotified();
     window.print();
   }
 

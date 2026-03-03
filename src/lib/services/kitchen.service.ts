@@ -67,4 +67,24 @@ export const KitchenService = {
       data,
     });
   },
+
+  async markAllDietaryNotified(eventId: string, userId: string) {
+    const event = await db.event.findFirst({
+      where: { id: eventId, user_id: userId },
+      select: { id: true },
+    });
+    if (!event) throw new Error("Evento no encontrado");
+
+    return db.eventPerson.updateMany({
+      where: {
+        event_id: eventId,
+        dietary_notified: false,
+        OR: [
+          { person: { dietary_requirements: { isEmpty: false } } },
+          { person: { allergies_text: { not: null } } },
+        ],
+      },
+      data: { dietary_notified: true },
+    });
+  },
 };

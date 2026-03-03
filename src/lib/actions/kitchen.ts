@@ -20,3 +20,10 @@ export async function updateMealFlags(
   await KitchenService.updateMealFlags(eventPersonId, session.user.id, data);
   revalidatePath("/events");
 }
+
+export async function markAllDietaryNotified(eventId: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  await KitchenService.markAllDietaryNotified(eventId, session.user.id);
+  revalidatePath("/events");
+}
