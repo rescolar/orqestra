@@ -1,7 +1,8 @@
 import { auth, signOut } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { NavLinks } from "@/components/nav-links";
 
-export default async function DashboardLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -13,7 +14,10 @@ export default async function DashboardLayout({
     <div className="min-h-screen bg-gray-50">
       <header className="bg-primary text-white">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
-          <span className="text-lg font-bold tracking-tight">Orqestra</span>
+          <div className="flex items-center gap-6">
+            <span className="text-lg font-bold tracking-tight">Orqestra</span>
+            <NavLinks />
+          </div>
           <div className="flex items-center gap-4">
             <span className="text-sm opacity-90">{session.user.name}</span>
             <form

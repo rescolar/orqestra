@@ -39,6 +39,93 @@ function getDisplayName(name: string): string {
 }
 
 export const PersonService = {
+  async getPersonsDirectory(userId: string) {
+    return db.person.findMany({
+      where: { user_id: userId },
+      select: {
+        id: true,
+        name_full: true,
+        name_display: true,
+        name_initials: true,
+        gender: true,
+        default_role: true,
+        contact_email: true,
+        contact_phone: true,
+        _count: { select: { event_persons: true } },
+      },
+      orderBy: { name_full: "asc" },
+    });
+  },
+
+  async getPersonCount(userId: string) {
+    return db.person.count({ where: { user_id: userId } });
+  },
+
+  async createPerson(
+    userId: string,
+    data: {
+      name_full: string;
+      gender: Gender;
+      default_role: "participant" | "facilitator";
+      contact_email?: string | null;
+      contact_phone?: string | null;
+    }
+  ) {
+    return db.person.create({
+      data: {
+        user_id: userId,
+        name_full: data.name_full,
+        name_display: getDisplayName(data.name_full),
+        name_initials: getInitials(data.name_full),
+        gender: data.gender,
+        default_role: data.default_role,
+        contact_email: data.contact_email ?? null,
+        contact_phone: data.contact_phone ?? null,
+      },
+    });
+  },
+
+  async updatePerson(
+    personId: string,
+    userId: string,
+    data: {
+      name_full?: string;
+      gender?: Gender;
+      default_role?: "participant" | "facilitator";
+      contact_email?: string | null;
+      contact_phone?: string | null;
+    }
+  ) {
+    const person = await db.person.findFirst({
+      where: { id: personId, user_id: userId },
+      select: { id: true },
+    });
+    if (!person) throw new Error("Persona no encontrada");
+
+    const updates: Record<string, unknown> = {};
+    if (data.name_full !== undefined) {
+      updates.name_full = data.name_full;
+      updates.name_display = getDisplayName(data.name_full);
+      updates.name_initials = getInitials(data.name_full);
+    }
+    if (data.gender !== undefined) updates.gender = data.gender;
+    if (data.default_role !== undefined) updates.default_role = data.default_role;
+    if (data.contact_email !== undefined) updates.contact_email = data.contact_email;
+    if (data.contact_phone !== undefined) updates.contact_phone = data.contact_phone;
+
+    return db.person.update({ where: { id: personId }, data: updates });
+  },
+
+  async deletePerson(personId: string, userId: string) {
+    const person = await db.person.findFirst({
+      where: { id: personId, user_id: userId },
+      select: { id: true },
+    });
+    if (!person) throw new Error("Persona no encontrada");
+
+    return db.person.delete({ where: { id: personId } });
+  },
+
   async seedTestParticipants(eventId: string, userId: string) {
     const event = await db.event.findFirst({
       where: { id: eventId, user_id: userId },

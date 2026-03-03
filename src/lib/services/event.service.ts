@@ -9,23 +9,72 @@ export const EventService = {
           select: { event_persons: true, rooms: true },
         },
         event_persons: {
-          where: { room_id: { not: null } },
-          select: { id: true },
+          select: {
+            id: true,
+            room_id: true,
+            status: true,
+            dietary_requirements: true,
+            dietary_notified: true,
+            allergies_text: true,
+            requests_text: true,
+            requests_managed: true,
+            person: { select: { gender: true } },
+          },
+        },
+        rooms: {
+          select: {
+            capacity: true,
+            gender_restriction: true,
+            event_persons: {
+              select: { person: { select: { gender: true } } },
+            },
+          },
         },
       },
       orderBy: { date_start: "desc" },
     });
 
-    return events.map((event) => ({
-      id: event.id,
-      name: event.name,
-      date_start: event.date_start,
-      date_end: event.date_end,
-      estimated_participants: event.estimated_participants,
-      status: event.status,
-      assigned_count: event.event_persons.length,
-      room_count: event._count.rooms,
-    }));
+    return events.map((event) => {
+      const assignedCount = event.event_persons.filter((ep) => ep.room_id !== null).length;
+      const totalCapacity = event.rooms.reduce((sum, r) => sum + r.capacity, 0);
+
+      // Pending count: dietary + conflicts + tentatives + requests
+      const dietaryCount = event.event_persons.filter(
+        (ep) =>
+          !ep.dietary_notified &&
+          (ep.dietary_requirements.length > 0 || ep.allergies_text !== null)
+      ).length;
+
+      const conflictCount = event.rooms.filter((r) => {
+        const count = r.event_persons.length;
+        if (count > r.capacity) return true;
+        if (r.gender_restriction !== "mixed") {
+          const expected = r.gender_restriction === "women" ? "female" : "male";
+          if (r.event_persons.some((ep) => ep.person.gender !== expected && ep.person.gender !== "unknown")) return true;
+        }
+        return false;
+      }).length;
+
+      const tentativeCount = event.event_persons.filter((ep) => ep.status === "tentative").length;
+      const requestCount = event.event_persons.filter(
+        (ep) => !ep.requests_managed && ep.requests_text !== null
+      ).length;
+
+      return {
+        id: event.id,
+        name: event.name,
+        date_start: event.date_start,
+        date_end: event.date_end,
+        estimated_participants: event.estimated_participants,
+        status: event.status,
+        image_url: event.image_url,
+        location: event.location,
+        assigned_count: assignedCount,
+        room_count: event._count.rooms,
+        total_capacity: totalCapacity,
+        pending_count: dietaryCount + conflictCount + tentativeCount + requestCount,
+      };
+    });
   },
 
   async createEvent(

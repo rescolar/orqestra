@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Trash2, Pencil } from "lucide-react";
+import { Trash2, Pencil, MapPin, Calendar } from "lucide-react";
 import { deleteEvent } from "@/lib/actions/event";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,10 @@ interface EventCardProps {
   assignedCount: number;
   estimatedParticipants: number;
   status: string;
+  imageUrl?: string | null;
+  location?: string | null;
+  totalCapacity: number;
+  pendingCount: number;
 }
 
 export function EventCard({
@@ -28,8 +32,11 @@ export function EventCard({
   name,
   dateRange,
   assignedCount,
-  estimatedParticipants,
   status,
+  imageUrl,
+  location,
+  totalCapacity,
+  pendingCount,
 }: EventCardProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -41,14 +48,23 @@ export function EventCard({
     });
   }
 
+  const capacityPct = totalCapacity > 0 ? Math.min((assignedCount / totalCapacity) * 100, 100) : 0;
+  const initials = name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
   return (
     <>
-      <div className="group relative flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
-        <div className="absolute top-4 right-4 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="group relative flex overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+        {/* Hover actions */}
+        <div className="absolute top-3 right-3 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <Link
             href={`/events/${id}/detail`}
             onClick={(e) => e.stopPropagation()}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg bg-white/90 p-1.5 text-gray-400 shadow-sm hover:bg-white hover:text-gray-600"
             aria-label="Editar evento"
           >
             <Pencil className="size-4" />
@@ -59,28 +75,86 @@ export function EventCard({
               e.preventDefault();
               setConfirmOpen(true);
             }}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+            className="rounded-lg bg-white/90 p-1.5 text-gray-400 shadow-sm hover:bg-white hover:text-red-600"
             aria-label="Eliminar evento"
           >
             <Trash2 className="size-4" />
           </button>
         </div>
-        <Link href={`/events/${id}/board`} className="flex flex-col gap-3">
-          <div className="flex items-start justify-between gap-2 pr-8">
-            <h2 className="text-lg font-semibold text-gray-900 group-hover:text-primary">
-              {name}
-            </h2>
-            {status !== "active" && (
-              <Badge variant="secondary" className="capitalize">
-                {status}
-              </Badge>
-            )}
-          </div>
-          <p className="text-sm text-gray-500">{dateRange}</p>
-          <div className="mt-auto pt-2">
-            <Badge variant="outline">
-              {assignedCount}/{estimatedParticipants} asignados
-            </Badge>
+
+        <Link href={`/events/${id}/board`} className="flex flex-1 gap-4 p-4">
+          {/* Thumbnail */}
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={name}
+              className="size-[90px] shrink-0 rounded-xl object-cover"
+            />
+          ) : (
+            <div className="flex size-[90px] shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <span className="text-xl font-bold">{initials}</span>
+            </div>
+          )}
+
+          {/* Content */}
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            {/* Top row: name + pending badge */}
+            <div className="flex items-start justify-between gap-2 pr-16">
+              <h2 className="truncate text-base font-semibold text-gray-900 group-hover:text-primary">
+                {name}
+              </h2>
+              {status !== "active" && (
+                <Badge variant="secondary" className="shrink-0 capitalize">
+                  {status === "draft" ? "borrador" : status === "archived" ? "archivado" : status}
+                </Badge>
+              )}
+            </div>
+
+            {/* Date + location */}
+            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="size-3.5" />
+                {dateRange}
+              </span>
+              {location && (
+                <span className="inline-flex items-center gap-1">
+                  <MapPin className="size-3.5" />
+                  <span className="truncate">{location}</span>
+                </span>
+              )}
+            </div>
+
+            {/* Capacity bar + pending badge */}
+            <div className="mt-auto flex items-end justify-between gap-3 pt-1">
+              {totalCapacity > 0 ? (
+                <div className="flex-1">
+                  <div className="mb-1 flex items-baseline justify-between text-xs">
+                    <span className="text-gray-500">Capacidad</span>
+                    <span className="font-medium text-gray-700">
+                      {assignedCount}/{totalCapacity}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{ width: `${capacityPct}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <span className="text-xs text-gray-400">Sin habitaciones</span>
+              )}
+
+              {pendingCount > 0 ? (
+                <Badge className="shrink-0 bg-amber-100 text-amber-800 hover:bg-amber-100">
+                  {pendingCount} {pendingCount === 1 ? "pendiente" : "pendientes"}
+                </Badge>
+              ) : (
+                <Badge className="shrink-0 bg-gray-100 text-gray-500 hover:bg-gray-100">
+                  Al día
+                </Badge>
+              )}
+            </div>
           </div>
         </Link>
       </div>
