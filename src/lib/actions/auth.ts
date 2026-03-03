@@ -3,7 +3,6 @@
 import { signIn } from "@/lib/auth";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { redirect } from "next/navigation";
 
 export async function register(formData: FormData) {
   const name = formData.get("name") as string;
@@ -22,7 +21,7 @@ export async function register(formData: FormData) {
   const hashedPassword = await bcrypt.hash(password, 10);
 
   await db.user.create({
-    data: { name, email, password: hashedPassword },
+    data: { name, email, password: hashedPassword, role: "organizer" },
   });
 
   await signIn("credentials", {
@@ -41,10 +40,14 @@ export async function login(formData: FormData) {
   }
 
   try {
+    // Determine redirect based on user role
+    const user = await db.user.findUnique({ where: { email } });
+    const redirectTo = user?.role === "participant" ? "/my-events" : "/dashboard";
+
     await signIn("credentials", {
       email,
       password,
-      redirectTo: "/dashboard",
+      redirectTo,
     });
   } catch (error: unknown) {
     if (

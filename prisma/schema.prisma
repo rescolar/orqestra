@@ -12,19 +12,23 @@ datasource db {
 enum UserRole {
   organizer
   admin
+  participant
 }
 
 model User {
-  id         String   @id @default(cuid())
-  email      String   @unique
-  password   String
-  name       String
-  avatar_url String?
-  role       UserRole @default(organizer)
-  created_at DateTime @default(now())
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String?
+  name        String
+  avatar_url  String?
+  role        UserRole @default(organizer)
+  invite_code String?  @unique
+  google_id   String?  @unique
+  created_at  DateTime @default(now())
 
-  persons Person[]
-  events  Event[]
+  persons     Person[]
+  events      Event[]
+  self_person Person[] @relation("SelfPerson")
 
   @@map("users")
 }
@@ -59,7 +63,9 @@ model Person {
   notes                String?
   created_at           DateTime   @default(now())
 
+  self_user_id  String?       @unique
   user          User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  self_user     User?         @relation("SelfPerson", fields: [self_user_id], references: [id], onDelete: SetNull)
   event_persons EventPerson[]
 
   @@map("persons")

@@ -125,9 +125,9 @@ export function EventCard({
             </div>
 
             {/* Capacity bar + pending badge */}
-            <div className="mt-auto flex items-end justify-between gap-3 pt-1">
+            <div className="mt-auto flex flex-wrap items-end justify-between gap-x-3 gap-y-1 pt-1">
               {totalCapacity > 0 ? (
-                <div className="flex-1">
+                <div className="min-w-0 flex-1 basis-24">
                   <div className="mb-1 flex items-baseline justify-between text-xs">
                     <span className="text-gray-500">Capacidad</span>
                     <span className="font-medium text-gray-700">
