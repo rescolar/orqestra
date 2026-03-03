@@ -160,6 +160,15 @@ export async function addPersonToEventAndAssign(
   return result;
 }
 
+export async function addAllPersonsToEvent(eventId: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const result = await PersonService.addAllPersonsToEvent(eventId, session.user.id);
+  revalidatePath(`/events/${eventId}/board`);
+  return result;
+}
+
 export async function removeEventPerson(
   eventPersonId: string,
   eventId: string

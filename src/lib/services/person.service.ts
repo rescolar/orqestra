@@ -589,6 +589,35 @@ export const PersonService = {
     });
   },
 
+  async addAllPersonsToEvent(eventId: string, userId: string) {
+    const event = await db.event.findFirst({
+      where: { id: eventId, user_id: userId },
+      select: { id: true },
+    });
+    if (!event) throw new Error("Evento no encontrado");
+
+    const persons = await db.person.findMany({
+      where: {
+        user_id: userId,
+        event_persons: { none: { event_id: eventId } },
+      },
+      select: { id: true, default_role: true },
+    });
+
+    if (persons.length === 0) return { added: 0 };
+
+    await db.eventPerson.createMany({
+      data: persons.map((p) => ({
+        event_id: eventId,
+        person_id: p.id,
+        role: p.default_role,
+        status: "confirmed" as const,
+      })),
+    });
+
+    return { added: persons.length };
+  },
+
   async removeEventPerson(eventPersonId: string, userId: string) {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },

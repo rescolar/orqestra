@@ -71,6 +71,9 @@ export function ParticipantsSidebar({
   onPersonsChange,
   onPersonClick,
   onLoadDirectory,
+  onAddToEvent,
+  onRemoveFromEvent,
+  onAddAllToEvent,
 }: {
   eventId: string;
   persons: UnassignedPerson[];
@@ -79,6 +82,9 @@ export function ParticipantsSidebar({
   onPersonsChange?: (persons: UnassignedPerson[]) => void;
   onPersonClick?: (personId: string) => void;
   onLoadDirectory?: () => void;
+  onAddToEvent?: (personId: string) => void;
+  onRemoveFromEvent?: (eventPersonId: string) => void;
+  onAddAllToEvent?: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [scope, setScope] = useState<ScopeTab>("evento");
@@ -181,6 +187,17 @@ export function ParticipantsSidebar({
               : `${directoryPersons.length} personas`}
           </p>
         </div>
+        {scope === "todos" && directoryPersons.some((dp) => !dp.eventPerson) && (
+          <button
+            onClick={() => onAddAllToEvent?.()}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-primary"
+            title="Agregar todos al evento"
+          >
+            <span className="material-symbols-outlined text-lg">
+              group_add
+            </span>
+          </button>
+        )}
         {scope === "evento" && (
           <div className="flex gap-1">
             <Dialog
@@ -363,6 +380,8 @@ export function ParticipantsSidebar({
               key={dp.id}
               dp={dp}
               onPersonClick={onPersonClick}
+              onAddToEvent={onAddToEvent}
+              onRemoveFromEvent={onRemoveFromEvent}
             />
           ))}
         </ul>
@@ -424,9 +443,13 @@ function DraggableEventItem({
 function DraggableDirectoryItem({
   dp,
   onPersonClick,
+  onAddToEvent,
+  onRemoveFromEvent,
 }: {
   dp: DirectoryPerson;
   onPersonClick?: (id: string) => void;
+  onAddToEvent?: (personId: string) => void;
+  onRemoveFromEvent?: (eventPersonId: string) => void;
 }) {
   // Use "person-{Person.id}" prefix to distinguish from EventPerson IDs
   const draggableId = `person-${dp.id}`;
@@ -471,6 +494,27 @@ function DraggableDirectoryItem({
           </span>
         )}
       </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (inEvent && dp.eventPerson) {
+            onRemoveFromEvent?.(dp.eventPerson.id);
+          } else {
+            onAddToEvent?.(dp.id);
+          }
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className={`shrink-0 rounded-full p-0.5 transition-colors ${
+          inEvent
+            ? "text-primary hover:text-danger"
+            : "text-gray-300 hover:text-primary"
+        }`}
+        title={inEvent ? "Quitar del evento" : "Agregar al evento"}
+      >
+        <span className="material-symbols-outlined text-base">
+          {inEvent ? "check_circle" : "add_circle"}
+        </span>
+      </button>
       <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
         {dp.default_role === "facilitator" ? "fac" : "par"}
       </span>

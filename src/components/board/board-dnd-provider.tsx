@@ -17,6 +17,8 @@ import {
   getAllPersons,
   addPersonToEvent,
   addPersonToEventAndAssign,
+  addAllPersonsToEvent,
+  removeEventPerson,
   preAssignParticipants,
 } from "@/lib/actions/person";
 import { createRelationship } from "@/lib/actions/group";
@@ -692,6 +694,46 @@ export function BoardDndProvider({
     );
   }, [unassigned, rooms]);
 
+  const handleAddToEvent = useCallback(
+    async (personId: string) => {
+      try {
+        await addPersonToEvent(personId, eventId);
+        await handleBoardRefresh();
+        await loadDirectory();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Error al agregar persona");
+      }
+    },
+    [eventId, handleBoardRefresh, loadDirectory]
+  );
+
+  const handleRemoveFromEvent = useCallback(
+    async (eventPersonId: string) => {
+      try {
+        await removeEventPerson(eventPersonId, eventId);
+        await handleBoardRefresh();
+        await loadDirectory();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Error al quitar persona");
+      }
+    },
+    [eventId, handleBoardRefresh, loadDirectory]
+  );
+
+  const handleAddAllToEvent = useCallback(async () => {
+    try {
+      const result = await addAllPersonsToEvent(eventId);
+      await handleBoardRefresh();
+      await loadDirectory();
+      if (result.added > 0) {
+        setSuccessBanner(`${result.added} personas agregadas al evento`);
+        setTimeout(() => setSuccessBanner(null), 4000);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al agregar todos");
+    }
+  }, [eventId, handleBoardRefresh, loadDirectory]);
+
   const assignedCount = rooms.reduce(
     (acc, r) => acc + r.event_persons.length,
     0
@@ -755,6 +797,9 @@ export function BoardDndProvider({
           onPersonsChange={setUnassigned}
           onPersonClick={handlePersonClick}
           onLoadDirectory={loadDirectory}
+          onAddToEvent={handleAddToEvent}
+          onRemoveFromEvent={handleRemoveFromEvent}
+          onAddAllToEvent={handleAddAllToEvent}
         />
 
         <main className="flex-1 overflow-y-auto p-8">

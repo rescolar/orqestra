@@ -79,6 +79,10 @@ export function RoomSetupForm({
   }
 
   function startEdit(t: RoomType) {
+    // If already editing another row, save it first
+    if (editing && editing.id !== t.id) {
+      saveEdit();
+    }
     setEditing({
       id: t.id,
       capacity: String(t.capacity),
@@ -208,7 +212,7 @@ export function RoomSetupForm({
                 <th className="px-4 py-3 font-medium text-gray-600">
                   Plazas totales
                 </th>
-                <th className="px-4 py-3 font-medium text-gray-600">
+                <th className="hidden px-4 py-3 font-medium text-gray-600 sm:table-cell">
                   Acciones
                 </th>
               </tr>
@@ -272,7 +276,32 @@ export function RoomSetupForm({
                         />
                       </td>
                       <td className="px-4 py-2.5 text-gray-500">
-                        {(parseInt(editing.capacity) || 0) * (parseInt(editing.quantity) || 0)}
+                        <div className="flex items-center gap-2">
+                          <span>
+                            {(parseInt(editing.capacity) || 0) * (parseInt(editing.quantity) || 0)}
+                          </span>
+                          {/* Mobile: action buttons inline */}
+                          <div className="flex gap-1 sm:hidden">
+                            <button
+                              onClick={saveEdit}
+                              className="rounded-md p-1.5 text-primary hover:bg-primary/10"
+                            >
+                              <Check className="size-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(editing.id)}
+                              className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                            <button
+                              onClick={() => setEditing(null)}
+                              className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100"
+                            >
+                              <X className="size-4" />
+                            </button>
+                          </div>
+                        </div>
                         {(parseInt(editing.capacity) || 0) > 9 && (
                           <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-600">
                             <AlertTriangle className="size-3 shrink-0" />
@@ -286,7 +315,8 @@ export function RoomSetupForm({
                           </p>
                         )}
                       </td>
-                      <td className="px-4 py-2.5">
+                      {/* Desktop: action buttons in separate column */}
+                      <td className="hidden px-4 py-2.5 sm:table-cell">
                         <div className="flex gap-1">
                           <button
                             onClick={saveEdit}
@@ -305,19 +335,35 @@ export function RoomSetupForm({
                     </>
                   ) : (
                     <>
-                      <td className="px-4 py-2.5 font-medium">{t.capacity}</td>
-                      <td className="px-4 py-2.5">
+                      <td
+                        className="cursor-pointer px-4 py-2.5 font-medium"
+                        onClick={() => startEdit(t)}
+                      >
+                        {t.capacity}
+                      </td>
+                      <td
+                        className="cursor-pointer px-4 py-2.5"
+                        onClick={() => startEdit(t)}
+                      >
                         {t.hasPrivateBathroom ? (
                           <Bath className="size-4 text-primary" />
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-2.5">{t.quantity}</td>
-                      <td className="px-4 py-2.5 text-gray-500">
+                      <td
+                        className="cursor-pointer px-4 py-2.5"
+                        onClick={() => startEdit(t)}
+                      >
+                        {t.quantity}
+                      </td>
+                      <td
+                        className="cursor-pointer px-4 py-2.5 text-gray-500"
+                        onClick={() => startEdit(t)}
+                      >
                         {t.capacity * t.quantity}
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className="hidden px-4 py-2.5 sm:table-cell">
                         <div className="flex gap-1">
                           <button
                             onClick={() => startEdit(t)}
