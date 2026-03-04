@@ -754,10 +754,12 @@ function CollapsibleSection({
 
   return (
     <div className="py-3">
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onToggle}
-        className="flex w-full items-center gap-2"
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
+        className="flex w-full cursor-pointer items-center gap-2"
       >
         <span className="material-symbols-outlined text-base text-gray-400 transition-transform" style={{ transform: open ? "rotate(90deg)" : undefined }}>
           chevron_right
@@ -769,8 +771,8 @@ function CollapsibleSection({
         <span className="truncate text-xs text-gray-500 max-w-[140px] text-right">
           {summary}
         </span>
-        {trailing && <span className="ml-1 shrink-0">{trailing}</span>}
-      </button>
+        {trailing && <span className="ml-1 shrink-0" onClick={(e) => e.stopPropagation()}>{trailing}</span>}
+      </div>
       {open && <div className="mt-2">{children}</div>}
     </div>
   );
