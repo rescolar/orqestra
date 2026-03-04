@@ -22,28 +22,59 @@ function computeDisplayName(name: string): string {
 }
 
 export const InviteService = {
-  async getOrCreateInviteCode(userId: string): Promise<string> {
-    const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
-    if (user.invite_code) return user.invite_code;
+  async getOrCreateInviteCode(eventId: string, userId: string): Promise<string> {
+    const event = await db.event.findUnique({ where: { id: eventId } });
+    if (!event || event.user_id !== userId) {
+      throw new Error("Event not found or not owned by user");
+    }
+    if (event.invite_code) return event.invite_code;
 
     const code = generateInviteCode();
-    await db.user.update({
-      where: { id: userId },
+    await db.event.update({
+      where: { id: eventId },
       data: { invite_code: code },
     });
     return code;
   },
 
-  async getOrganizerByInviteCode(code: string) {
-    const user = await db.user.findUnique({
+  async resolveInviteCode(code: string) {
+    const event = await db.event.findUnique({
       where: { invite_code: code },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        date_start: true,
+        date_end: true,
+        location: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatar_url: true,
+            brand_name: true,
+            brand_welcome_msg: true,
+            brand_bg_color: true,
+            brand_text_color: true,
+          },
+        },
+      },
     });
-    return user;
+    if (!event) return null;
+    return {
+      event: {
+        id: event.id,
+        name: event.name,
+        date_start: event.date_start,
+        date_end: event.date_end,
+        location: event.location,
+      },
+      organizer: event.user,
+    };
   },
 
-  async registerParticipant(
-    organizerUserId: string,
+  async registerAndJoin(
+    organizerId: string,
+    eventId: string,
     data: { name: string; email: string; password: string }
   ) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -60,14 +91,24 @@ export const InviteService = {
       });
 
       // Create Person in organizer's directory linked to participant
-      await tx.person.create({
+      const person = await tx.person.create({
         data: {
-          user_id: organizerUserId,
+          user_id: organizerId,
           self_user_id: participantUser.id,
           name_full: data.name,
           name_display: computeDisplayName(data.name),
           name_initials: computeInitials(data.name),
           contact_email: data.email,
+        },
+      });
+
+      // Auto-join the event
+      await tx.eventPerson.create({
+        data: {
+          event_id: eventId,
+          person_id: person.id,
+          role: "participant",
+          status: "confirmed",
         },
       });
 
@@ -172,6 +213,18 @@ export const InviteService = {
         status: "confirmed",
       },
     });
+  },
+
+  async isParticipantJoined(participantUserId: string, eventId: string) {
+    const person = await db.person.findUnique({
+      where: { self_user_id: participantUserId },
+    });
+    if (!person) return false;
+
+    const ep = await db.eventPerson.findUnique({
+      where: { event_id_person_id: { event_id: eventId, person_id: person.id } },
+    });
+    return !!ep;
   },
 
   async getEventPersonForParticipant(participantUserId: string, eventId: string) {

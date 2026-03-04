@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Trash2, Pencil, MapPin, Calendar } from "lucide-react";
+import { InviteLinkButton } from "@/components/invite-link-button";
 import { deleteEvent } from "@/lib/actions/event";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,7 @@ export function EventCard({
       <div className="group relative flex overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
         {/* Hover actions */}
         <div className="absolute top-3 right-3 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <InviteLinkButton eventId={id} />
           <Link
             href={`/events/${id}/detail`}
             onClick={(e) => e.stopPropagation()}

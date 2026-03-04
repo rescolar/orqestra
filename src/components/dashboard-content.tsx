@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { Plus, Users, ArrowRight } from "lucide-react";
 import { EventCard } from "@/components/event-card";
-import { InviteLinkButton } from "@/components/invite-link-button";
 
 type EventData = {
   id: string;
@@ -35,10 +34,7 @@ export function DashboardContent({ events, personCount }: DashboardContentProps)
       {/* Active events */}
       <section>
         <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">Eventos Activos</h1>
-            <InviteLinkButton />
-          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Eventos Activos</h1>
           {archivedEvents.length > 0 && (
             <button
               type="button"

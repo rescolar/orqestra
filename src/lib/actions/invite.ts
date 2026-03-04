@@ -4,16 +4,16 @@ import { auth, signIn } from "@/lib/auth";
 import { InviteService } from "@/lib/services/invite.service";
 import { redirect } from "next/navigation";
 
-export async function getInviteLink() {
+export async function getInviteLink(eventId: string) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const code = await InviteService.getOrCreateInviteCode(session.user.id);
+  const code = await InviteService.getOrCreateInviteCode(eventId, session.user.id);
   return code;
 }
 
 export async function resolveInviteCode(code: string) {
-  return InviteService.getOrganizerByInviteCode(code);
+  return InviteService.resolveInviteCode(code);
 }
 
 export async function registerParticipant(formData: FormData, code: string) {
@@ -25,8 +25,8 @@ export async function registerParticipant(formData: FormData, code: string) {
     return { error: "Todos los campos son obligatorios" };
   }
 
-  const organizer = await InviteService.getOrganizerByInviteCode(code);
-  if (!organizer) {
+  const resolved = await InviteService.resolveInviteCode(code);
+  if (!resolved) {
     return { error: "Enlace de invitación no válido" };
   }
 
@@ -37,11 +37,28 @@ export async function registerParticipant(formData: FormData, code: string) {
     return { error: "Ya existe una cuenta con este email. Inicia sesión." };
   }
 
-  await InviteService.registerParticipant(organizer.id, { name, email, password });
+  await InviteService.registerAndJoin(resolved.organizer.id, resolved.event.id, {
+    name,
+    email,
+    password,
+  });
 
   await signIn("credentials", {
     email,
     password,
-    redirectTo: "/my-profile",
+    redirectTo: `/my-events/${resolved.event.id}`,
   });
+}
+
+export async function joinEventViaInvite(code: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const resolved = await InviteService.resolveInviteCode(code);
+  if (!resolved) {
+    return { error: "Enlace de invitación no válido" };
+  }
+
+  await InviteService.joinEvent(session.user.id, resolved.event.id);
+  redirect(`/my-events/${resolved.event.id}`);
 }

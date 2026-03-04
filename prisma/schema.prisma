@@ -20,9 +20,13 @@ model User {
   email       String   @unique
   password    String?
   name        String
-  avatar_url  String?
-  role        UserRole @default(organizer)
-  google_id   String?  @unique
+  avatar_url        String?
+  role              UserRole @default(organizer)
+  google_id         String?  @unique
+  brand_name        String?
+  brand_welcome_msg String?
+  brand_bg_color    String?
+  brand_text_color  String?
   created_at  DateTime @default(now())
 
   persons     Person[]
