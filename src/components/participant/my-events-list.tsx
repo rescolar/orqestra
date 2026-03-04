@@ -49,6 +49,31 @@ export function MyEventsList({ events }: { events: EventItem[] }) {
   );
 }
 
+function StatusBadge({ status }: { status: string | null }) {
+  if (status === "cancelled") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-800">
+        <span className="material-symbols-outlined text-sm">cancel</span>
+        No asiste
+      </span>
+    );
+  }
+  if (status === "tentative") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+        <span className="material-symbols-outlined text-sm">help</span>
+        Tentativo
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
+      <span className="material-symbols-outlined text-sm">check_circle</span>
+      Confirmado
+    </span>
+  );
+}
+
 function EventCard({ event }: { event: EventItem }) {
   const router = useRouter();
   const [joining, setJoining] = useState(false);
@@ -77,9 +102,7 @@ function EventCard({ event }: { event: EventItem }) {
           <div className="flex-shrink-0">
             {event.isJoined ? (
               <Link href={`/my-events/${event.id}`}>
-                <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
-                  Inscrito
-                </span>
+                <StatusBadge status={event.status} />
               </Link>
             ) : (
               <Button

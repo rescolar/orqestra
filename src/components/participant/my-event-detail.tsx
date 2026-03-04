@@ -119,7 +119,26 @@ export function MyEventDetail({
       {/* Status */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Asistencia</CardTitle>
+          <CardTitle className="text-base">
+            {status === "confirmed" && (
+              <span className="text-green-700">
+                <span className="material-symbols-outlined align-middle text-base">check_circle</span>{" "}
+                Asistencia confirmada
+              </span>
+            )}
+            {status === "tentative" && (
+              <span className="text-amber-600">
+                <span className="material-symbols-outlined align-middle text-base">help</span>{" "}
+                Asistencia tentativa
+              </span>
+            )}
+            {status === "cancelled" && (
+              <span className="text-red-600">
+                <span className="material-symbols-outlined align-middle text-base">cancel</span>{" "}
+                No asiste
+              </span>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-2">
