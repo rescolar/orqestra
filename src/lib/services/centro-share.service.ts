@@ -1,19 +1,6 @@
 import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
-
-export type PublicKitchenRow = {
-  name: string;
-  room: string | null;
-  dietary_requirements: string[];
-  allergies_text: string | null;
-  arrives_for_dinner: boolean;
-  last_meal_lunch: boolean;
-};
-
-export type PublicKitchenReport = {
-  eventName: string;
-  rows: PublicKitchenRow[];
-};
+import type { KitchenReportRow } from "@/lib/services/kitchen.service";
 
 export const CentroShareService = {
   async getOrCreateToken(eventId: string, userId: string) {
@@ -82,7 +69,7 @@ export const CentroShareService = {
 
   async getPublicKitchenReport(
     token: string
-  ): Promise<PublicKitchenReport | null> {
+  ): Promise<{ eventName: string; rows: KitchenReportRow[] } | null> {
     const record = await db.centroShareToken.findUnique({
       where: { token },
       include: { event: { select: { id: true, name: true } } },
@@ -96,14 +83,19 @@ export const CentroShareService = {
       data: { dietary_notified: true },
     });
 
-    const eventPersons = await db.eventPerson.findMany({
+    const rows = await db.eventPerson.findMany({
       where: {
         event_id: record.event.id,
         status: { not: "cancelled" },
       },
       select: {
+        id: true,
+        role: true,
+        status: true,
+        dietary_notified: true,
         arrives_for_dinner: true,
         last_meal_lunch: true,
+        requests_text: true,
         person: {
           select: {
             name_display: true,
@@ -121,16 +113,6 @@ export const CentroShareService = {
       orderBy: { person: { name_display: "asc" } },
     });
 
-    return {
-      eventName: record.event.name,
-      rows: eventPersons.map((ep) => ({
-        name: ep.person.name_display,
-        room: ep.room?.display_name || ep.room?.internal_number || null,
-        dietary_requirements: ep.person.dietary_requirements,
-        allergies_text: ep.person.allergies_text,
-        arrives_for_dinner: ep.arrives_for_dinner,
-        last_meal_lunch: ep.last_meal_lunch,
-      })),
-    };
+    return { eventName: record.event.name, rows };
   },
 };

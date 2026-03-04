@@ -13,6 +13,10 @@ export type KitchenReportRow = {
     dietary_requirements: string[];
     allergies_text: string | null;
   };
+  room: {
+    display_name: string | null;
+    internal_number: string;
+  } | null;
 };
 
 export const KitchenService = {
@@ -44,6 +48,12 @@ export const KitchenService = {
             name_display: true,
             dietary_requirements: true,
             allergies_text: true,
+          },
+        },
+        room: {
+          select: {
+            display_name: true,
+            internal_number: true,
           },
         },
       },

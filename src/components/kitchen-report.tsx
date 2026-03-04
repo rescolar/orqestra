@@ -12,6 +12,7 @@ interface KitchenReportClientProps {
   eventId: string;
   eventName: string;
   rows: KitchenReportRow[];
+  variant?: "organizer" | "public";
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -23,11 +24,18 @@ function formatDietary(reqs: string[]): string {
   return reqs.length > 0 ? reqs.join(", ") : "—";
 }
 
+function roomLabel(room: KitchenReportRow["room"]): string {
+  if (!room) return "—";
+  return room.display_name || room.internal_number;
+}
+
 export function KitchenReportClient({
   eventId,
   eventName,
   rows: initialRows,
+  variant = "organizer",
 }: KitchenReportClientProps) {
+  const isPublic = variant === "public";
   const [rows, setRows] = useState(initialRows);
   const [, startTransition] = useTransition();
 
@@ -98,33 +106,37 @@ export function KitchenReportClient({
     a.download = `cocina-${safeName}-${date}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    markNotified();
+    if (!isPublic) markNotified();
   }
 
   function handlePrint() {
-    markNotified();
+    if (!isPublic) markNotified();
     window.print();
   }
+
+  const colCount = isPublic ? 6 : 8;
 
   return (
     <div>
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:mb-4">
         <div>
-          <Link
-            href={`/events/${eventId}/detail`}
-            className="mb-2 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 print:hidden"
-          >
-            <ArrowLeft className="size-4" />
-            Volver al detalle
-          </Link>
+          {!isPublic && (
+            <Link
+              href={`/events/${eventId}/detail`}
+              className="mb-2 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 print:hidden"
+            >
+              <ArrowLeft className="size-4" />
+              Volver al detalle
+            </Link>
+          )}
           <h1 className="text-2xl font-bold text-gray-900">
             Informe de Cocina
           </h1>
           <p className="mt-1 text-sm text-gray-500">{eventName}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 print:hidden">
-          <KitchenShareButton eventId={eventId} />
+          {!isPublic && <KitchenShareButton eventId={eventId} />}
           <Button variant="outline" size="sm" onClick={handleExportCsv}>
             <Download className="mr-1 size-4" />
             CSV
@@ -158,7 +170,11 @@ export function KitchenReportClient({
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50 text-left">
               <th className="px-4 py-3 font-semibold text-gray-700">Nombre</th>
-              <th className="px-4 py-3 font-semibold text-gray-700">Rol</th>
+              {isPublic ? (
+                <th className="px-4 py-3 font-semibold text-gray-700">Habitación</th>
+              ) : (
+                <th className="px-4 py-3 font-semibold text-gray-700">Rol</th>
+              )}
               <th className="px-4 py-3 font-semibold text-gray-700">Dieta</th>
               <th className="px-4 py-3 font-semibold text-gray-700">Alergias</th>
               <th className="px-4 py-3 text-center font-semibold text-gray-700">
@@ -167,10 +183,14 @@ export function KitchenReportClient({
               <th className="px-4 py-3 text-center font-semibold text-gray-700">
                 Almuerzo final
               </th>
-              <th className="px-4 py-3 font-semibold text-gray-700">Solicitudes</th>
-              <th className="px-4 py-3 text-center font-semibold text-gray-700">
-                Notificado
-              </th>
+              {!isPublic && (
+                <>
+                  <th className="px-4 py-3 font-semibold text-gray-700">Solicitudes</th>
+                  <th className="px-4 py-3 text-center font-semibold text-gray-700">
+                    Notificado
+                  </th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -182,9 +202,15 @@ export function KitchenReportClient({
                 <td className="px-4 py-3 font-medium text-gray-900">
                   {r.person.name_display}
                 </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {ROLE_LABELS[r.role] ?? r.role}
-                </td>
+                {isPublic ? (
+                  <td className="px-4 py-3 text-gray-600">
+                    {roomLabel(r.room)}
+                  </td>
+                ) : (
+                  <td className="px-4 py-3 text-gray-600">
+                    {ROLE_LABELS[r.role] ?? r.role}
+                  </td>
+                )}
                 <td className="px-4 py-3 text-gray-600">
                   {formatDietary(r.person.dietary_requirements)}
                 </td>
@@ -192,50 +218,62 @@ export function KitchenReportClient({
                   {r.person.allergies_text ?? "—"}
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <input
-                    type="checkbox"
-                    checked={r.arrives_for_dinner}
-                    onChange={(e) =>
-                      handleToggle(r.id, "arrives_for_dinner", e.target.checked)
-                    }
-                    className="size-4 rounded border-gray-300 text-primary accent-primary"
-                  />
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <input
-                    type="checkbox"
-                    checked={r.last_meal_lunch}
-                    onChange={(e) =>
-                      handleToggle(r.id, "last_meal_lunch", e.target.checked)
-                    }
-                    className="size-4 rounded border-gray-300 text-primary accent-primary"
-                  />
-                </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {r.requests_text ?? "—"}
-                </td>
-                <td className="px-4 py-3 text-center">
-                  {r.dietary_notified ? (
-                    r.person.dietary_requirements.length > 0 || r.person.allergies_text ? (
-                      <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                        Sí
-                      </span>
-                    ) : (
-                      <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                        Sí
-                      </span>
-                    )
+                  {isPublic ? (
+                    r.arrives_for_dinner ? "Sí" : "No"
                   ) : (
-                    <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                      No
-                    </span>
+                    <input
+                      type="checkbox"
+                      checked={r.arrives_for_dinner}
+                      onChange={(e) =>
+                        handleToggle(r.id, "arrives_for_dinner", e.target.checked)
+                      }
+                      className="size-4 rounded border-gray-300 text-primary accent-primary"
+                    />
                   )}
                 </td>
+                <td className="px-4 py-3 text-center">
+                  {isPublic ? (
+                    r.last_meal_lunch ? "Sí" : "No"
+                  ) : (
+                    <input
+                      type="checkbox"
+                      checked={r.last_meal_lunch}
+                      onChange={(e) =>
+                        handleToggle(r.id, "last_meal_lunch", e.target.checked)
+                      }
+                      className="size-4 rounded border-gray-300 text-primary accent-primary"
+                    />
+                  )}
+                </td>
+                {!isPublic && (
+                  <>
+                    <td className="px-4 py-3 text-gray-600">
+                      {r.requests_text ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {r.dietary_notified ? (
+                        r.person.dietary_requirements.length > 0 || r.person.allergies_text ? (
+                          <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                            Sí
+                          </span>
+                        ) : (
+                          <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                            Sí
+                          </span>
+                        )
+                      ) : (
+                        <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                          No
+                        </span>
+                      )}
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={colCount} className="px-4 py-8 text-center text-gray-400">
                   No hay participantes en este evento
                 </td>
               </tr>
