@@ -19,6 +19,12 @@ export default async function ParticipantLayout({
           </Link>
           <div className="flex items-center gap-3">
             <Link
+              href="/my-events"
+              className="text-sm opacity-90 hover:opacity-100 transition-opacity"
+            >
+              Mis eventos
+            </Link>
+            <Link
               href="/my-profile"
               className="text-sm opacity-90 hover:opacity-100 transition-opacity"
             >

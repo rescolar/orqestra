@@ -1,6 +1,8 @@
 import { getMyProfile } from "@/lib/actions/participant";
 import { redirect } from "next/navigation";
 import { MyProfileForm } from "@/components/participant/my-profile-form";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default async function MyProfilePage() {
   const person = await getMyProfile();
@@ -15,6 +17,11 @@ export default async function MyProfilePage() {
         </p>
       </div>
       <MyProfileForm person={person} />
+      <div className="pt-2">
+        <Button asChild className="w-full bg-primary hover:bg-primary-light">
+          <Link href="/my-events">Ver eventos disponibles</Link>
+        </Button>
+      </div>
     </div>
   );
 }

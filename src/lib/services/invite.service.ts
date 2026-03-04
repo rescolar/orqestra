@@ -121,7 +121,7 @@ export const InviteService = {
     const events = await db.event.findMany({
       where: {
         user_id: person.user_id,
-        status: { in: ["active", "draft"] },
+        status: "active",
       },
       include: {
         event_persons: {
