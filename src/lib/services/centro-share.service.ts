@@ -67,6 +67,44 @@ export const CentroShareService = {
     });
   },
 
+  async getPublicEventInfo(token: string) {
+    const record = await db.centroShareToken.findUnique({
+      where: { token },
+      include: {
+        event: {
+          select: {
+            name: true,
+            date_start: true,
+            date_end: true,
+            location: true,
+            description: true,
+            user: { select: { name: true } },
+            _count: {
+              select: {
+                event_persons: {
+                  where: { status: "confirmed" },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!record || record.expires_at < new Date()) return null;
+
+    const { event } = record;
+    return {
+      name: event.name,
+      dateStart: event.date_start,
+      dateEnd: event.date_end,
+      location: event.location,
+      description: event.description,
+      organizerName: event.user.name,
+      confirmedCount: event._count.event_persons,
+    };
+  },
+
   async getPublicKitchenReport(
     token: string
   ): Promise<{ eventName: string; rows: KitchenReportRow[] } | null> {
