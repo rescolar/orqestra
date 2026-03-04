@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { UndoService } from "./undo.service";
 
 type UnassignedPerson = {
   id: string;
@@ -150,6 +151,18 @@ export const PreAssignService = {
             data: { room_id: a.roomId },
           })
         )
+      );
+
+      // Record undo entries with shared batch_id
+      const batchId = crypto.randomUUID();
+      await UndoService.recordMany(
+        eventId,
+        batchId,
+        "assign_person",
+        assignments.map((a) => ({
+          eventPersonId: a.id,
+          previousRoomId: null,
+        }))
       );
     }
 

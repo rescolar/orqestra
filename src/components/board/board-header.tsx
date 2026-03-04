@@ -13,6 +13,9 @@ type BoardHeaderProps = {
   onPendingClick?: () => void;
   onPreAssign?: () => void;
   preAssigning?: boolean;
+  onUndo?: () => void;
+  undoing?: boolean;
+  canUndo?: boolean;
 };
 
 function formatDateRange(start: Date, end: Date) {
@@ -48,6 +51,9 @@ export function BoardHeader({
   onPendingClick,
   onPreAssign,
   preAssigning,
+  onUndo,
+  undoing,
+  canUndo,
 }: BoardHeaderProps) {
   return (
     <header className={`flex items-center justify-between border-b px-6 py-4 ${pendingCount === 0 ? "bg-success/5" : "bg-white"}`}>
@@ -89,9 +95,13 @@ export function BoardHeader({
             <span className="material-symbols-outlined text-base">auto_fix_high</span>
             {preAssigning ? "Asignando..." : "Pre-asignar"}
           </button>
-          <button className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50">
+          <button
+            onClick={onUndo}
+            disabled={!canUndo || undoing}
+            className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
             <span className="material-symbols-outlined text-base">undo</span>
-            Deshacer
+            {undoing ? "Deshaciendo..." : "Deshacer"}
           </button>
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-medium text-white">
             {userName?.[0]?.toUpperCase() ?? "U"}

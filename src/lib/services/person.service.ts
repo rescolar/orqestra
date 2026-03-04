@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { Gender } from "@prisma/client";
+import { UndoService } from "./undo.service";
 
 const TEST_PERSONS: { name: string; gender: Gender }[] = [
   { name: "María García", gender: "female" },
@@ -409,10 +410,20 @@ export const PersonService = {
       }
     }
 
-    return db.eventPerson.update({
+    const previousRoomId = ep.room_id;
+    const result = await db.eventPerson.update({
       where: { id: eventPersonId },
       data: { room_id: roomId },
     });
+
+    // Record undo entry
+    const batchId = crypto.randomUUID();
+    await UndoService.record(ep.event_id, batchId, "assign_person", {
+      eventPersonId,
+      previousRoomId,
+    });
+
+    return result;
   },
 
   async createParticipantsBatch(
@@ -469,10 +480,22 @@ export const PersonService = {
     });
     if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
 
-    return db.eventPerson.update({
+    const previousRoomId = ep.room_id;
+    const result = await db.eventPerson.update({
       where: { id: eventPersonId },
       data: { room_id: null },
     });
+
+    // Record undo entry
+    if (previousRoomId) {
+      const batchId = crypto.randomUUID();
+      await UndoService.record(ep.event_id, batchId, "assign_person", {
+        eventPersonId,
+        previousRoomId,
+      });
+    }
+
+    return result;
   },
 
   async getEventPerson(eventPersonId: string, userId: string) {

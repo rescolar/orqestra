@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useId } from "react";
+import { useState, useCallback, useMemo, useId, useEffect, useRef } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -22,6 +22,7 @@ import {
   preAssignParticipants,
 } from "@/lib/actions/person";
 import { createRelationship } from "@/lib/actions/group";
+import { undoLastAction } from "@/lib/actions/undo";
 import { BoardHeader } from "./board-header";
 import {
   ParticipantsSidebar,
@@ -113,6 +114,10 @@ export function BoardDndProvider({
   const [directoryPersons, setDirectoryPersons] = useState<DirectoryPerson[]>(
     []
   );
+  const [undoing, setUndoing] = useState(false);
+  const [canUndo, setCanUndo] = useState(false);
+  const canUndoRef = useRef(canUndo);
+  canUndoRef.current = canUndo;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -176,12 +181,52 @@ export function BoardDndProvider({
           : `${result.assigned} personas asignadas`;
       setSuccessBanner(msg);
       setTimeout(() => setSuccessBanner(null), 4000);
+      if (result.assigned > 0) setCanUndo(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error en pre-asignación");
     } finally {
       setPreAssigning(false);
     }
   }, [eventId, handleBoardRefresh]);
+
+  const handleUndo = useCallback(async () => {
+    if (!canUndoRef.current || undoing) return;
+    setUndoing(true);
+    setError(null);
+    setSuccessBanner(null);
+    try {
+      const result = await undoLastAction(eventId);
+      await handleBoardRefresh();
+      if (result) {
+        setSuccessBanner(
+          result.undone === 1
+            ? "Acción deshecha"
+            : `${result.undone} asignaciones deshechas`
+        );
+        setTimeout(() => setSuccessBanner(null), 4000);
+      }
+      // Check if there are more undo entries — if undoLast returned null, nothing left
+      if (!result) {
+        setCanUndo(false);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al deshacer");
+    } finally {
+      setUndoing(false);
+    }
+  }, [eventId, handleBoardRefresh, undoing]);
+
+  // Keyboard shortcut: Ctrl/Cmd+Z
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleUndo]);
 
   const loadDirectory = useCallback(async () => {
     try {
@@ -525,6 +570,7 @@ export function BoardDndProvider({
         if (partnerData) {
           await assignPerson(partnerData.id, roomId, eventId);
         }
+        setCanUndo(true);
       } catch (e) {
         // Revert on error
         setRooms(initialRooms);
@@ -591,6 +637,7 @@ export function BoardDndProvider({
 
       try {
         await unassignPerson(personId, eventId);
+        setCanUndo(true);
       } catch {
         setRooms(initialRooms);
         setUnassigned(initialUnassigned);
@@ -786,6 +833,9 @@ export function BoardDndProvider({
         onPendingClick={handlePendingClick}
         onPreAssign={handlePreAssign}
         preAssigning={preAssigning}
+        onUndo={handleUndo}
+        undoing={undoing}
+        canUndo={canUndo}
       />
 
       <div className="flex flex-1 overflow-hidden">
