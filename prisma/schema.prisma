@@ -22,7 +22,6 @@ model User {
   name        String
   avatar_url  String?
   role        UserRole @default(organizer)
-  invite_code String?  @unique
   google_id   String?  @unique
   created_at  DateTime @default(now())
 
@@ -58,6 +57,7 @@ model Person {
   contact_email        String?
   contact_phone        String?
   contact_address      String?
+  avatar_url           String?
   dietary_requirements String[]   @default([])
   allergies_text       String?
   notes                String?
@@ -90,6 +90,7 @@ model Event {
   description            String?
   location               String?
   image_url              String?
+  invite_code            String?         @unique
 
   user                User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
   event_persons       EventPerson[]

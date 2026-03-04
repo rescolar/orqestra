@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useDroppable } from "@dnd-kit/core";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import {
   getEventPersonDetail,
@@ -47,6 +48,7 @@ type EventPersonDetail = {
     contact_email: string | null;
     contact_phone: string | null;
     contact_address: string | null;
+    avatar_url: string | null;
     dietary_requirements: string[];
     allergies_text: string | null;
   };
@@ -403,9 +405,21 @@ export function PersonDetailPanel({
     <aside className="flex w-96 shrink-0 flex-col border-l border-gray-200 bg-white overflow-y-auto">
       {/* Header */}
       <div className="flex items-start gap-3 border-b border-gray-100 p-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-          {data.person.name_initials}
-        </div>
+        {data.person.avatar_url ? (
+          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full">
+            <Image
+              src={data.person.avatar_url}
+              alt={data.person.name_display}
+              fill
+              className="object-cover"
+              sizes="40px"
+            />
+          </div>
+        ) : (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+            {data.person.name_initials}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold text-gray-800">
             {data.person.name_full}

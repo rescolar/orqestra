@@ -513,6 +513,7 @@ export const PersonService = {
             contact_email: true,
             contact_phone: true,
             contact_address: true,
+            avatar_url: true,
             dietary_requirements: true,
             allergies_text: true,
           },

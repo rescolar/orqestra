@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updateMyProfile } from "@/lib/actions/participant";
+import { ImageUpload } from "@/components/image-upload";
 
 const DIETARY_OPTIONS = [
   "Vegetariano",
@@ -30,6 +31,7 @@ type PersonData = {
   contact_phone: string | null;
   dietary_requirements: string[];
   allergies_text: string | null;
+  avatar_url: string | null;
 };
 
 export function MyProfileForm({ person }: { person: PersonData }) {
@@ -41,6 +43,7 @@ export function MyProfileForm({ person }: { person: PersonData }) {
     person.dietary_requirements
   );
   const [allergies, setAllergies] = useState(person.allergies_text ?? "");
+  const [avatarUrl, setAvatarUrl] = useState(person.avatar_url);
   const [saving, setSaving] = useState(false);
 
   const save = useCallback(
@@ -91,6 +94,21 @@ export function MyProfileForm({ person }: { person: PersonData }) {
 
   return (
     <div className="space-y-6">
+      {/* Avatar */}
+      <Card>
+        <CardContent className="flex flex-col items-center gap-3 pt-6">
+          <ImageUpload
+            currentUrl={avatarUrl}
+            onUploaded={setAvatarUrl}
+            uploadType="avatar"
+            entityId={person.id}
+            size="lg"
+            shape="circle"
+          />
+          <p className="text-xs text-muted-foreground">Toca para cambiar tu foto</p>
+        </CardContent>
+      </Card>
+
       {/* Basic Info */}
       <Card>
         <CardHeader>
