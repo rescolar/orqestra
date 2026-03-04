@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { updateMealFlags, markAllDietaryNotified } from "@/lib/actions/kitchen";
+import { KitchenShareButton } from "@/components/kitchen-share-button";
 import type { KitchenReportRow } from "@/lib/services/kitchen.service";
 
 interface KitchenReportClientProps {
@@ -122,7 +123,8 @@ export function KitchenReportClient({
           </h1>
           <p className="mt-1 text-sm text-gray-500">{eventName}</p>
         </div>
-        <div className="flex gap-2 print:hidden">
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          <KitchenShareButton eventId={eventId} />
           <Button variant="outline" size="sm" onClick={handleExportCsv}>
             <Download className="mr-1 size-4" />
             CSV

@@ -91,11 +91,12 @@ model Event {
   location               String?
   image_url              String?
 
-  user          User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  event_persons EventPerson[]
-  rooms         Room[]
-  groups        Group[]
-  undo_entries  UndoEntry[]
+  user                User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  event_persons       EventPerson[]
+  rooms               Room[]
+  groups              Group[]
+  undo_entries        UndoEntry[]
+  centro_share_token  CentroShareToken?
 
   @@map("events")
 }
@@ -173,6 +174,20 @@ model Group {
   members EventPerson[]
 
   @@map("groups")
+}
+
+// ─── CentroShareToken ───────────────────────────────────────────────────────
+
+model CentroShareToken {
+  id         String   @id @default(cuid())
+  event_id   String   @unique
+  token      String   @unique
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+
+  @@map("centro_share_tokens")
 }
 
 // ─── UndoEntry ───────────────────────────────────────────────────────────────
