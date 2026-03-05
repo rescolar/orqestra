@@ -23,28 +23,55 @@ interface EventDetailFormProps {
   };
 }
 
+function toInputDate(iso: string) {
+  return iso.slice(0, 10);
+}
+
 export function EventDetailForm({ event }: EventDetailFormProps) {
   const router = useRouter();
   const [name, setName] = useState(event.name);
   const [description, setDescription] = useState(event.description ?? "");
   const [location, setLocation] = useState(event.location ?? "");
   const [imageUrl, setImageUrl] = useState(event.image_url ?? "");
+  const [dateStart, setDateStart] = useState(toInputDate(event.date_start));
+  const [dateEnd, setDateEnd] = useState(toInputDate(event.date_end));
+  const [showDateConfirm, setShowDateConfirm] = useState(false);
+  const [pendingDates, setPendingDates] = useState<{ start?: string; end?: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const originalDateStart = toInputDate(event.date_start);
+  const originalDateEnd = toInputDate(event.date_end);
+  const datesChanged = dateStart !== originalDateStart || dateEnd !== originalDateEnd;
 
   const isDirty =
     name !== event.name ||
     description !== (event.description ?? "") ||
     location !== (event.location ?? "") ||
-    imageUrl !== (event.image_url ?? "");
+    imageUrl !== (event.image_url ?? "") ||
+    datesChanged;
 
-  const dateOpts: Intl.DateTimeFormatOptions = {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
+  const handleDateChange = (field: "start" | "end", value: string) => {
+    const newStart = field === "start" ? value : dateStart;
+    const newEnd = field === "end" ? value : dateEnd;
+
+    if (newStart > newEnd) return; // Prevent invalid range
+
+    setPendingDates({ start: newStart, end: newEnd });
+    setShowDateConfirm(true);
   };
-  const dateStart = new Date(event.date_start).toLocaleDateString("es-ES", dateOpts);
-  const dateEnd = new Date(event.date_end).toLocaleDateString("es-ES", dateOpts);
+
+  const confirmDateChange = () => {
+    if (pendingDates?.start) setDateStart(pendingDates.start);
+    if (pendingDates?.end) setDateEnd(pendingDates.end);
+    setShowDateConfirm(false);
+    setPendingDates(null);
+  };
+
+  const cancelDateChange = () => {
+    setShowDateConfirm(false);
+    setPendingDates(null);
+  };
 
   async function handleSaveAndGo() {
     setError(null);
@@ -60,6 +87,7 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
           description: description.trim() || null,
           location: location.trim() || null,
           image_url: imageUrl.trim() || null,
+          ...(datesChanged && { date_start: dateStart, date_end: dateEnd }),
         });
       }
       router.push(`/events/${event.id}/board`);
@@ -140,26 +168,80 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
         </div>
       </div>
 
-      {/* Read-only summary */}
+      {/* Summary with editable dates */}
       <div className="rounded-xl bg-slate-50 p-5">
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
           Resumen
         </h3>
-        <div className="grid grid-cols-3 gap-4 text-sm">
-          <div className="flex items-center gap-2 text-gray-600">
-            <Calendar className="size-4 text-gray-400" />
-            <span>{dateStart} – {dateEnd}</span>
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-gray-600">
+              <Calendar className="size-4 text-gray-400" />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={dateStart}
+                max={dateEnd}
+                onChange={(e) => handleDateChange("start", e.target.value)}
+                className="rounded border border-gray-200 bg-white px-2 py-1 text-sm text-gray-700 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="text-sm text-gray-400">–</span>
+              <input
+                type="date"
+                value={dateEnd}
+                min={dateStart}
+                onChange={(e) => handleDateChange("end", e.target.value)}
+                className="rounded border border-gray-200 bg-white px-2 py-1 text-sm text-gray-700 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-gray-600">
-            <DoorOpen className="size-4 text-gray-400" />
-            <span>{event.roomCount} habitaciones</span>
-          </div>
-          <div className="flex items-center gap-2 text-gray-600">
-            <Users className="size-4 text-gray-400" />
-            <span>{event.estimated_participants} participantes est.</span>
+          <div className="flex gap-6 text-sm">
+            <div className="flex items-center gap-2 text-gray-600">
+              <DoorOpen className="size-4 text-gray-400" />
+              <span>{event.roomCount} habitaciones</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <Users className="size-4 text-gray-400" />
+              <span>{event.estimated_participants} participantes est.</span>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Date change confirmation dialog */}
+      {showDateConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center gap-2 text-warning">
+              <Calendar className="size-5" />
+              <h3 className="text-lg font-semibold text-gray-900">
+                Cambiar fechas
+              </h3>
+            </div>
+            <p className="mb-2 text-sm text-gray-600">
+              Cambiar las fechas del evento puede afectar al programa de actividades si ya está configurado.
+            </p>
+            <p className="mb-6 text-sm text-gray-600">
+              ¿Deseas continuar?
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={cancelDateChange}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDateChange}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 

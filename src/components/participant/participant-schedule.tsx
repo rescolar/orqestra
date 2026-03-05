@@ -87,7 +87,7 @@ export function ParticipantSchedule({
           if (block.type === "common") {
             const act = block.activities[0];
             return (
-              <div key={block.id} className="rounded-2xl bg-slate-50 p-4">
+              <div key={block.id} className="rounded-2xl border-2 border-gray-200 bg-white p-4">
                 <h3 className="font-semibold text-gray-900">{act.title}</h3>
                 {block.time_label && (
                   <p className="mt-0.5 text-sm text-gray-500">
@@ -165,7 +165,7 @@ export function ParticipantSchedule({
                   return (
                     <div
                       key={act.id}
-                      className={`rounded-2xl border-2 p-4 transition-colors ${
+                      className={`flex min-h-[160px] flex-col rounded-2xl border-2 p-4 transition-colors ${
                         isClosed && !isSignedUp
                           ? "border-gray-200 bg-gray-50 opacity-60"
                           : isSignedUp
@@ -188,18 +188,15 @@ export function ParticipantSchedule({
                           {act.description}
                         </p>
                       )}
-                      <p className="mt-2 text-xs text-gray-400">
-                        {act.max_participants != null
-                          ? `${act.signup_count}/${act.max_participants}`
-                          : `${act.signup_count} inscritos`}
-                      </p>
-                      <button
-                        onClick={() => handleToggle(act.id, block.id)}
-                        disabled={toggling === act.id || (isClosed && !isSignedUp)}
-                        className={`mt-3 w-full rounded-lg py-2 text-sm font-medium transition-colors ${buttonClass}`}
-                      >
-                        {buttonText}
-                      </button>
+                      <div className="mt-auto pt-4">
+                        <button
+                          onClick={() => handleToggle(act.id, block.id)}
+                          disabled={toggling === act.id || (isClosed && !isSignedUp)}
+                          className={`w-full rounded-lg py-2 text-sm font-medium transition-colors ${buttonClass}`}
+                        >
+                          {buttonText}
+                        </button>
+                      </div>
                     </div>
                   );
                 })}

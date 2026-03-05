@@ -182,6 +182,8 @@ export const EventService = {
       description: string | null;
       location: string | null;
       image_url: string | null;
+      date_start?: string;
+      date_end?: string;
     }
   ) {
     const event = await db.event.findFirst({
@@ -197,6 +199,8 @@ export const EventService = {
         description: data.description,
         location: data.location,
         image_url: data.image_url,
+        ...(data.date_start && { date_start: new Date(data.date_start) }),
+        ...(data.date_end && { date_end: new Date(data.date_end) }),
       },
     });
   },

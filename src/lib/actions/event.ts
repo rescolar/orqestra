@@ -65,6 +65,8 @@ export async function updateEventDetails(
     description: string | null;
     location: string | null;
     image_url: string | null;
+    date_start?: string;
+    date_end?: string;
   }
 ) {
   const session = await auth();
