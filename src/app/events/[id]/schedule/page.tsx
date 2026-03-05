@@ -17,11 +17,14 @@ export default async function SchedulePage({
 
   const event = await db.event.findFirst({
     where: { id, user_id: session.user.id },
-    select: { id: true, name: true, date_start: true, date_end: true },
+    select: { id: true, name: true, date_start: true, date_end: true, schedule_confirmed: true },
   });
   if (!event) notFound();
 
-  const schedule = await ScheduleService.getSchedule(id, session.user.id);
+  const [schedule, totalConfirmedParticipants] = await Promise.all([
+    ScheduleService.getSchedule(id, session.user.id),
+    db.eventPerson.count({ where: { event_id: id, status: "confirmed" } }),
+  ]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-surface">
@@ -31,6 +34,8 @@ export default async function SchedulePage({
         dateStart={event.date_start}
         dateEnd={event.date_end}
         initialSchedule={schedule}
+        scheduleConfirmed={event.schedule_confirmed}
+        totalConfirmedParticipants={totalConfirmedParticipants}
       />
     </div>
   );

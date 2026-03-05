@@ -8,10 +8,6 @@ type DayColumnProps = {
   onMoveBlock: (blockId: string, direction: "up" | "down") => void;
   onDeleteBlock: (blockId: string) => void;
   onUpdateBlock: (blockId: string, data: { time_label?: string | null }) => void;
-  onUpdateActivity: (
-    activityId: string,
-    data: { title?: string; description?: string | null }
-  ) => void;
   onDeleteActivity: (activityId: string) => void;
   onAddActivity: (blockId: string) => void;
   onAddBlock: (type: "common" | "parallel") => void;
@@ -25,7 +21,6 @@ export function DayColumn({
   onMoveBlock,
   onDeleteBlock,
   onUpdateBlock,
-  onUpdateActivity,
   onDeleteActivity,
   onAddActivity,
   onAddBlock,
@@ -48,7 +43,6 @@ export function DayColumn({
           onMoveBlock={onMoveBlock}
           onDeleteBlock={onDeleteBlock}
           onUpdateBlock={onUpdateBlock}
-          onUpdateActivity={onUpdateActivity}
           onDeleteActivity={onDeleteActivity}
           onAddActivity={onAddActivity}
           isFirst={i === 0}

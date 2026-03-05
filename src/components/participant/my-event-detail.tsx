@@ -39,9 +39,11 @@ function formatDate(date: Date): string {
 export function MyEventDetail({
   eventPerson,
   schedule,
+  scheduleConfirmed = false,
 }: {
   eventPerson: EventPersonData;
   schedule?: ParticipantDaySchedule[];
+  scheduleConfirmed?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<"data" | "schedule">("data");
   const [status, setStatus] = useState(eventPerson.status);
@@ -154,6 +156,7 @@ export function MyEventDetail({
         <ParticipantSchedule
           eventId={eventPerson.event.id}
           schedule={schedule}
+          scheduleConfirmed={scheduleConfirmed}
         />
       ) : (
       <>

@@ -1,6 +1,16 @@
 import { db } from "@/lib/db";
 import { ScheduleBlockType } from "@prisma/client";
 
+export type ScheduleActivityData = {
+  id: string;
+  title: string;
+  description: string | null;
+  position: number;
+  signup_count: number;
+  max_participants: number | null;
+  closed: boolean;
+};
+
 export type DaySchedule = {
   day_index: number;
   date: Date;
@@ -9,13 +19,7 @@ export type DaySchedule = {
     type: "common" | "parallel";
     position: number;
     time_label: string | null;
-    activities: {
-      id: string;
-      title: string;
-      description: string | null;
-      position: number;
-      signup_count: number;
-    }[];
+    activities: ScheduleActivityData[];
   }[];
 };
 
@@ -25,6 +29,8 @@ export type ParticipantActivity = {
   description: string | null;
   position: number;
   signup_count: number;
+  max_participants: number | null;
+  closed: boolean;
   my_signup: boolean;
 };
 
@@ -53,6 +59,8 @@ function buildDaySchedules(
       title: string;
       description: string | null;
       position: number;
+      max_participants: number | null;
+      closed: boolean;
       _count: { signups: number };
     }[];
   }[],
@@ -87,6 +95,8 @@ function buildDaySchedules(
             description: a.description,
             position: a.position,
             signup_count: a._count.signups,
+            max_participants: a.max_participants,
+            closed: a.closed,
           };
           if (mySignupActivityIds) {
             return { ...base, my_signup: mySignupActivityIds.has(a.id) };
@@ -104,6 +114,9 @@ export type BlockAssignments = {
   activities: {
     id: string;
     title: string;
+    description: string | null;
+    max_participants: number | null;
+    closed: boolean;
     assigned: { id: string; name_display: string; name_initials: string }[];
   }[];
   unassigned: { id: string; name_display: string; name_initials: string }[];
@@ -247,7 +260,7 @@ export const ScheduleService = {
   async updateActivity(
     activityId: string,
     userId: string,
-    data: { title?: string; description?: string | null }
+    data: { title?: string; description?: string | null; max_participants?: number | null; closed?: boolean }
   ) {
     const activity = await db.scheduleActivity.findFirst({
       where: { id: activityId, block: { event: { user_id: userId } } },
@@ -326,6 +339,7 @@ export const ScheduleService = {
       include: { block: true },
     });
     if (!activity) throw new Error("Actividad no encontrada");
+    if (activity.closed) throw new Error("Esta actividad está cerrada");
     if (activity.block.type !== "parallel")
       throw new Error("Solo se puede inscribir en actividades paralelas");
 
@@ -386,6 +400,7 @@ export const ScheduleService = {
       include: { block: true },
     });
     if (!activity) throw new Error("Actividad no encontrada");
+    if (activity.closed) throw new Error("Esta actividad está cerrada");
     if (activity.block.type !== "parallel")
       throw new Error("Solo se puede asignar en actividades paralelas");
 
@@ -488,7 +503,14 @@ export const ScheduleService = {
           name_initials: s.event_person.person.name_initials,
         };
       });
-      return { id: act.id, title: act.title, assigned };
+      return {
+        id: act.id,
+        title: act.title,
+        description: act.description,
+        max_participants: act.max_participants,
+        closed: act.closed,
+        assigned,
+      };
     });
 
     const unassigned = confirmedPersons
@@ -501,5 +523,31 @@ export const ScheduleService = {
       .sort((a, b) => a.name_display.localeCompare(b.name_display));
 
     return { activities, unassigned };
+  },
+
+  async confirmSchedule(eventId: string, userId: string) {
+    const event = await db.event.findFirst({
+      where: { id: eventId, user_id: userId },
+      select: { id: true },
+    });
+    if (!event) throw new Error("Evento no encontrado");
+
+    // Get all activity IDs for this event
+    const activities = await db.scheduleActivity.findMany({
+      where: { block: { event_id: eventId } },
+      select: { id: true },
+    });
+    const activityIds = activities.map((a) => a.id);
+
+    await db.$transaction([
+      db.event.update({
+        where: { id: eventId },
+        data: { schedule_confirmed: true },
+      }),
+      db.activitySignup.updateMany({
+        where: { activity_id: { in: activityIds } },
+        data: { confirmed: true },
+      }),
+    ]);
   },
 };

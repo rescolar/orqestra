@@ -77,7 +77,7 @@ export async function updateBlockField(
 export async function updateActivityField(
   activityId: string,
   eventId: string,
-  data: { title?: string; description?: string | null }
+  data: { title?: string; description?: string | null; max_participants?: number | null; closed?: boolean }
 ) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -129,4 +129,12 @@ export async function getBlockAssignments(
   if (!session?.user?.id) redirect("/login");
 
   return ScheduleService.getBlockAssignments(blockId, session.user.id);
+}
+
+export async function confirmSchedule(eventId: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  await ScheduleService.confirmSchedule(eventId, session.user.id);
+  revalidatePath(`/events/${eventId}/schedule`);
 }

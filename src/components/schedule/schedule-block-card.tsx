@@ -8,6 +8,8 @@ type Activity = {
   title: string;
   description: string | null;
   signup_count: number;
+  max_participants: number | null;
+  closed: boolean;
 };
 
 type ScheduleBlockCardProps = {
@@ -21,10 +23,6 @@ type ScheduleBlockCardProps = {
   onMoveBlock: (blockId: string, direction: "up" | "down") => void;
   onDeleteBlock: (blockId: string) => void;
   onUpdateBlock: (blockId: string, data: { time_label?: string | null }) => void;
-  onUpdateActivity: (
-    activityId: string,
-    data: { title?: string; description?: string | null }
-  ) => void;
   onDeleteActivity: (activityId: string) => void;
   onAddActivity: (blockId: string) => void;
   isFirst: boolean;
@@ -97,7 +95,6 @@ export function ScheduleBlockCard({
   onMoveBlock,
   onDeleteBlock,
   onUpdateBlock,
-  onUpdateActivity,
   onDeleteActivity,
   onAddActivity,
   isFirst,
@@ -162,7 +159,6 @@ export function ScheduleBlockCard({
                 key={act.id}
                 activity={act}
                 isParallel
-                onUpdate={onUpdateActivity}
                 onDelete={onDeleteActivity}
                 onActivityClick={
                   onActivityClick
@@ -188,8 +184,13 @@ export function ScheduleBlockCard({
         <ActivityCard
           activity={block.activities[0]}
           isParallel={false}
-          onUpdate={onUpdateActivity}
           onDelete={onDeleteActivity}
+          onActivityClick={
+            onActivityClick
+              ? (actId) => onActivityClick(actId, block.id)
+              : undefined
+          }
+          isSelected={selectedActivityId === block.activities[0]?.id}
         />
       )}
     </div>

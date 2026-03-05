@@ -8,11 +8,13 @@ import type { ParticipantDaySchedule, ParticipantActivity } from "@/lib/services
 type ParticipantScheduleProps = {
   eventId: string;
   schedule: ParticipantDaySchedule[];
+  scheduleConfirmed: boolean;
 };
 
 export function ParticipantSchedule({
   eventId,
   schedule: initialSchedule,
+  scheduleConfirmed,
 }: ParticipantScheduleProps) {
   const [schedule, setSchedule] = useState(initialSchedule);
   const [selectedDay, setSelectedDay] = useState(0);
@@ -124,46 +126,83 @@ export function ParticipantSchedule({
                   block.activities.length === 3 ? "grid-cols-3" : "grid-cols-2"
                 }`}
               >
-                {block.activities.map((act) => (
-                  <div
-                    key={act.id}
-                    className={`rounded-2xl border-2 p-4 transition-colors ${
-                      act.my_signup
-                        ? "border-success bg-success/5"
-                        : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <h3 className="font-semibold text-gray-900">{act.title}</h3>
-                    {act.description && (
-                      <p className="mt-2 text-sm text-gray-600">
-                        {act.description}
-                      </p>
-                    )}
-                    <p className="mt-2 text-xs text-gray-400">
-                      {act.signup_count} inscritos
-                    </p>
-                    <button
-                      onClick={() => handleToggle(act.id, block.id)}
-                      disabled={toggling === act.id}
-                      className={`mt-3 w-full rounded-lg py-2 text-sm font-medium transition-colors ${
-                        act.my_signup
-                          ? "bg-success text-white hover:bg-success/90"
-                          : "bg-gray-100 text-gray-600 hover:bg-primary/10 hover:text-primary"
+                {block.activities.map((act) => {
+                  const isClosed = act.closed;
+                  const isSignedUp = act.my_signup;
+
+                  // Determine button text and style
+                  let buttonText: React.ReactNode;
+                  let buttonClass: string;
+
+                  if (isClosed && !isSignedUp) {
+                    buttonText = "Cerrada";
+                    buttonClass = "bg-gray-100 text-gray-400 cursor-not-allowed";
+                  } else if (scheduleConfirmed && isSignedUp) {
+                    buttonText = (
+                      <>
+                        <span className="material-symbols-outlined mr-1 align-middle text-sm">
+                          check_circle
+                        </span>
+                        Confirmado
+                      </>
+                    );
+                    buttonClass = "bg-success text-white";
+                  } else if (isSignedUp) {
+                    buttonText = (
+                      <>
+                        <span className="material-symbols-outlined mr-1 align-middle text-sm">
+                          schedule
+                        </span>
+                        En lista de espera
+                      </>
+                    );
+                    buttonClass = "bg-amber-100 text-amber-700 hover:bg-amber-200";
+                  } else {
+                    buttonText = "Apuntarme";
+                    buttonClass = "bg-gray-100 text-gray-600 hover:bg-primary/10 hover:text-primary";
+                  }
+
+                  return (
+                    <div
+                      key={act.id}
+                      className={`rounded-2xl border-2 p-4 transition-colors ${
+                        isClosed && !isSignedUp
+                          ? "border-gray-200 bg-gray-50 opacity-60"
+                          : isSignedUp
+                          ? scheduleConfirmed
+                            ? "border-success bg-success/5"
+                            : "border-amber-300 bg-amber-50/50"
+                          : "border-gray-200 bg-white"
                       }`}
                     >
-                      {act.my_signup ? (
-                        <>
-                          <span className="material-symbols-outlined mr-1 align-middle text-sm">
-                            check
+                      <div className="flex items-start justify-between gap-1">
+                        <h3 className="font-semibold text-gray-900">{act.title}</h3>
+                        {isClosed && (
+                          <span className="shrink-0 rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium uppercase text-gray-500">
+                            Cerrada
                           </span>
-                          Apuntado
-                        </>
-                      ) : (
-                        "Unirme"
+                        )}
+                      </div>
+                      {act.description && (
+                        <p className="mt-2 text-sm text-gray-600">
+                          {act.description}
+                        </p>
                       )}
-                    </button>
-                  </div>
-                ))}
+                      <p className="mt-2 text-xs text-gray-400">
+                        {act.max_participants != null
+                          ? `${act.signup_count}/${act.max_participants}`
+                          : `${act.signup_count} inscritos`}
+                      </p>
+                      <button
+                        onClick={() => handleToggle(act.id, block.id)}
+                        disabled={toggling === act.id || (isClosed && !isSignedUp)}
+                        className={`mt-3 w-full rounded-lg py-2 text-sm font-medium transition-colors ${buttonClass}`}
+                      >
+                        {buttonText}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );

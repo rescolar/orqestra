@@ -95,6 +95,7 @@ model Event {
   location               String?
   image_url              String?
   invite_code            String?         @unique
+  schedule_confirmed     Boolean         @default(false)
 
   user                User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
   event_persons       EventPerson[]
@@ -220,11 +221,13 @@ model ScheduleBlock {
 }
 
 model ScheduleActivity {
-  id          String  @id @default(cuid())
-  block_id    String
-  title       String
-  description String?
-  position    Int
+  id               String  @id @default(cuid())
+  block_id         String
+  title            String
+  description      String?
+  position         Int
+  max_participants Int?
+  closed           Boolean @default(false)
 
   block   ScheduleBlock    @relation(fields: [block_id], references: [id], onDelete: Cascade)
   signups ActivitySignup[]
@@ -233,9 +236,10 @@ model ScheduleActivity {
 }
 
 model ActivitySignup {
-  id              String @id @default(cuid())
+  id              String  @id @default(cuid())
   activity_id     String
   event_person_id String
+  confirmed       Boolean @default(false)
 
   activity     ScheduleActivity @relation(fields: [activity_id], references: [id], onDelete: Cascade)
   event_person EventPerson      @relation(fields: [event_person_id], references: [id], onDelete: Cascade)

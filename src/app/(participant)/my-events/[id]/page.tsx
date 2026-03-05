@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getMyEventDetail, getEventSchedule } from "@/lib/actions/participant";
 import { joinEvent } from "@/lib/actions/participant";
 import { MyEventDetail } from "@/components/participant/my-event-detail";
+import { db } from "@/lib/db";
 
 export default async function MyEventDetailPage({
   params,
@@ -26,10 +27,16 @@ export default async function MyEventDetailPage({
     // No schedule available
   }
 
+  const event = await db.event.findFirst({
+    where: { id },
+    select: { schedule_confirmed: true },
+  });
+
   return (
     <MyEventDetail
       eventPerson={eventPerson}
       schedule={schedule}
+      scheduleConfirmed={event?.schedule_confirmed ?? false}
     />
   );
 }
