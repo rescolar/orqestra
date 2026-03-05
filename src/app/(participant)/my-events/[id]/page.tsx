@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { getMyEventDetail } from "@/lib/actions/participant";
+import { getMyEventDetail, getEventSchedule } from "@/lib/actions/participant";
 import { joinEvent } from "@/lib/actions/participant";
 import { MyEventDetail } from "@/components/participant/my-event-detail";
 
@@ -19,5 +19,17 @@ export default async function MyEventDetailPage({
     if (!eventPerson) notFound();
   }
 
-  return <MyEventDetail eventPerson={eventPerson} />;
+  let schedule;
+  try {
+    schedule = await getEventSchedule(id);
+  } catch {
+    // No schedule available
+  }
+
+  return (
+    <MyEventDetail
+      eventPerson={eventPerson}
+      schedule={schedule}
+    />
+  );
 }

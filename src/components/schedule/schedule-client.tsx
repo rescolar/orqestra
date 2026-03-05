@@ -21,6 +21,7 @@ import {
   deleteBlock,
   createActivity,
   updateActivityField,
+  updateBlockField,
   deleteActivity,
   assignToActivity,
   unassignFromActivity,
@@ -303,11 +304,11 @@ export function ScheduleClient({
             id: block.id,
             type: block.type,
             position: block.position,
+            time_label: block.time_label,
             activities: block.activities.map((a) => ({
               id: a.id,
               title: a.title,
               description: a.description,
-              time_label: a.time_label,
               position: a.position,
               signup_count: a._count.signups,
             })),
@@ -357,13 +358,27 @@ export function ScheduleClient({
     [eventId, selectedDay, selectedBlockId, handleClosePanel]
   );
 
+  const handleUpdateBlock = useCallback(
+    async (blockId: string, data: { time_label?: string | null }) => {
+      await updateBlockField(blockId, eventId, data);
+      setSchedule((prev) =>
+        prev.map((day) => ({
+          ...day,
+          blocks: day.blocks.map((block) =>
+            block.id === blockId ? { ...block, ...data } : block
+          ),
+        }))
+      );
+    },
+    [eventId]
+  );
+
   const handleUpdateActivity = useCallback(
     async (
       activityId: string,
       data: {
         title?: string;
         description?: string | null;
-        time_label?: string | null;
       }
     ) => {
       await updateActivityField(activityId, eventId, data);
@@ -432,7 +447,6 @@ export function ScheduleClient({
                     id: activity.id,
                     title: activity.title,
                     description: activity.description,
-                    time_label: activity.time_label,
                     position: activity.position,
                     signup_count: activity._count.signups,
                   },
@@ -492,6 +506,7 @@ export function ScheduleClient({
               day={currentDay}
               onMoveBlock={handleMoveBlock}
               onDeleteBlock={handleDeleteBlock}
+              onUpdateBlock={handleUpdateBlock}
               onUpdateActivity={handleUpdateActivity}
               onDeleteActivity={handleDeleteActivity}
               onAddActivity={handleAddActivity}
@@ -535,6 +550,7 @@ export function ScheduleClient({
             day={currentDay}
             onMoveBlock={handleMoveBlock}
             onDeleteBlock={handleDeleteBlock}
+            onUpdateBlock={handleUpdateBlock}
             onUpdateActivity={handleUpdateActivity}
             onDeleteActivity={handleDeleteActivity}
             onAddActivity={handleAddActivity}

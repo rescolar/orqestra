@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 type BoardHeaderProps = {
+  eventId: string;
   eventName: string;
   dateStart: Date;
   dateEnd: Date;
@@ -39,6 +40,7 @@ function KPI({ label, value, danger }: { label: string; value: string | number; 
 }
 
 export function BoardHeader({
+  eventId,
   eventName,
   dateStart,
   dateEnd,
@@ -87,6 +89,13 @@ export function BoardHeader({
         </button>
 
         <div className="ml-4 flex items-center gap-3">
+          <Link
+            href={`/events/${eventId}/schedule`}
+            className="flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary hover:bg-primary/10"
+          >
+            <span className="material-symbols-outlined text-base">calendar_month</span>
+            Programa
+          </Link>
           <button
             onClick={onPreAssign}
             disabled={unassignedCount === 0 || preAssigning}

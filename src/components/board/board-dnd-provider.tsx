@@ -821,6 +821,7 @@ export function BoardDndProvider({
       onDragEnd={handleDragEnd}
     >
       <BoardHeader
+        eventId={eventId}
         eventName={headerData.eventName}
         dateStart={headerData.dateStart}
         dateEnd={headerData.dateEnd}

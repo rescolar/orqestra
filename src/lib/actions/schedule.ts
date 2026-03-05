@@ -62,10 +62,22 @@ export async function createActivity(
   return activity;
 }
 
+export async function updateBlockField(
+  blockId: string,
+  eventId: string,
+  data: { time_label?: string | null }
+) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  await ScheduleService.updateBlock(blockId, session.user.id, data);
+  revalidatePath(`/events/${eventId}/schedule`);
+}
+
 export async function updateActivityField(
   activityId: string,
   eventId: string,
-  data: { title?: string; description?: string | null; time_label?: string | null }
+  data: { title?: string; description?: string | null }
 ) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");

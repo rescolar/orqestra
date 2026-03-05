@@ -1,12 +1,12 @@
 "use client";
 
+import { useState, useRef } from "react";
 import { ActivityCard } from "./activity-card";
 
 type Activity = {
   id: string;
   title: string;
   description: string | null;
-  time_label: string | null;
   signup_count: number;
 };
 
@@ -15,13 +15,15 @@ type ScheduleBlockCardProps = {
     id: string;
     type: "common" | "parallel";
     position: number;
+    time_label: string | null;
     activities: Activity[];
   };
   onMoveBlock: (blockId: string, direction: "up" | "down") => void;
   onDeleteBlock: (blockId: string) => void;
+  onUpdateBlock: (blockId: string, data: { time_label?: string | null }) => void;
   onUpdateActivity: (
     activityId: string,
-    data: { title?: string; description?: string | null; time_label?: string | null }
+    data: { title?: string; description?: string | null }
   ) => void;
   onDeleteActivity: (activityId: string) => void;
   onAddActivity: (blockId: string) => void;
@@ -32,10 +34,69 @@ type ScheduleBlockCardProps = {
   isAssignmentMode?: boolean;
 };
 
+function TimeLabelEdit({
+  value,
+  onSave,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(value);
+  const ref = useRef<HTMLInputElement>(null);
+
+  const handleBlur = () => {
+    setEditing(false);
+    if (text !== value) onSave(text);
+  };
+
+  if (!editing) {
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(true);
+          setTimeout(() => ref.current?.focus(), 0);
+        }}
+        className="cursor-text text-left text-sm text-gray-500"
+      >
+        {value || (
+          <span className="text-gray-400">
+            <span className="material-symbols-outlined mr-0.5 align-middle text-sm">
+              schedule
+            </span>
+            Horario
+          </span>
+        )}
+      </button>
+    );
+  }
+
+  return (
+    <input
+      ref={ref}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={handleBlur}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Escape") {
+          setText(value);
+          setEditing(false);
+        }
+      }}
+      placeholder="09:00–10:00"
+      className="w-32 rounded border border-primary/30 bg-white p-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+    />
+  );
+}
+
 export function ScheduleBlockCard({
   block,
   onMoveBlock,
   onDeleteBlock,
+  onUpdateBlock,
   onUpdateActivity,
   onDeleteActivity,
   onAddActivity,
@@ -50,9 +111,17 @@ export function ScheduleBlockCard({
   return (
     <div className="rounded-2xl border bg-white p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium uppercase text-gray-500">
-          {isParallel ? "Paralelo" : "Común"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium uppercase text-gray-500">
+            {isParallel ? "Paralelo" : "Común"}
+          </span>
+          <TimeLabelEdit
+            value={block.time_label ?? ""}
+            onSave={(time_label) =>
+              onUpdateBlock(block.id, { time_label: time_label || null })
+            }
+          />
+        </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => onMoveBlock(block.id, "up")}

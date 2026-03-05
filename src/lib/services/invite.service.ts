@@ -237,7 +237,7 @@ export const InviteService = {
       where: { event_id_person_id: { event_id: eventId, person_id: person.id } },
       include: {
         event: {
-          select: { name: true, date_start: true, date_end: true, location: true },
+          select: { id: true, name: true, date_start: true, date_end: true, location: true },
         },
         person: {
           select: {

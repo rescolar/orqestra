@@ -8,11 +8,11 @@ export type DaySchedule = {
     id: string;
     type: "common" | "parallel";
     position: number;
+    time_label: string | null;
     activities: {
       id: string;
       title: string;
       description: string | null;
-      time_label: string | null;
       position: number;
       signup_count: number;
     }[];
@@ -23,7 +23,6 @@ export type ParticipantActivity = {
   id: string;
   title: string;
   description: string | null;
-  time_label: string | null;
   position: number;
   signup_count: number;
   my_signup: boolean;
@@ -36,6 +35,7 @@ export type ParticipantDaySchedule = {
     id: string;
     type: "common" | "parallel";
     position: number;
+    time_label: string | null;
     activities: ParticipantActivity[];
   }[];
 };
@@ -47,11 +47,11 @@ function buildDaySchedules(
     day_index: number;
     position: number;
     type: ScheduleBlockType;
+    time_label: string | null;
     activities: {
       id: string;
       title: string;
       description: string | null;
-      time_label: string | null;
       position: number;
       _count: { signups: number };
     }[];
@@ -77,6 +77,7 @@ function buildDaySchedules(
       id: block.id,
       type: block.type,
       position: block.position,
+      time_label: block.time_label,
       activities: block.activities
         .sort((a, b) => a.position - b.position)
         .map((a) => {
@@ -84,7 +85,6 @@ function buildDaySchedules(
             id: a.id,
             title: a.title,
             description: a.description,
-            time_label: a.time_label,
             position: a.position,
             signup_count: a._count.signups,
           };
@@ -247,7 +247,7 @@ export const ScheduleService = {
   async updateActivity(
     activityId: string,
     userId: string,
-    data: { title?: string; description?: string | null; time_label?: string | null }
+    data: { title?: string; description?: string | null }
   ) {
     const activity = await db.scheduleActivity.findFirst({
       where: { id: activityId, block: { event: { user_id: userId } } },
@@ -427,6 +427,23 @@ export const ScheduleService = {
         activity_id: activityId,
         event_person_id: eventPersonId,
       },
+    });
+  },
+
+  async updateBlock(
+    blockId: string,
+    userId: string,
+    data: { time_label?: string | null }
+  ) {
+    const block = await db.scheduleBlock.findFirst({
+      where: { id: blockId, event: { user_id: userId } },
+      select: { id: true },
+    });
+    if (!block) throw new Error("Bloque no encontrado");
+
+    return db.scheduleBlock.update({
+      where: { id: blockId },
+      data,
     });
   },
 

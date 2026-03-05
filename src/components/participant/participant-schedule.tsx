@@ -87,12 +87,12 @@ export function ParticipantSchedule({
             return (
               <div key={block.id} className="rounded-2xl bg-slate-50 p-4">
                 <h3 className="font-semibold text-gray-900">{act.title}</h3>
-                {act.time_label && (
+                {block.time_label && (
                   <p className="mt-0.5 text-sm text-gray-500">
                     <span className="material-symbols-outlined mr-1 align-middle text-sm">
                       schedule
                     </span>
-                    {act.time_label}
+                    {block.time_label}
                   </p>
                 )}
                 {act.description && (
@@ -106,9 +106,19 @@ export function ParticipantSchedule({
 
           return (
             <div key={block.id}>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
-                Elige una actividad
-              </p>
+              <div className="mb-2 flex items-center gap-2">
+                <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
+                  Elige una actividad
+                </p>
+                {block.time_label && (
+                  <span className="text-xs text-gray-500">
+                    <span className="material-symbols-outlined mr-0.5 align-middle text-sm">
+                      schedule
+                    </span>
+                    {block.time_label}
+                  </span>
+                )}
+              </div>
               <div
                 className={`grid gap-3 ${
                   block.activities.length === 3 ? "grid-cols-3" : "grid-cols-2"
@@ -124,14 +134,6 @@ export function ParticipantSchedule({
                     }`}
                   >
                     <h3 className="font-semibold text-gray-900">{act.title}</h3>
-                    {act.time_label && (
-                      <p className="mt-0.5 text-sm text-gray-500">
-                        <span className="material-symbols-outlined mr-1 align-middle text-sm">
-                          schedule
-                        </span>
-                        {act.time_label}
-                      </p>
-                    )}
                     {act.description && (
                       <p className="mt-2 text-sm text-gray-600">
                         {act.description}

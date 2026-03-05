@@ -8,13 +8,12 @@ type ActivityCardProps = {
     id: string;
     title: string;
     description: string | null;
-    time_label: string | null;
     signup_count: number;
   };
   isParallel: boolean;
   onUpdate: (
     activityId: string,
-    data: { title?: string; description?: string | null; time_label?: string | null }
+    data: { title?: string; description?: string | null }
   ) => void;
   onDelete: (activityId: string) => void;
   onActivityClick?: (activityId: string) => void;
@@ -136,16 +135,6 @@ export function ActivityCard({
             placeholder="Título de la actividad"
             className="font-semibold text-gray-900"
           />
-          <div className="mt-1">
-            <InlineEdit
-              value={activity.time_label ?? ""}
-              onSave={(time_label) =>
-                onUpdate(activity.id, { time_label: time_label || null })
-              }
-              placeholder="Horario (ej: 09:00–10:00)"
-              className="text-sm text-gray-500"
-            />
-          </div>
           <div className="mt-2">
             <InlineEdit
               value={activity.description ?? ""}

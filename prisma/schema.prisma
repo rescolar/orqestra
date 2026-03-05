@@ -102,6 +102,7 @@ model Event {
   groups              Group[]
   undo_entries        UndoEntry[]
   centro_share_token  CentroShareToken?
+  schedule_blocks     ScheduleBlock[]
 
   @@map("events")
 }
@@ -137,6 +138,8 @@ model EventPerson {
 
   @@unique([event_id, person_id])
   @@map("event_persons")
+
+  activity_signups ActivitySignup[]
 }
 
 // ─── Room ────────────────────────────────────────────────────────────────────
@@ -193,6 +196,52 @@ model CentroShareToken {
   event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
 
   @@map("centro_share_tokens")
+}
+
+// ─── Schedule ───────────────────────────────────────────────────────────────
+
+enum ScheduleBlockType {
+  common
+  parallel
+}
+
+model ScheduleBlock {
+  id         String            @id @default(cuid())
+  event_id   String
+  day_index  Int
+  position   Int
+  type       ScheduleBlockType
+  time_label String?
+
+  event      Event              @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  activities ScheduleActivity[]
+
+  @@map("schedule_blocks")
+}
+
+model ScheduleActivity {
+  id          String  @id @default(cuid())
+  block_id    String
+  title       String
+  description String?
+  position    Int
+
+  block   ScheduleBlock    @relation(fields: [block_id], references: [id], onDelete: Cascade)
+  signups ActivitySignup[]
+
+  @@map("schedule_activities")
+}
+
+model ActivitySignup {
+  id              String @id @default(cuid())
+  activity_id     String
+  event_person_id String
+
+  activity     ScheduleActivity @relation(fields: [activity_id], references: [id], onDelete: Cascade)
+  event_person EventPerson      @relation(fields: [event_person_id], references: [id], onDelete: Cascade)
+
+  @@unique([activity_id, event_person_id])
+  @@map("activity_signups")
 }
 
 // ─── UndoEntry ───────────────────────────────────────────────────────────────

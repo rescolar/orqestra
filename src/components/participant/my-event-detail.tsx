@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { updateEventPreferences } from "@/lib/actions/participant";
+import { ParticipantSchedule } from "./participant-schedule";
 import Link from "next/link";
+import type { ParticipantDaySchedule } from "@/lib/services/schedule.service";
 
 type EventPersonData = {
   id: string;
@@ -14,6 +16,7 @@ type EventPersonData = {
   last_meal_lunch: boolean;
   requests_text: string | null;
   event: {
+    id: string;
     name: string;
     date_start: Date;
     date_end: Date;
@@ -35,9 +38,12 @@ function formatDate(date: Date): string {
 
 export function MyEventDetail({
   eventPerson,
+  schedule,
 }: {
   eventPerson: EventPersonData;
+  schedule?: ParticipantDaySchedule[];
 }) {
+  const [activeTab, setActiveTab] = useState<"data" | "schedule">("data");
   const [status, setStatus] = useState(eventPerson.status);
   const [arrivesForDinner, setArrivesForDinner] = useState(
     eventPerson.arrives_for_dinner
@@ -116,6 +122,41 @@ export function MyEventDetail({
         </p>
       </div>
 
+      {schedule && schedule.length > 0 && (
+        <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+          <button
+            onClick={() => setActiveTab("data")}
+            className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === "data"
+                ? "bg-white text-primary shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Mis datos
+          </button>
+          <button
+            onClick={() => setActiveTab("schedule")}
+            className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === "schedule"
+                ? "bg-white text-primary shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <span className="material-symbols-outlined mr-1 align-middle text-base">
+              calendar_month
+            </span>
+            Programa
+          </button>
+        </div>
+      )}
+
+      {activeTab === "schedule" && schedule && schedule.length > 0 ? (
+        <ParticipantSchedule
+          eventId={eventPerson.event.id}
+          schedule={schedule}
+        />
+      ) : (
+      <>
       {/* Status */}
       <Card>
         <CardHeader>
@@ -267,6 +308,8 @@ export function MyEventDetail({
         <p className="text-center text-xs text-muted-foreground">
           Guardando...
         </p>
+      )}
+      </>
       )}
     </div>
   );

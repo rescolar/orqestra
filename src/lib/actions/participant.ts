@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { InviteService } from "@/lib/services/invite.service";
+import { ScheduleService } from "@/lib/services/schedule.service";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
@@ -63,4 +64,20 @@ export async function updateMyProfile(data: {
 
   await InviteService.updateParticipantProfile(session.user.id, data);
   revalidatePath("/my-profile");
+}
+
+export async function getEventSchedule(eventId: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  return ScheduleService.getScheduleForParticipant(eventId, session.user.id);
+}
+
+export async function toggleActivitySignup(activityId: string, eventId: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const result = await ScheduleService.toggleSignup(activityId, session.user.id);
+  revalidatePath(`/my-events/${eventId}`);
+  return result;
 }

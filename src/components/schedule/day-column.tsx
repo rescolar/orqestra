@@ -7,9 +7,10 @@ type DayColumnProps = {
   day: DaySchedule;
   onMoveBlock: (blockId: string, direction: "up" | "down") => void;
   onDeleteBlock: (blockId: string) => void;
+  onUpdateBlock: (blockId: string, data: { time_label?: string | null }) => void;
   onUpdateActivity: (
     activityId: string,
-    data: { title?: string; description?: string | null; time_label?: string | null }
+    data: { title?: string; description?: string | null }
   ) => void;
   onDeleteActivity: (activityId: string) => void;
   onAddActivity: (blockId: string) => void;
@@ -23,6 +24,7 @@ export function DayColumn({
   day,
   onMoveBlock,
   onDeleteBlock,
+  onUpdateBlock,
   onUpdateActivity,
   onDeleteActivity,
   onAddActivity,
@@ -45,6 +47,7 @@ export function DayColumn({
           block={block}
           onMoveBlock={onMoveBlock}
           onDeleteBlock={onDeleteBlock}
+          onUpdateBlock={onUpdateBlock}
           onUpdateActivity={onUpdateActivity}
           onDeleteActivity={onDeleteActivity}
           onAddActivity={onAddActivity}
