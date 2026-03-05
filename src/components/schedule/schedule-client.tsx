@@ -623,6 +623,7 @@ export function ScheduleClient({
       activity={currentActivityData}
       assigned={isAssignmentMode ? currentActivityAssigned : undefined}
       showAssigned={isAssignmentMode}
+      isParallel={!commonActivityId}
       onUpdate={handleUpdateActivity}
       onUnassign={isAssignmentMode ? handleUnassign : undefined}
       onClose={handleClosePanel}

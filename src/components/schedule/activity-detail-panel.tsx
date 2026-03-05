@@ -22,6 +22,7 @@ type ActivityDetailPanelProps = {
   activity: ActivityData;
   assigned?: PersonItem[];
   showAssigned?: boolean;
+  isParallel?: boolean;
   onUpdate: (activityId: string, data: { title?: string; description?: string | null; max_participants?: number | null; closed?: boolean }) => void;
   onUnassign?: (eventPersonId: string) => void;
   onClose: () => void;
@@ -70,6 +71,7 @@ export function ActivityDetailPanel({
   activity,
   assigned = [],
   showAssigned = false,
+  isParallel = true,
   onUpdate,
   onUnassign,
   onClose,
@@ -128,51 +130,53 @@ export function ActivityDetailPanel({
           />
         </div>
 
-        {/* Settings */}
-        <div className="space-y-3">
-          <p className="text-xs font-medium uppercase text-gray-500">
-            Configuración
-          </p>
-          <div className="flex items-center justify-between">
-            <label
-              htmlFor="max-participants"
-              className="text-sm text-gray-700"
-            >
-              Aforo máximo
-            </label>
-            <input
-              id="max-participants"
-              type="number"
-              min={1}
-              value={maxParticipants}
-              onChange={(e) => setMaxParticipants(e.target.value)}
-              onBlur={handleMaxParticipantsBlur}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              }}
-              placeholder="Sin límite"
-              className="w-24 rounded border border-gray-200 px-2 py-1 text-right text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-700">Cerrada</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={activity.closed}
-              onClick={() => onUpdate(activity.id, { closed: !activity.closed })}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                activity.closed ? "bg-danger" : "bg-gray-300"
-              }`}
-            >
-              <span
-                className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
-                  activity.closed ? "translate-x-6" : "translate-x-1"
-                }`}
+        {/* Settings (parallel only) */}
+        {isParallel && (
+          <div className="space-y-3">
+            <p className="text-xs font-medium uppercase text-gray-500">
+              Configuración
+            </p>
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="max-participants"
+                className="text-sm text-gray-700"
+              >
+                Aforo máximo
+              </label>
+              <input
+                id="max-participants"
+                type="number"
+                min={1}
+                value={maxParticipants}
+                onChange={(e) => setMaxParticipants(e.target.value)}
+                onBlur={handleMaxParticipantsBlur}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                }}
+                placeholder="Sin límite"
+                className="w-24 rounded border border-gray-200 px-2 py-1 text-right text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
-            </button>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-700">Cerrada</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={activity.closed}
+                onClick={() => onUpdate(activity.id, { closed: !activity.closed })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  activity.closed ? "bg-danger" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
+                    activity.closed ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Capacity indicator (only when showAssigned) */}
         {showAssigned && activity.max_participants != null && (
