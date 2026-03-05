@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Plus, Users, ArrowRight } from "lucide-react";
-import { EventCard } from "@/components/event-card";
+import { EventCard } from "@/components/event/event-card";
 
 type EventData = {
   id: string;

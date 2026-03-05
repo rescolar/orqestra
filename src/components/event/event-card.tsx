@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Trash2, Pencil, MapPin, Calendar } from "lucide-react";
-import { InviteLinkButton } from "@/components/invite-link-button";
+import { InviteLinkButton } from "@/components/event/invite-link-button";
 import { deleteEvent } from "@/lib/actions/event";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

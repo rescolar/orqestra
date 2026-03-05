@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updateMyProfile } from "@/lib/actions/participant";
-import { ImageUpload } from "@/components/image-upload";
+import { ImageUpload } from "@/components/shared/image-upload";
 
 const DIETARY_OPTIONS = [
   "Vegetariano",

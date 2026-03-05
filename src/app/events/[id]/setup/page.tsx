@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { RoomSetupForm } from "@/components/room-setup-form";
-import { WizardStepper } from "@/components/wizard-stepper";
+import { WizardStepper } from "@/components/event/wizard-stepper";
 
 const STEPS = [
   { label: "Datos" },

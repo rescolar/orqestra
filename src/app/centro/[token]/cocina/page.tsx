@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { CentroShareService } from "@/lib/services/centro-share.service";
-import { KitchenReportClient } from "@/components/kitchen-report";
+import { KitchenReportClient } from "@/components/kitchen/kitchen-report";
 
 export default async function CocinaPage({
   params,

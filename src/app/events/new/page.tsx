@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { createEvent } from "@/lib/actions/event";
-import { WizardStepper } from "@/components/wizard-stepper";
+import { WizardStepper } from "@/components/event/wizard-stepper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

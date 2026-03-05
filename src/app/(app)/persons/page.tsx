@@ -1,5 +1,5 @@
 import { getPersonsDirectory } from "@/lib/actions/directory";
-import { PersonDirectory } from "@/components/person-directory";
+import { PersonDirectory } from "@/components/person/person-directory";
 
 export default async function PersonsPage() {
   const persons = await getPersonsDirectory();

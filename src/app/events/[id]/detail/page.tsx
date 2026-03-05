@@ -2,8 +2,8 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { notFound } from "next/navigation";
 import { EventService } from "@/lib/services/event.service";
-import { EventDetailForm } from "@/components/event-detail-form";
-import { WizardStepper } from "@/components/wizard-stepper";
+import { EventDetailForm } from "@/components/event/event-detail-form";
+import { WizardStepper } from "@/components/event/wizard-stepper";
 
 const STEPS = [
   { label: "Datos" },

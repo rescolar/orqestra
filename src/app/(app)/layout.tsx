@@ -1,6 +1,6 @@
 import { auth, signOut } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { NavLinks } from "@/components/nav-links";
+import { NavLinks } from "@/components/shared/nav-links";
 
 export default async function AppLayout({
   children,

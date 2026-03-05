@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { KitchenService } from "@/lib/services/kitchen.service";
-import { KitchenReportClient } from "@/components/kitchen-report";
+import { KitchenReportClient } from "@/components/kitchen/kitchen-report";
 
 export default async function KitchenPage({
   params,

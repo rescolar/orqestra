@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ImageUpload } from "@/components/image-upload";
+import { ImageUpload } from "@/components/shared/image-upload";
 import { updateBranding } from "@/lib/actions/settings";
 import { Calendar, MapPin } from "lucide-react";
 

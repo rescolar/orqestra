@@ -10,8 +10,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { DataTable, type Column } from "@/components/data-table";
-import { PersonFormDialog } from "@/components/person-form-dialog";
+import { DataTable, type Column } from "@/components/shared/data-table";
+import { PersonFormDialog } from "@/components/person/person-form-dialog";
 import {
   createPerson,
   updatePerson,
