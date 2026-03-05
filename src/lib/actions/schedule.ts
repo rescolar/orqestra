@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { ScheduleService, type BlockAssignments } from "@/lib/services/schedule.service";
+import { ScheduleService, type BlockAssignments, type PrintDaySchedule } from "@/lib/services/schedule.service";
 import { ScheduleBlockType } from "@prisma/client";
 
 export async function getSchedule(eventId: string) {
@@ -129,6 +129,15 @@ export async function getBlockAssignments(
   if (!session?.user?.id) redirect("/login");
 
   return ScheduleService.getBlockAssignments(blockId, session.user.id);
+}
+
+export async function getSchedulePrintData(
+  eventId: string
+): Promise<PrintDaySchedule[]> {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  return ScheduleService.getSchedulePrintData(eventId, session.user.id);
 }
 
 export async function confirmSchedule(eventId: string) {

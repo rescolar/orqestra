@@ -122,6 +122,28 @@ export type BlockAssignments = {
   unassigned: { id: string; name_display: string; name_initials: string }[];
 };
 
+export type PrintActivity = {
+  id: string;
+  title: string;
+  description: string | null;
+  position: number;
+  signup_count: number;
+  max_participants: number | null;
+  assigned_names: string[];
+};
+
+export type PrintDaySchedule = {
+  day_index: number;
+  date: Date;
+  blocks: {
+    id: string;
+    type: "common" | "parallel";
+    position: number;
+    time_label: string | null;
+    activities: PrintActivity[];
+  }[];
+};
+
 export const ScheduleService = {
   async getSchedule(eventId: string, userId: string): Promise<DaySchedule[]> {
     const event = await db.event.findFirst({
@@ -523,6 +545,76 @@ export const ScheduleService = {
       .sort((a, b) => a.name_display.localeCompare(b.name_display));
 
     return { activities, unassigned };
+  },
+
+  async getSchedulePrintData(
+    eventId: string,
+    userId: string
+  ): Promise<PrintDaySchedule[]> {
+    const event = await db.event.findFirst({
+      where: { id: eventId, user_id: userId },
+      select: { date_start: true, date_end: true },
+    });
+    if (!event) throw new Error("Evento no encontrado");
+
+    const blocks = await db.scheduleBlock.findMany({
+      where: { event_id: eventId },
+      include: {
+        activities: {
+          orderBy: { position: "asc" },
+          include: {
+            _count: { select: { signups: true } },
+            signups: {
+              include: {
+                event_person: {
+                  include: {
+                    person: { select: { name_display: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ day_index: "asc" }, { position: "asc" }],
+    });
+
+    const start = new Date(event.date_start);
+    const end = new Date(event.date_end);
+    const dayCount =
+      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    const days: PrintDaySchedule[] = [];
+    for (let i = 0; i < dayCount; i++) {
+      const date = new Date(start);
+      date.setDate(date.getDate() + i);
+      days.push({ day_index: i, date, blocks: [] });
+    }
+
+    for (const block of blocks) {
+      const day = days[block.day_index];
+      if (!day) continue;
+      day.blocks.push({
+        id: block.id,
+        type: block.type,
+        position: block.position,
+        time_label: block.time_label,
+        activities: block.activities.map((a) => ({
+          id: a.id,
+          title: a.title,
+          description: a.description,
+          position: a.position,
+          signup_count: a._count.signups,
+          max_participants: a.max_participants,
+          assigned_names: a.signups
+            .map((s) => s.event_person.person.name_display)
+            .sort((a, b) => a.localeCompare(b)),
+        })),
+      });
+      day.blocks.sort((a, b) => a.position - b.position);
+    }
+
+    return days;
   },
 
   async confirmSchedule(eventId: string, userId: string) {

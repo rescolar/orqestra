@@ -131,6 +131,14 @@ export function ScheduleHeader({
         )}
 
         <Link
+          href={`/events/${eventId}/schedule-print`}
+          className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+        >
+          <span className="material-symbols-outlined text-base">print</span>
+          Imprimir
+        </Link>
+
+        <Link
           href={`/events/${eventId}/board`}
           className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
         >
