@@ -96,6 +96,13 @@ export function BoardHeader({
             <span className="material-symbols-outlined text-base">calendar_month</span>
             Programa
           </Link>
+          <Link
+            href={`/events/${eventId}/reception`}
+            className="flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary hover:bg-primary/10"
+          >
+            <span className="material-symbols-outlined text-base">how_to_reg</span>
+            Recepción
+          </Link>
           <button
             onClick={onPreAssign}
             disabled={unassignedCount === 0 || preAssigning}
