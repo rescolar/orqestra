@@ -248,6 +248,19 @@ model ActivitySignup {
   @@map("activity_signups")
 }
 
+// ─── PasswordResetToken ──────────────────────────────────────────────────────
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  email      String
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  @@index([email])
+  @@map("password_reset_tokens")
+}
+
 // ─── UndoEntry ───────────────────────────────────────────────────────────────
 
 enum UndoType {

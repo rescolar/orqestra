@@ -95,6 +95,18 @@ export function LoginForm({
               required
             />
           </div>
+          <div className="flex justify-end">
+            <Link
+              href={`/forgot-password?${new URLSearchParams({
+                ...(branding.avatar_url ? { avatar: branding.avatar_url } : {}),
+                ...(branding.brand_name ? { name: branding.brand_name } : {}),
+                ...(branding.brand_text_color ? { color: branding.brand_text_color } : {}),
+              }).toString()}`}
+              className="text-xs text-muted-foreground hover:text-primary"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
           <Button
             type="submit"
             className="w-full bg-primary hover:bg-primary-light"
@@ -116,9 +128,10 @@ export function LoginForm({
             type="button"
             variant="outline"
             className="w-full"
-            onClick={() =>
-              signIn("google", { callbackUrl: `/join/${code}` })
-            }
+            onClick={() => {
+              document.cookie = "google_join_flow=1;path=/;max-age=600";
+              signIn("google", { callbackUrl: `/join/${code}` });
+            }}
           >
             <svg className="mr-2 size-4" viewBox="0 0 24 24">
               <path

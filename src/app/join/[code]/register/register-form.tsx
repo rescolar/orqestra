@@ -105,9 +105,10 @@ export function RegisterForm({
             type="button"
             variant="outline"
             className="w-full"
-            onClick={() =>
-              signIn("google", { callbackUrl: `/join/${code}` })
-            }
+            onClick={() => {
+              document.cookie = "google_join_flow=1;path=/;max-age=600";
+              signIn("google", { callbackUrl: `/join/${code}` });
+            }}
           >
             <svg className="mr-2 size-4" viewBox="0 0 24 24">
               <path

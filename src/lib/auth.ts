@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { authConfig } from "./auth.config";
 
@@ -56,9 +57,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return true;
         }
 
-        // No existing user with this email — block.
-        // Google sign-in only works for users already registered via /join or /register.
-        return false;
+        // No existing user — check cookie to determine role
+        const cookieStore = await cookies();
+        const isJoinFlow = cookieStore.get("google_join_flow")?.value === "1";
+        cookieStore.delete("google_join_flow");
+        const role = isJoinFlow ? "participant" : "organizer";
+
+        const newUser = await db.user.create({
+          data: {
+            email,
+            name: user.name ?? email.split("@")[0],
+            google_id: account.providerAccountId,
+            role,
+          },
+        });
+        user.id = newUser.id;
+        user.name = newUser.name;
+        (user as { role?: string }).role = newUser.role;
+        return true;
       }
       return true;
     },

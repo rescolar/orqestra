@@ -188,14 +188,31 @@ export const InviteService = {
   },
 
   async joinEvent(participantUserId: string, eventId: string) {
-    const person = await db.person.findUnique({
+    const event = await db.event.findUnique({ where: { id: eventId } });
+    if (!event) throw new Error("Event not found");
+
+    let person = await db.person.findUnique({
       where: { self_user_id: participantUserId },
     });
-    if (!person) throw new Error("Person not found for participant");
 
-    // Verify event belongs to the same organizer
-    const event = await db.event.findUnique({ where: { id: eventId } });
-    if (!event || event.user_id !== person.user_id) {
+    // Auto-create Person if missing (Google OAuth creates User without Person)
+    if (!person) {
+      const user = await db.user.findUnique({ where: { id: participantUserId } });
+      if (!user) throw new Error("User not found");
+
+      person = await db.person.create({
+        data: {
+          user_id: event.user_id,
+          self_user_id: participantUserId,
+          name_full: user.name,
+          name_display: computeDisplayName(user.name),
+          name_initials: computeInitials(user.name),
+          contact_email: user.email,
+        },
+      });
+    }
+
+    if (event.user_id !== person.user_id) {
       throw new Error("Event not accessible");
     }
 
