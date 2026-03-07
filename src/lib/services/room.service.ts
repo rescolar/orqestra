@@ -1,10 +1,12 @@
 import { db } from "@/lib/db";
 import { GenderRestriction } from "@prisma/client";
+import type { AuthContext } from "./auth-context";
+import { ownershipFilter } from "./auth-context";
 
 export const RoomService = {
   async createRoom(
     eventId: string,
-    userId: string,
+    ctx: AuthContext,
     data: {
       display_name?: string;
       capacity?: number;
@@ -13,7 +15,7 @@ export const RoomService = {
     }
   ) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -41,7 +43,7 @@ export const RoomService = {
 
   async updateRoom(
     roomId: string,
-    userId: string,
+    ctx: AuthContext,
     data: {
       display_name?: string;
       capacity?: number;
@@ -54,7 +56,7 @@ export const RoomService = {
     }
   ) {
     const room = await db.room.findFirst({
-      where: { id: roomId, event: { user_id: userId } },
+      where: { id: roomId, event: ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!room) throw new Error("Habitación no encontrada");
@@ -65,9 +67,9 @@ export const RoomService = {
     });
   },
 
-  async getRoomDetail(roomId: string, userId: string) {
+  async getRoomDetail(roomId: string, ctx: AuthContext) {
     const room = await db.room.findFirst({
-      where: { id: roomId, event: { user_id: userId } },
+      where: { id: roomId, event: ownershipFilter(ctx) },
       include: {
         event_persons: {
           include: {
@@ -88,9 +90,9 @@ export const RoomService = {
     return room;
   },
 
-  async deleteRoom(roomId: string, userId: string) {
+  async deleteRoom(roomId: string, ctx: AuthContext) {
     const room = await db.room.findFirst({
-      where: { id: roomId, event: { user_id: userId } },
+      where: { id: roomId, event: ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!room) throw new Error("Habitación no encontrada");

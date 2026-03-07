@@ -1,11 +1,13 @@
 import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import type { KitchenReportRow } from "@/lib/services/kitchen.service";
+import type { AuthContext } from "./auth-context";
+import { ownershipFilter } from "./auth-context";
 
 export const CentroShareService = {
-  async getOrCreateToken(eventId: string, userId: string) {
+  async getOrCreateToken(eventId: string, ctx: AuthContext) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true, date_end: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -23,9 +25,9 @@ export const CentroShareService = {
     });
   },
 
-  async revokeToken(eventId: string, userId: string) {
+  async revokeToken(eventId: string, ctx: AuthContext) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -35,9 +37,9 @@ export const CentroShareService = {
     });
   },
 
-  async regenerateToken(eventId: string, userId: string) {
+  async regenerateToken(eventId: string, ctx: AuthContext) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true, date_end: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -55,9 +57,9 @@ export const CentroShareService = {
     });
   },
 
-  async getTokenInfo(eventId: string, userId: string) {
+  async getTokenInfo(eventId: string, ctx: AuthContext) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");

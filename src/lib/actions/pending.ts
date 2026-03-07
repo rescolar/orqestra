@@ -3,6 +3,8 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import type { AuthContext } from "@/lib/services/auth-context";
+import { ownershipFilter } from "@/lib/services/auth-context";
 
 export type PendingDietary = {
   id: string;
@@ -43,13 +45,18 @@ export type PendingData = {
   requests: PendingRequest[];
 };
 
-export async function getPendingItems(eventId: string): Promise<PendingData> {
+async function requireAuth(): Promise<AuthContext> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  return { userId: session.user.id, role: session.user.role };
+}
 
-  // Verify event ownership
+export async function getPendingItems(eventId: string): Promise<PendingData> {
+  const ctx = await requireAuth();
+
+  // Verify event access
   const event = await db.event.findFirst({
-    where: { id: eventId, user_id: session.user.id },
+    where: { id: eventId, ...ownershipFilter(ctx) },
     select: { id: true },
   });
   if (!event) throw new Error("Evento no encontrado");

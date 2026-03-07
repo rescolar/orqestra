@@ -5,22 +5,25 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { ScheduleService, type BlockAssignments, type PrintDaySchedule } from "@/lib/services/schedule.service";
 import { ScheduleBlockType } from "@prisma/client";
+import type { AuthContext } from "@/lib/services/auth-context";
 
-export async function getSchedule(eventId: string) {
+async function requireAuth(): Promise<AuthContext> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  return { userId: session.user.id, role: session.user.role };
+}
 
-  return ScheduleService.getSchedule(eventId, session.user.id);
+export async function getSchedule(eventId: string) {
+  const ctx = await requireAuth();
+  return ScheduleService.getSchedule(eventId, ctx);
 }
 
 export async function createBlock(
   eventId: string,
   data: { day_index: number; type: ScheduleBlockType }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  const block = await ScheduleService.createBlock(eventId, session.user.id, data);
+  const ctx = await requireAuth();
+  const block = await ScheduleService.createBlock(eventId, ctx, data);
   revalidatePath(`/events/${eventId}/schedule`);
   return block;
 }
@@ -30,18 +33,14 @@ export async function moveBlock(
   eventId: string,
   direction: "up" | "down"
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await ScheduleService.moveBlock(blockId, session.user.id, direction);
+  const ctx = await requireAuth();
+  await ScheduleService.moveBlock(blockId, ctx, direction);
   revalidatePath(`/events/${eventId}/schedule`);
 }
 
 export async function deleteBlock(blockId: string, eventId: string) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await ScheduleService.deleteBlock(blockId, session.user.id);
+  const ctx = await requireAuth();
+  await ScheduleService.deleteBlock(blockId, ctx);
   revalidatePath(`/events/${eventId}/schedule`);
 }
 
@@ -50,12 +49,10 @@ export async function createActivity(
   eventId: string,
   data: { title?: string }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
+  const ctx = await requireAuth();
   const activity = await ScheduleService.createActivity(
     blockId,
-    session.user.id,
+    ctx,
     data
   );
   revalidatePath(`/events/${eventId}/schedule`);
@@ -67,10 +64,8 @@ export async function updateBlockField(
   eventId: string,
   data: { time_label?: string | null }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await ScheduleService.updateBlock(blockId, session.user.id, data);
+  const ctx = await requireAuth();
+  await ScheduleService.updateBlock(blockId, ctx, data);
   revalidatePath(`/events/${eventId}/schedule`);
 }
 
@@ -79,10 +74,8 @@ export async function updateActivityField(
   eventId: string,
   data: { title?: string; description?: string | null; max_participants?: number | null; closed?: boolean }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await ScheduleService.updateActivity(activityId, session.user.id, data);
+  const ctx = await requireAuth();
+  await ScheduleService.updateActivity(activityId, ctx, data);
   revalidatePath(`/events/${eventId}/schedule`);
 }
 
@@ -90,10 +83,8 @@ export async function deleteActivity(
   activityId: string,
   eventId: string
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await ScheduleService.deleteActivity(activityId, session.user.id);
+  const ctx = await requireAuth();
+  await ScheduleService.deleteActivity(activityId, ctx);
   revalidatePath(`/events/${eventId}/schedule`);
 }
 
@@ -102,10 +93,8 @@ export async function assignToActivity(
   eventPersonId: string,
   eventId: string
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await ScheduleService.assignToActivity(activityId, eventPersonId, session.user.id);
+  const ctx = await requireAuth();
+  await ScheduleService.assignToActivity(activityId, eventPersonId, ctx);
   revalidatePath(`/events/${eventId}/schedule`);
 }
 
@@ -114,10 +103,8 @@ export async function unassignFromActivity(
   eventPersonId: string,
   eventId: string
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await ScheduleService.unassignFromActivity(activityId, eventPersonId, session.user.id);
+  const ctx = await requireAuth();
+  await ScheduleService.unassignFromActivity(activityId, eventPersonId, ctx);
   revalidatePath(`/events/${eventId}/schedule`);
 }
 
@@ -125,25 +112,19 @@ export async function getBlockAssignments(
   blockId: string,
   eventId: string
 ): Promise<BlockAssignments> {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  return ScheduleService.getBlockAssignments(blockId, session.user.id);
+  const ctx = await requireAuth();
+  return ScheduleService.getBlockAssignments(blockId, ctx);
 }
 
 export async function getSchedulePrintData(
   eventId: string
 ): Promise<PrintDaySchedule[]> {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  return ScheduleService.getSchedulePrintData(eventId, session.user.id);
+  const ctx = await requireAuth();
+  return ScheduleService.getSchedulePrintData(eventId, ctx);
 }
 
 export async function confirmSchedule(eventId: string) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await ScheduleService.confirmSchedule(eventId, session.user.id);
+  const ctx = await requireAuth();
+  await ScheduleService.confirmSchedule(eventId, ctx);
   revalidatePath(`/events/${eventId}/schedule`);
 }

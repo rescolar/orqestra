@@ -1,9 +1,11 @@
 import { db } from "@/lib/db";
+import type { AuthContext } from "./auth-context";
+import { ownershipFilter } from "./auth-context";
 
 export const EventService = {
-  async getEventsByUser(userId: string) {
+  async getEventsByUser(ctx: AuthContext) {
     const events = await db.event.findMany({
-      where: { user_id: userId },
+      where: ownershipFilter(ctx),
       include: {
         _count: {
           select: { event_persons: true, rooms: true },
@@ -104,11 +106,11 @@ export const EventService = {
 
   async createRoomsFromTypes(
     eventId: string,
-    userId: string,
+    ctx: AuthContext,
     types: { capacity: number; hasPrivateBathroom: boolean; quantity: number }[]
   ) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -139,9 +141,9 @@ export const EventService = {
     await db.room.createMany({ data: rooms });
   },
 
-  async deleteEvent(eventId: string, userId: string) {
+  async deleteEvent(eventId: string, ctx: AuthContext) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
 
@@ -150,9 +152,9 @@ export const EventService = {
     await db.event.delete({ where: { id: eventId } });
   },
 
-  async getEventForDetail(eventId: string, userId: string) {
+  async getEventForDetail(eventId: string, ctx: AuthContext) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: {
         id: true,
         name: true,
@@ -176,7 +178,7 @@ export const EventService = {
 
   async updateEventDetails(
     eventId: string,
-    userId: string,
+    ctx: AuthContext,
     data: {
       name: string;
       description: string | null;
@@ -187,7 +189,7 @@ export const EventService = {
     }
   ) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -205,9 +207,9 @@ export const EventService = {
     });
   },
 
-  async getEventWithRooms(eventId: string, userId: string) {
+  async getEventWithRooms(eventId: string, ctx: AuthContext) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       include: {
         rooms: {
           orderBy: { internal_number: "asc" },

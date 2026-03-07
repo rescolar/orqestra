@@ -43,6 +43,13 @@ export const authConfig: NextAuthConfig = {
 
       const role = auth?.user?.role;
 
+      // Block /admin to non-admins
+      if (pathname.startsWith("/admin")) {
+        if (role !== "admin") {
+          return Response.redirect(new URL("/dashboard", request.nextUrl));
+        }
+      }
+
       // Participant trying to access organizer routes
       if (role === "participant") {
         const organizerRoutes = ["/dashboard", "/events", "/persons"];

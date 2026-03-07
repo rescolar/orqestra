@@ -5,14 +5,20 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { GroupService } from "@/lib/services/group.service";
 import { db } from "@/lib/db";
+import type { AuthContext } from "@/lib/services/auth-context";
+
+async function requireAuth(): Promise<AuthContext> {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  return { userId: session.user.id, role: session.user.role };
+}
 
 export async function createRelationship(
   eventId: string,
   personAId: string,
   personBId: string
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  const ctx = await requireAuth();
 
   // Look up both persons' current group
   const [personA, personB] = await Promise.all([
@@ -30,14 +36,14 @@ export async function createRelationship(
 
   if (personA.group_id && personB.group_id) {
     if (personA.group_id === personB.group_id) return;
-    await GroupService.removeMemberFromGroup(personBId, session.user.id);
-    await GroupService.addMemberToGroup(personA.group_id, personBId, session.user.id);
+    await GroupService.removeMemberFromGroup(personBId, ctx);
+    await GroupService.addMemberToGroup(personA.group_id, personBId, ctx);
   } else if (personA.group_id) {
-    await GroupService.addMemberToGroup(personA.group_id, personBId, session.user.id);
+    await GroupService.addMemberToGroup(personA.group_id, personBId, ctx);
   } else if (personB.group_id) {
-    await GroupService.addMemberToGroup(personB.group_id, personAId, session.user.id);
+    await GroupService.addMemberToGroup(personB.group_id, personAId, ctx);
   } else {
-    await GroupService.createGroup(eventId, session.user.id, [personAId, personBId]);
+    await GroupService.createGroup(eventId, ctx, [personAId, personBId]);
   }
 
   revalidatePath(`/events/${eventId}/board`);
@@ -47,10 +53,8 @@ export async function removeMemberFromGroup(
   eventPersonId: string,
   eventId: string
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await GroupService.removeMemberFromGroup(eventPersonId, session.user.id);
+  const ctx = await requireAuth();
+  await GroupService.removeMemberFromGroup(eventPersonId, ctx);
   revalidatePath(`/events/${eventId}/board`);
 }
 
@@ -59,9 +63,7 @@ export async function toggleInseparable(
   partnerId: string,
   eventId: string
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await GroupService.toggleInseparable(eventPersonId, partnerId, session.user.id);
+  const ctx = await requireAuth();
+  await GroupService.toggleInseparable(eventPersonId, partnerId, ctx);
   revalidatePath(`/events/${eventId}/board`);
 }

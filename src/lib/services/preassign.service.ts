@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 import { UndoService } from "./undo.service";
+import type { AuthContext } from "./auth-context";
+import { ownershipFilter } from "./auth-context";
 
 type UnassignedPerson = {
   id: string;
@@ -42,10 +44,10 @@ function sortPriority(a: UnassignedPerson, b: UnassignedPerson): number {
 export const PreAssignService = {
   async preAssign(
     eventId: string,
-    userId: string
+    ctx: AuthContext
   ): Promise<{ assigned: number; skipped: number }> {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");

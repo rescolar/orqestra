@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import type { AuthContext } from "./auth-context";
+import { ownershipFilter, isOwnerOrAdmin } from "./auth-context";
 
 export type ReceptionPerson = {
   id: string;
@@ -42,10 +44,10 @@ export type ReceptionRoom = {
 export const ReceptionService = {
   async getReceptionData(
     eventId: string,
-    userId: string
+    ctx: AuthContext
   ): Promise<{ event: { name: string; date_start: Date; date_end: Date }; participants: ReceptionPerson[] }> {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true, name: true, date_start: true, date_end: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -89,9 +91,9 @@ export const ReceptionService = {
     return { event, participants };
   },
 
-  async checkIn(eventPersonId: string, userId: string) {
+  async checkIn(eventPersonId: string, ctx: AuthContext) {
     const ep = await db.eventPerson.findFirst({
-      where: { id: eventPersonId, event: { user_id: userId } },
+      where: { id: eventPersonId, event: ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!ep) throw new Error("Participante no encontrado");
@@ -102,9 +104,9 @@ export const ReceptionService = {
     });
   },
 
-  async undoCheckIn(eventPersonId: string, userId: string) {
+  async undoCheckIn(eventPersonId: string, ctx: AuthContext) {
     const ep = await db.eventPerson.findFirst({
-      where: { id: eventPersonId, event: { user_id: userId } },
+      where: { id: eventPersonId, event: ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!ep) throw new Error("Participante no encontrado");
@@ -117,9 +119,9 @@ export const ReceptionService = {
 
   async getReceptionPrintData(
     eventId: string,
-    userId: string
+    ctx: AuthContext
   ): Promise<{ event: { name: string; date_start: Date; date_end: Date }; participants: ReceptionPerson[]; rooms: ReceptionRoom[] }> {
-    const { event, participants } = await this.getReceptionData(eventId, userId);
+    const { event, participants } = await this.getReceptionData(eventId, ctx);
 
     const rooms = await db.room.findMany({
       where: {

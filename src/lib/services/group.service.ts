@@ -1,13 +1,15 @@
 import { db } from "@/lib/db";
+import type { AuthContext } from "./auth-context";
+import { ownershipFilter, isOwnerOrAdmin } from "./auth-context";
 
 export const GroupService = {
   async createGroup(
     eventId: string,
-    userId: string,
+    ctx: AuthContext,
     memberIds: string[]
   ) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -32,9 +34,9 @@ export const GroupService = {
     return group;
   },
 
-  async addMemberToGroup(groupId: string, eventPersonId: string, userId: string) {
+  async addMemberToGroup(groupId: string, eventPersonId: string, ctx: AuthContext) {
     const group = await db.group.findFirst({
-      where: { id: groupId, event: { user_id: userId } },
+      where: { id: groupId, event: ownershipFilter(ctx) },
       select: { id: true, event_id: true },
     });
     if (!group) throw new Error("Grupo no encontrado");
@@ -45,12 +47,12 @@ export const GroupService = {
     });
   },
 
-  async removeMemberFromGroup(eventPersonId: string, userId: string) {
+  async removeMemberFromGroup(eventPersonId: string, ctx: AuthContext) {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },
       include: { event: { select: { user_id: true } } },
     });
-    if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
+    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
     if (!ep.group_id) return;
 
     const groupId = ep.group_id;
@@ -85,7 +87,7 @@ export const GroupService = {
     }
   },
 
-  async toggleInseparable(eventPersonId: string, partnerId: string, userId: string) {
+  async toggleInseparable(eventPersonId: string, partnerId: string, ctx: AuthContext) {
     const [ep, partner] = await Promise.all([
       db.eventPerson.findFirst({
         where: { id: eventPersonId },
@@ -96,7 +98,7 @@ export const GroupService = {
         select: { id: true, inseparable_with_id: true, room_id: true },
       }),
     ]);
-    if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
+    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
     if (!partner) throw new Error("Persona no encontrada");
 
     const isCurrentlyLinked = ep.inseparable_with_id === partnerId;

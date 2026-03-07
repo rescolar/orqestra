@@ -17,6 +17,22 @@ async function main() {
   });
 
   console.log("Seed completed: demo user created");
+
+  // Optional admin user via ADMIN_EMAIL env var
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (adminEmail) {
+    await prisma.user.upsert({
+      where: { email: adminEmail },
+      update: { role: "admin" },
+      create: {
+        email: adminEmail,
+        password: hashedPassword,
+        name: "Admin",
+        role: "admin",
+      },
+    });
+    console.log(`Admin user created/updated: ${adminEmail}`);
+  }
 }
 
 main()

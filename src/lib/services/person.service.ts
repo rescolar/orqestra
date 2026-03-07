@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { Gender } from "@prisma/client";
 import { UndoService } from "./undo.service";
+import type { AuthContext } from "./auth-context";
+import { ownershipFilter, isOwnerOrAdmin } from "./auth-context";
 
 const TEST_PERSONS: { name: string; gender: Gender }[] = [
   { name: "María García", gender: "female" },
@@ -40,9 +42,9 @@ function getDisplayName(name: string): string {
 }
 
 export const PersonService = {
-  async getPersonsDirectory(userId: string) {
+  async getPersonsDirectory(ctx: AuthContext) {
     return db.person.findMany({
-      where: { user_id: userId },
+      where: ownershipFilter(ctx),
       select: {
         id: true,
         name_full: true,
@@ -60,8 +62,8 @@ export const PersonService = {
     });
   },
 
-  async getPersonCount(userId: string) {
-    return db.person.count({ where: { user_id: userId } });
+  async getPersonCount(ctx: AuthContext) {
+    return db.person.count({ where: ownershipFilter(ctx) });
   },
 
   async createPerson(
@@ -94,7 +96,7 @@ export const PersonService = {
 
   async updatePerson(
     personId: string,
-    userId: string,
+    ctx: AuthContext,
     data: {
       name_full?: string;
       gender?: Gender;
@@ -106,7 +108,7 @@ export const PersonService = {
     }
   ) {
     const person = await db.person.findFirst({
-      where: { id: personId, user_id: userId },
+      where: { id: personId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!person) throw new Error("Persona no encontrada");
@@ -127,9 +129,9 @@ export const PersonService = {
     return db.person.update({ where: { id: personId }, data: updates });
   },
 
-  async deletePerson(personId: string, userId: string) {
+  async deletePerson(personId: string, ctx: AuthContext) {
     const person = await db.person.findFirst({
-      where: { id: personId, user_id: userId },
+      where: { id: personId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!person) throw new Error("Persona no encontrada");
@@ -137,16 +139,18 @@ export const PersonService = {
     return db.person.delete({ where: { id: personId } });
   },
 
-  async seedTestParticipants(eventId: string, userId: string) {
+  async seedTestParticipants(eventId: string, ctx: AuthContext) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
-      select: { id: true },
+      where: { id: eventId, ...ownershipFilter(ctx) },
+      select: { id: true, user_id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
 
+    const ownerId = event.user_id;
+
     const [existingEventPersons, existingPersons] = await Promise.all([
       db.eventPerson.count({ where: { event_id: eventId } }),
-      db.person.count({ where: { user_id: userId } }),
+      db.person.count({ where: { user_id: ownerId } }),
     ]);
     if (existingEventPersons > 0 || existingPersons > 0) return;
 
@@ -154,7 +158,7 @@ export const PersonService = {
       const entry = TEST_PERSONS[i];
       const person = await db.person.create({
         data: {
-          user_id: userId,
+          user_id: ownerId,
           name_full: entry.name,
           name_display: getDisplayName(entry.name),
           name_initials: getInitials(entry.name),
@@ -177,9 +181,22 @@ export const PersonService = {
     }
   },
 
-  async getAllPersonsForUser(userId: string, eventId: string) {
+  async getAllPersonsForUser(ctx: AuthContext, eventId: string) {
+    // For admin, get persons belonging to the event's owner
+    let userFilter: { user_id: string } | Record<string, never> = {};
+    if (ctx.role === "admin") {
+      const event = await db.event.findFirst({
+        where: { id: eventId },
+        select: { user_id: true },
+      });
+      if (!event) throw new Error("Evento no encontrado");
+      userFilter = { user_id: event.user_id };
+    } else {
+      userFilter = { user_id: ctx.userId };
+    }
+
     return db.person.findMany({
-      where: { user_id: userId },
+      where: userFilter,
       select: {
         id: true,
         name_full: true,
@@ -207,17 +224,17 @@ export const PersonService = {
 
   async addPersonToEvent(
     personId: string,
-    userId: string,
+    ctx: AuthContext,
     eventId: string
   ) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
 
     const person = await db.person.findFirst({
-      where: { id: personId, user_id: userId },
+      where: { id: personId, ...(ctx.role === "admin" ? {} : { user_id: ctx.userId }) },
       select: { id: true, default_role: true },
     });
     if (!person) throw new Error("Persona no encontrada");
@@ -241,19 +258,19 @@ export const PersonService = {
   async addPersonToEventAndAssign(
     personId: string,
     roomId: string,
-    userId: string,
+    ctx: AuthContext,
     eventId: string
   ) {
-    // Verify event belongs to user
+    // Verify event access
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
 
-    // Verify person belongs to user
+    // Verify person access
     const person = await db.person.findFirst({
-      where: { id: personId, user_id: userId },
+      where: { id: personId, ...(ctx.role === "admin" ? {} : { user_id: ctx.userId }) },
       select: { id: true, gender: true, default_role: true },
     });
     if (!person) throw new Error("Persona no encontrada");
@@ -309,18 +326,18 @@ export const PersonService = {
 
   async createParticipant(
     eventId: string,
-    userId: string,
+    ctx: AuthContext,
     data: { name_full: string; gender: Gender; role: "participant" | "facilitator" }
   ) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
-      select: { id: true },
+      where: { id: eventId, ...ownershipFilter(ctx) },
+      select: { id: true, user_id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
 
     const person = await db.person.create({
       data: {
-        user_id: userId,
+        user_id: event.user_id,
         name_full: data.name_full,
         name_display: getDisplayName(data.name_full),
         name_initials: getInitials(data.name_full),
@@ -349,9 +366,9 @@ export const PersonService = {
     });
   },
 
-  async getUnassignedPersons(eventId: string, userId: string) {
+  async getUnassignedPersons(eventId: string, ctx: AuthContext) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -381,7 +398,7 @@ export const PersonService = {
     });
   },
 
-  async assignPerson(eventPersonId: string, roomId: string, userId: string) {
+  async assignPerson(eventPersonId: string, roomId: string, ctx: AuthContext) {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },
       include: {
@@ -389,7 +406,7 @@ export const PersonService = {
         person: { select: { gender: true } },
       },
     });
-    if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
+    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
 
     const room = await db.room.findFirst({
       where: { id: roomId },
@@ -428,12 +445,12 @@ export const PersonService = {
 
   async createParticipantsBatch(
     eventId: string,
-    userId: string,
+    ctx: AuthContext,
     names: string[]
   ) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
-      select: { id: true },
+      where: { id: eventId, ...ownershipFilter(ctx) },
+      select: { id: true, user_id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
 
@@ -441,7 +458,7 @@ export const PersonService = {
     for (const name of names) {
       const person = await db.person.create({
         data: {
-          user_id: userId,
+          user_id: event.user_id,
           name_full: name,
           name_display: getDisplayName(name),
           name_initials: getInitials(name),
@@ -473,12 +490,12 @@ export const PersonService = {
     return results;
   },
 
-  async unassignPerson(eventPersonId: string, userId: string) {
+  async unassignPerson(eventPersonId: string, ctx: AuthContext) {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },
       include: { event: { select: { user_id: true } } },
     });
-    if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
+    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
 
     const previousRoomId = ep.room_id;
     const result = await db.eventPerson.update({
@@ -498,7 +515,7 @@ export const PersonService = {
     return result;
   },
 
-  async getEventPerson(eventPersonId: string, userId: string) {
+  async getEventPerson(eventPersonId: string, ctx: AuthContext) {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },
       include: {
@@ -543,13 +560,13 @@ export const PersonService = {
         },
       },
     });
-    if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
+    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
     return ep;
   },
 
   async updateEventPerson(
     eventPersonId: string,
-    userId: string,
+    ctx: AuthContext,
     data: {
       role?: "participant" | "facilitator";
       status?: "confirmed" | "tentative" | "cancelled";
@@ -569,7 +586,7 @@ export const PersonService = {
       where: { id: eventPersonId },
       include: { event: { select: { user_id: true } } },
     });
-    if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
+    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
 
     const {
       gender,
@@ -613,16 +630,16 @@ export const PersonService = {
     });
   },
 
-  async addAllPersonsToEvent(eventId: string, userId: string) {
+  async addAllPersonsToEvent(eventId: string, ctx: AuthContext) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
-      select: { id: true },
+      where: { id: eventId, ...ownershipFilter(ctx) },
+      select: { id: true, user_id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
 
     const persons = await db.person.findMany({
       where: {
-        user_id: userId,
+        user_id: event.user_id,
         event_persons: { none: { event_id: eventId } },
       },
       select: { id: true, default_role: true },
@@ -642,12 +659,12 @@ export const PersonService = {
     return { added: persons.length };
   },
 
-  async removeEventPerson(eventPersonId: string, userId: string) {
+  async removeEventPerson(eventPersonId: string, ctx: AuthContext) {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },
       include: { event: { select: { user_id: true } } },
     });
-    if (!ep || ep.event.user_id !== userId) throw new Error("No encontrado");
+    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
 
     return db.eventPerson.delete({
       where: { id: eventPersonId },

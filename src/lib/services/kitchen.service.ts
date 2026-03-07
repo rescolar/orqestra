@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import type { AuthContext } from "./auth-context";
+import { ownershipFilter } from "./auth-context";
 
 export type KitchenReportRow = {
   id: string;
@@ -22,10 +24,10 @@ export type KitchenReportRow = {
 export const KitchenService = {
   async getKitchenReport(
     eventId: string,
-    userId: string
+    ctx: AuthContext
   ): Promise<KitchenReportRow[]> {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -63,11 +65,11 @@ export const KitchenService = {
 
   async updateMealFlags(
     eventPersonId: string,
-    userId: string,
+    ctx: AuthContext,
     data: { arrives_for_dinner?: boolean; last_meal_lunch?: boolean }
   ) {
     const ep = await db.eventPerson.findFirst({
-      where: { id: eventPersonId, event: { user_id: userId } },
+      where: { id: eventPersonId, event: ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!ep) throw new Error("Participante no encontrado");
@@ -78,9 +80,9 @@ export const KitchenService = {
     });
   },
 
-  async markAllDietaryNotified(eventId: string, userId: string) {
+  async markAllDietaryNotified(eventId: string, ctx: AuthContext) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");

@@ -5,10 +5,16 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { RoomService } from "@/lib/services/room.service";
 import { GenderRestriction } from "@prisma/client";
+import type { AuthContext } from "@/lib/services/auth-context";
 
-export async function createRoom(eventId: string, formData: FormData) {
+async function requireAuth(): Promise<AuthContext> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  return { userId: session.user.id, role: session.user.role };
+}
+
+export async function createRoom(eventId: string, formData: FormData) {
+  const ctx = await requireAuth();
 
   const displayName = formData.get("display_name") as string;
   const capacity = Number(formData.get("capacity")) || 2;
@@ -16,7 +22,7 @@ export async function createRoom(eventId: string, formData: FormData) {
   const genderRestriction =
     (formData.get("gender_restriction") as GenderRestriction) || "mixed";
 
-  await RoomService.createRoom(eventId, session.user.id, {
+  await RoomService.createRoom(eventId, ctx, {
     display_name: displayName || undefined,
     capacity,
     has_private_bathroom: hasPrivateBathroom,
@@ -27,8 +33,7 @@ export async function createRoom(eventId: string, formData: FormData) {
 }
 
 export async function updateRoom(roomId: string, formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  const ctx = await requireAuth();
 
   const displayName = formData.get("display_name") as string;
   const capacity = Number(formData.get("capacity"));
@@ -37,7 +42,7 @@ export async function updateRoom(roomId: string, formData: FormData) {
     "gender_restriction"
   ) as GenderRestriction;
 
-  const room = await RoomService.updateRoom(roomId, session.user.id, {
+  const room = await RoomService.updateRoom(roomId, ctx, {
     ...(displayName !== null && { display_name: displayName }),
     ...(capacity && { capacity }),
     has_private_bathroom: hasPrivateBathroom,
@@ -48,9 +53,8 @@ export async function updateRoom(roomId: string, formData: FormData) {
 }
 
 export async function getRoomDetail(roomId: string) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-  return RoomService.getRoomDetail(roomId, session.user.id);
+  const ctx = await requireAuth();
+  return RoomService.getRoomDetail(roomId, ctx);
 }
 
 export async function updateRoomField(
@@ -58,19 +62,17 @@ export async function updateRoomField(
   eventId: string,
   data: Record<string, unknown>
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  const ctx = await requireAuth();
   await RoomService.updateRoom(
     roomId,
-    session.user.id,
+    ctx,
     data as Parameters<typeof RoomService.updateRoom>[2]
   );
   revalidatePath(`/events/${eventId}/board`);
 }
 
 export async function deleteRoom(roomId: string, eventId: string) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-  await RoomService.deleteRoom(roomId, session.user.id);
+  const ctx = await requireAuth();
+  await RoomService.deleteRoom(roomId, ctx);
   revalidatePath(`/events/${eventId}/board`);
 }

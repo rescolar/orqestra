@@ -8,7 +8,8 @@ export async function getInviteLink(eventId: string) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const code = await InviteService.getOrCreateInviteCode(eventId, session.user.id);
+  const ctx = { userId: session.user.id, role: session.user.role };
+  const code = await InviteService.getOrCreateInviteCode(eventId, ctx);
   return code;
 }
 

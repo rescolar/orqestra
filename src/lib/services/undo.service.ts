@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import type { AuthContext } from "./auth-context";
+import { ownershipFilter } from "./auth-context";
 
 type AssignPersonSnapshot = {
   eventPersonId: string;
@@ -41,11 +43,11 @@ export const UndoService = {
 
   async undoLast(
     eventId: string,
-    userId: string
+    ctx: AuthContext
   ): Promise<{ undone: number } | null> {
     // Verify ownership
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");

@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import type { AuthContext } from "./auth-context";
+import { isOwnerOrAdmin } from "./auth-context";
 
 function generateInviteCode(): string {
   return crypto.randomBytes(6).toString("base64url"); // ~8 chars, URL-safe
@@ -22,9 +24,9 @@ function computeDisplayName(name: string): string {
 }
 
 export const InviteService = {
-  async getOrCreateInviteCode(eventId: string, userId: string): Promise<string> {
+  async getOrCreateInviteCode(eventId: string, ctx: AuthContext): Promise<string> {
     const event = await db.event.findUnique({ where: { id: eventId } });
-    if (!event || event.user_id !== userId) {
+    if (!event || !isOwnerOrAdmin(ctx, event.user_id)) {
       throw new Error("Event not found or not owned by user");
     }
     if (event.invite_code) return event.invite_code;

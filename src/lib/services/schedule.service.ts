@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 import { ScheduleBlockType } from "@prisma/client";
+import type { AuthContext } from "./auth-context";
+import { ownershipFilter, isOwnerOrAdmin } from "./auth-context";
 
 export type ScheduleActivityData = {
   id: string;
@@ -145,9 +147,9 @@ export type PrintDaySchedule = {
 };
 
 export const ScheduleService = {
-  async getSchedule(eventId: string, userId: string): Promise<DaySchedule[]> {
+  async getSchedule(eventId: string, ctx: AuthContext): Promise<DaySchedule[]> {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { date_start: true, date_end: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -167,11 +169,11 @@ export const ScheduleService = {
 
   async createBlock(
     eventId: string,
-    userId: string,
+    ctx: AuthContext,
     data: { day_index: number; type: ScheduleBlockType }
   ) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -212,11 +214,11 @@ export const ScheduleService = {
 
   async moveBlock(
     blockId: string,
-    userId: string,
+    ctx: AuthContext,
     direction: "up" | "down"
   ) {
     const block = await db.scheduleBlock.findFirst({
-      where: { id: blockId, event: { user_id: userId } },
+      where: { id: blockId, event: ownershipFilter(ctx) },
     });
     if (!block) throw new Error("Bloque no encontrado");
 
@@ -244,9 +246,9 @@ export const ScheduleService = {
     ]);
   },
 
-  async deleteBlock(blockId: string, userId: string) {
+  async deleteBlock(blockId: string, ctx: AuthContext) {
     const block = await db.scheduleBlock.findFirst({
-      where: { id: blockId, event: { user_id: userId } },
+      where: { id: blockId, event: ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!block) throw new Error("Bloque no encontrado");
@@ -256,11 +258,11 @@ export const ScheduleService = {
 
   async createActivity(
     blockId: string,
-    userId: string,
+    ctx: AuthContext,
     data: { title?: string }
   ) {
     const block = await db.scheduleBlock.findFirst({
-      where: { id: blockId, event: { user_id: userId } },
+      where: { id: blockId, event: ownershipFilter(ctx) },
       include: { _count: { select: { activities: true } } },
     });
     if (!block) throw new Error("Bloque no encontrado");
@@ -281,11 +283,11 @@ export const ScheduleService = {
 
   async updateActivity(
     activityId: string,
-    userId: string,
+    ctx: AuthContext,
     data: { title?: string; description?: string | null; max_participants?: number | null; closed?: boolean }
   ) {
     const activity = await db.scheduleActivity.findFirst({
-      where: { id: activityId, block: { event: { user_id: userId } } },
+      where: { id: activityId, block: { event: ownershipFilter(ctx) } },
       select: { id: true },
     });
     if (!activity) throw new Error("Actividad no encontrada");
@@ -296,9 +298,9 @@ export const ScheduleService = {
     });
   },
 
-  async deleteActivity(activityId: string, userId: string) {
+  async deleteActivity(activityId: string, ctx: AuthContext) {
     const activity = await db.scheduleActivity.findFirst({
-      where: { id: activityId, block: { event: { user_id: userId } } },
+      where: { id: activityId, block: { event: ownershipFilter(ctx) } },
       include: { block: { include: { _count: { select: { activities: true } } } } },
     });
     if (!activity) throw new Error("Actividad no encontrada");
@@ -415,10 +417,10 @@ export const ScheduleService = {
   async assignToActivity(
     activityId: string,
     eventPersonId: string,
-    userId: string
+    ctx: AuthContext
   ) {
     const activity = await db.scheduleActivity.findFirst({
-      where: { id: activityId, block: { event: { user_id: userId } } },
+      where: { id: activityId, block: { event: ownershipFilter(ctx) } },
       include: { block: true },
     });
     if (!activity) throw new Error("Actividad no encontrada");
@@ -451,10 +453,10 @@ export const ScheduleService = {
   async unassignFromActivity(
     activityId: string,
     eventPersonId: string,
-    userId: string
+    ctx: AuthContext
   ) {
     const activity = await db.scheduleActivity.findFirst({
-      where: { id: activityId, block: { event: { user_id: userId } } },
+      where: { id: activityId, block: { event: ownershipFilter(ctx) } },
       select: { id: true },
     });
     if (!activity) throw new Error("Actividad no encontrada");
@@ -469,11 +471,11 @@ export const ScheduleService = {
 
   async updateBlock(
     blockId: string,
-    userId: string,
+    ctx: AuthContext,
     data: { time_label?: string | null }
   ) {
     const block = await db.scheduleBlock.findFirst({
-      where: { id: blockId, event: { user_id: userId } },
+      where: { id: blockId, event: ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!block) throw new Error("Bloque no encontrado");
@@ -486,10 +488,10 @@ export const ScheduleService = {
 
   async getBlockAssignments(
     blockId: string,
-    userId: string
+    ctx: AuthContext
   ): Promise<BlockAssignments> {
     const block = await db.scheduleBlock.findFirst({
-      where: { id: blockId, event: { user_id: userId } },
+      where: { id: blockId, event: ownershipFilter(ctx) },
       include: {
         activities: {
           orderBy: { position: "asc" },
@@ -549,10 +551,10 @@ export const ScheduleService = {
 
   async getSchedulePrintData(
     eventId: string,
-    userId: string
+    ctx: AuthContext
   ): Promise<PrintDaySchedule[]> {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { date_start: true, date_end: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -617,9 +619,9 @@ export const ScheduleService = {
     return days;
   },
 
-  async confirmSchedule(eventId: string, userId: string) {
+  async confirmSchedule(eventId: string, ctx: AuthContext) {
     const event = await db.event.findFirst({
-      where: { id: eventId, user_id: userId },
+      where: { id: eventId, ...ownershipFilter(ctx) },
       select: { id: true },
     });
     if (!event) throw new Error("Evento no encontrado");

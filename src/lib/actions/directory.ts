@@ -5,19 +5,22 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { PersonService } from "@/lib/services/person.service";
 import type { Gender } from "@prisma/client";
+import type { AuthContext } from "@/lib/services/auth-context";
 
-export async function getPersonsDirectory() {
+async function requireAuth(): Promise<AuthContext> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  return { userId: session.user.id, role: session.user.role };
+}
 
-  return PersonService.getPersonsDirectory(session.user.id);
+export async function getPersonsDirectory() {
+  const ctx = await requireAuth();
+  return PersonService.getPersonsDirectory(ctx);
 }
 
 export async function getPersonCount() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  return PersonService.getPersonCount(session.user.id);
+  const ctx = await requireAuth();
+  return PersonService.getPersonCount(ctx);
 }
 
 export async function createPerson(data: {
@@ -29,10 +32,8 @@ export async function createPerson(data: {
   dietary_requirements?: string[];
   allergies_text?: string | null;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await PersonService.createPerson(session.user.id, data);
+  const ctx = await requireAuth();
+  await PersonService.createPerson(ctx.userId, data);
   revalidatePath("/persons");
   revalidatePath("/dashboard");
 }
@@ -49,18 +50,14 @@ export async function updatePerson(
     allergies_text?: string | null;
   }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await PersonService.updatePerson(personId, session.user.id, data);
+  const ctx = await requireAuth();
+  await PersonService.updatePerson(personId, ctx, data);
   revalidatePath("/persons");
 }
 
 export async function deletePerson(personId: string) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await PersonService.deletePerson(personId, session.user.id);
+  const ctx = await requireAuth();
+  await PersonService.deletePerson(personId, ctx);
   revalidatePath("/persons");
   revalidatePath("/dashboard");
 }

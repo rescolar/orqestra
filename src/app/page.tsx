@@ -6,5 +6,8 @@ export default async function Home() {
   if (session?.user?.role === "participant") {
     redirect("/my-events");
   }
+  if (session?.user?.role === "admin") {
+    redirect("/admin");
+  }
   redirect("/dashboard");
 }

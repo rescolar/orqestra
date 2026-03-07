@@ -4,25 +4,27 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { EventService } from "@/lib/services/event.service";
+import type { AuthContext } from "@/lib/services/auth-context";
 
-export async function getEvents() {
+async function requireAuth(): Promise<AuthContext & { id: string }> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  return { userId: session.user.id, role: session.user.role, id: session.user.id };
+}
 
-  return EventService.getEventsByUser(session.user.id);
+export async function getEvents() {
+  const ctx = await requireAuth();
+  return EventService.getEventsByUser(ctx);
 }
 
 export async function deleteEvent(eventId: string) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await EventService.deleteEvent(eventId, session.user.id);
+  const ctx = await requireAuth();
+  await EventService.deleteEvent(eventId, ctx);
   revalidatePath("/dashboard");
 }
 
 export async function createEvent(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  const ctx = await requireAuth();
 
   const name = formData.get("name") as string;
   const dateStart = formData.get("date_start") as string;
@@ -37,7 +39,7 @@ export async function createEvent(formData: FormData) {
     throw new Error("El número de participantes debe ser al menos 1");
   }
 
-  const event = await EventService.createEvent(session.user.id, {
+  const event = await EventService.createEvent(ctx.id, {
     name,
     date_start: new Date(dateStart),
     date_end: new Date(dateEnd),
@@ -51,10 +53,8 @@ export async function createRoomsFromTypes(
   eventId: string,
   types: { capacity: number; hasPrivateBathroom: boolean; quantity: number }[]
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await EventService.createRoomsFromTypes(eventId, session.user.id, types);
+  const ctx = await requireAuth();
+  await EventService.createRoomsFromTypes(eventId, ctx, types);
   redirect(`/events/${eventId}/detail`);
 }
 
@@ -69,9 +69,7 @@ export async function updateEventDetails(
     date_end?: string;
   }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  await EventService.updateEventDetails(eventId, session.user.id, data);
+  const ctx = await requireAuth();
+  await EventService.updateEventDetails(eventId, ctx, data);
   revalidatePath("/dashboard");
 }
