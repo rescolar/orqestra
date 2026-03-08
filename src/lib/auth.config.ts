@@ -37,7 +37,12 @@ export const authConfig: NextAuthConfig = {
       const { pathname } = request.nextUrl;
 
       // Public routes don't require auth
-      if (pathname.startsWith("/join")) return true;
+      if (
+        pathname.startsWith("/join") ||
+        pathname.startsWith("/join-collab") ||
+        pathname.startsWith("/join-admin") ||
+        pathname.startsWith("/rel")
+      ) return true;
 
       if (!isLoggedIn) return false;
 
@@ -46,21 +51,6 @@ export const authConfig: NextAuthConfig = {
       // Block /admin to non-admins
       if (pathname.startsWith("/admin")) {
         if (role !== "admin") {
-          return Response.redirect(new URL("/dashboard", request.nextUrl));
-        }
-      }
-
-      // Participant trying to access organizer routes
-      if (role === "participant") {
-        const organizerRoutes = ["/dashboard", "/events", "/persons"];
-        if (organizerRoutes.some((r) => pathname.startsWith(r))) {
-          return Response.redirect(new URL("/my-events", request.nextUrl));
-        }
-      }
-
-      // Organizer/admin trying to access participant routes
-      if (role !== "participant") {
-        if (pathname.startsWith("/my-events") || pathname.startsWith("/my-profile")) {
           return Response.redirect(new URL("/dashboard", request.nextUrl));
         }
       }
