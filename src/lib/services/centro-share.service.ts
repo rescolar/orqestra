@@ -2,12 +2,13 @@ import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import type { KitchenReportRow } from "@/lib/services/kitchen.service";
 import type { AuthContext } from "./auth-context";
-import { ownershipFilter } from "./auth-context";
+import { canAccessEvent } from "./auth-context";
 
 export const CentroShareService = {
   async getOrCreateToken(eventId: string, ctx: AuthContext) {
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
     const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
+      where: { id: eventId },
       select: { id: true, date_end: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -26,11 +27,7 @@ export const CentroShareService = {
   },
 
   async revokeToken(eventId: string, ctx: AuthContext) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
 
     await db.centroShareToken.deleteMany({
       where: { event_id: eventId },
@@ -38,8 +35,9 @@ export const CentroShareService = {
   },
 
   async regenerateToken(eventId: string, ctx: AuthContext) {
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
     const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
+      where: { id: eventId },
       select: { id: true, date_end: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -58,11 +56,7 @@ export const CentroShareService = {
   },
 
   async getTokenInfo(eventId: string, ctx: AuthContext) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
 
     return db.centroShareToken.findUnique({
       where: { event_id: eventId },

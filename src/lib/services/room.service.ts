@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { GenderRestriction } from "@prisma/client";
 import type { AuthContext } from "./auth-context";
-import { ownershipFilter } from "./auth-context";
+import { canAccessEvent } from "./auth-context";
 
 export const RoomService = {
   async createRoom(
@@ -14,11 +14,8 @@ export const RoomService = {
       gender_restriction?: GenderRestriction;
     }
   ) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId)))
+      throw new Error("Evento no encontrado");
 
     const lastRoom = await db.room.findFirst({
       where: { event_id: eventId },
@@ -55,11 +52,13 @@ export const RoomService = {
       conflict_acknowledged?: boolean;
     }
   ) {
-    const room = await db.room.findFirst({
-      where: { id: roomId, event: ownershipFilter(ctx) },
-      select: { id: true },
+    const room = await db.room.findUnique({
+      where: { id: roomId },
+      select: { id: true, event_id: true },
     });
     if (!room) throw new Error("Habitación no encontrada");
+    if (!(await canAccessEvent(ctx, room.event_id)))
+      throw new Error("Habitación no encontrada");
 
     return db.room.update({
       where: { id: roomId },
@@ -68,8 +67,8 @@ export const RoomService = {
   },
 
   async getRoomDetail(roomId: string, ctx: AuthContext) {
-    const room = await db.room.findFirst({
-      where: { id: roomId, event: ownershipFilter(ctx) },
+    const room = await db.room.findUnique({
+      where: { id: roomId },
       include: {
         event_persons: {
           include: {
@@ -87,15 +86,19 @@ export const RoomService = {
       },
     });
     if (!room) throw new Error("Habitación no encontrada");
+    if (!(await canAccessEvent(ctx, room.event_id)))
+      throw new Error("Habitación no encontrada");
     return room;
   },
 
   async deleteRoom(roomId: string, ctx: AuthContext) {
-    const room = await db.room.findFirst({
-      where: { id: roomId, event: ownershipFilter(ctx) },
-      select: { id: true },
+    const room = await db.room.findUnique({
+      where: { id: roomId },
+      select: { id: true, event_id: true },
     });
     if (!room) throw new Error("Habitación no encontrada");
+    if (!(await canAccessEvent(ctx, room.event_id)))
+      throw new Error("Habitación no encontrada");
 
     await db.room.delete({ where: { id: roomId } });
   },

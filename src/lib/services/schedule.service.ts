@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { ScheduleBlockType } from "@prisma/client";
 import type { AuthContext } from "./auth-context";
-import { ownershipFilter, isOwnerOrAdmin } from "./auth-context";
+import { canAccessEvent } from "./auth-context";
 
 export type ScheduleActivityData = {
   id: string;
@@ -148,8 +148,9 @@ export type PrintDaySchedule = {
 
 export const ScheduleService = {
   async getSchedule(eventId: string, ctx: AuthContext): Promise<DaySchedule[]> {
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
     const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
+      where: { id: eventId },
       select: { date_start: true, date_end: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -172,11 +173,7 @@ export const ScheduleService = {
     ctx: AuthContext,
     data: { day_index: number; type: ScheduleBlockType }
   ) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
 
     const lastBlock = await db.scheduleBlock.findFirst({
       where: { event_id: eventId, day_index: data.day_index },
@@ -217,10 +214,11 @@ export const ScheduleService = {
     ctx: AuthContext,
     direction: "up" | "down"
   ) {
-    const block = await db.scheduleBlock.findFirst({
-      where: { id: blockId, event: ownershipFilter(ctx) },
+    const block = await db.scheduleBlock.findUnique({
+      where: { id: blockId },
     });
     if (!block) throw new Error("Bloque no encontrado");
+    if (!(await canAccessEvent(ctx, block.event_id))) throw new Error("Bloque no encontrado");
 
     const sibling = await db.scheduleBlock.findFirst({
       where: {
@@ -247,11 +245,12 @@ export const ScheduleService = {
   },
 
   async deleteBlock(blockId: string, ctx: AuthContext) {
-    const block = await db.scheduleBlock.findFirst({
-      where: { id: blockId, event: ownershipFilter(ctx) },
-      select: { id: true },
+    const block = await db.scheduleBlock.findUnique({
+      where: { id: blockId },
+      select: { id: true, event_id: true },
     });
     if (!block) throw new Error("Bloque no encontrado");
+    if (!(await canAccessEvent(ctx, block.event_id))) throw new Error("Bloque no encontrado");
 
     await db.scheduleBlock.delete({ where: { id: blockId } });
   },
@@ -261,11 +260,12 @@ export const ScheduleService = {
     ctx: AuthContext,
     data: { title?: string }
   ) {
-    const block = await db.scheduleBlock.findFirst({
-      where: { id: blockId, event: ownershipFilter(ctx) },
+    const block = await db.scheduleBlock.findUnique({
+      where: { id: blockId },
       include: { _count: { select: { activities: true } } },
     });
     if (!block) throw new Error("Bloque no encontrado");
+    if (!(await canAccessEvent(ctx, block.event_id))) throw new Error("Bloque no encontrado");
     if (block.type === "common")
       throw new Error("Un bloque común solo tiene una actividad");
     if (block._count.activities >= 3)
@@ -286,11 +286,12 @@ export const ScheduleService = {
     ctx: AuthContext,
     data: { title?: string; description?: string | null; max_participants?: number | null; closed?: boolean }
   ) {
-    const activity = await db.scheduleActivity.findFirst({
-      where: { id: activityId, block: { event: ownershipFilter(ctx) } },
-      select: { id: true },
+    const activity = await db.scheduleActivity.findUnique({
+      where: { id: activityId },
+      select: { id: true, block: { select: { event_id: true } } },
     });
     if (!activity) throw new Error("Actividad no encontrada");
+    if (!(await canAccessEvent(ctx, activity.block.event_id))) throw new Error("Actividad no encontrada");
 
     return db.scheduleActivity.update({
       where: { id: activityId },
@@ -299,11 +300,12 @@ export const ScheduleService = {
   },
 
   async deleteActivity(activityId: string, ctx: AuthContext) {
-    const activity = await db.scheduleActivity.findFirst({
-      where: { id: activityId, block: { event: ownershipFilter(ctx) } },
+    const activity = await db.scheduleActivity.findUnique({
+      where: { id: activityId },
       include: { block: { include: { _count: { select: { activities: true } } } } },
     });
     if (!activity) throw new Error("Actividad no encontrada");
+    if (!(await canAccessEvent(ctx, activity.block.event_id))) throw new Error("Actividad no encontrada");
 
     if (activity.block._count.activities <= 1) {
       await db.scheduleBlock.delete({ where: { id: activity.block.id } });
@@ -419,11 +421,12 @@ export const ScheduleService = {
     eventPersonId: string,
     ctx: AuthContext
   ) {
-    const activity = await db.scheduleActivity.findFirst({
-      where: { id: activityId, block: { event: ownershipFilter(ctx) } },
+    const activity = await db.scheduleActivity.findUnique({
+      where: { id: activityId },
       include: { block: true },
     });
     if (!activity) throw new Error("Actividad no encontrada");
+    if (!(await canAccessEvent(ctx, activity.block.event_id))) throw new Error("Actividad no encontrada");
     if (activity.closed) throw new Error("Esta actividad está cerrada");
     if (activity.block.type !== "parallel")
       throw new Error("Solo se puede asignar en actividades paralelas");
@@ -455,11 +458,12 @@ export const ScheduleService = {
     eventPersonId: string,
     ctx: AuthContext
   ) {
-    const activity = await db.scheduleActivity.findFirst({
-      where: { id: activityId, block: { event: ownershipFilter(ctx) } },
-      select: { id: true },
+    const activity = await db.scheduleActivity.findUnique({
+      where: { id: activityId },
+      select: { id: true, block: { select: { event_id: true } } },
     });
     if (!activity) throw new Error("Actividad no encontrada");
+    if (!(await canAccessEvent(ctx, activity.block.event_id))) throw new Error("Actividad no encontrada");
 
     await db.activitySignup.deleteMany({
       where: {
@@ -474,11 +478,12 @@ export const ScheduleService = {
     ctx: AuthContext,
     data: { time_label?: string | null }
   ) {
-    const block = await db.scheduleBlock.findFirst({
-      where: { id: blockId, event: ownershipFilter(ctx) },
-      select: { id: true },
+    const block = await db.scheduleBlock.findUnique({
+      where: { id: blockId },
+      select: { id: true, event_id: true },
     });
     if (!block) throw new Error("Bloque no encontrado");
+    if (!(await canAccessEvent(ctx, block.event_id))) throw new Error("Bloque no encontrado");
 
     return db.scheduleBlock.update({
       where: { id: blockId },
@@ -490,8 +495,15 @@ export const ScheduleService = {
     blockId: string,
     ctx: AuthContext
   ): Promise<BlockAssignments> {
-    const block = await db.scheduleBlock.findFirst({
-      where: { id: blockId, event: ownershipFilter(ctx) },
+    const blockCheck = await db.scheduleBlock.findUnique({
+      where: { id: blockId },
+      select: { id: true, event_id: true },
+    });
+    if (!blockCheck) throw new Error("Bloque no encontrado");
+    if (!(await canAccessEvent(ctx, blockCheck.event_id))) throw new Error("Bloque no encontrado");
+
+    const block = await db.scheduleBlock.findUnique({
+      where: { id: blockId },
       include: {
         activities: {
           orderBy: { position: "asc" },
@@ -553,8 +565,9 @@ export const ScheduleService = {
     eventId: string,
     ctx: AuthContext
   ): Promise<PrintDaySchedule[]> {
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
     const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
+      where: { id: eventId },
       select: { date_start: true, date_end: true },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -620,11 +633,7 @@ export const ScheduleService = {
   },
 
   async confirmSchedule(eventId: string, ctx: AuthContext) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
 
     // Get all activity IDs for this event
     const activities = await db.scheduleActivity.findMany({

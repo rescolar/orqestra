@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { UndoService } from "./undo.service";
 import type { AuthContext } from "./auth-context";
-import { ownershipFilter } from "./auth-context";
+import { canAccessEvent } from "./auth-context";
 
 type UnassignedPerson = {
   id: string;
@@ -46,11 +46,8 @@ export const PreAssignService = {
     eventId: string,
     ctx: AuthContext
   ): Promise<{ assigned: number; skipped: number }> {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId)))
+      throw new Error("Evento no encontrado");
 
     // Load eligible rooms (not locked, ordered by internal_number)
     const rawRooms = await db.room.findMany({

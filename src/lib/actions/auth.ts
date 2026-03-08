@@ -24,10 +24,12 @@ export async function register(formData: FormData) {
     data: { name, email, password: hashedPassword, role: "organizer" },
   });
 
+  const callbackUrl = (formData.get("callbackUrl") as string) || "/dashboard";
+
   await signIn("credentials", {
     email,
     password,
-    redirectTo: "/dashboard",
+    redirectTo: callbackUrl,
   });
 }
 
@@ -40,9 +42,13 @@ export async function login(formData: FormData) {
   }
 
   try {
-    // Determine redirect based on user role
-    const user = await db.user.findUnique({ where: { email } });
-    const redirectTo = user?.role === "participant" ? "/my-events" : "/dashboard";
+    const callbackUrl = formData.get("callbackUrl") as string;
+    // Use callbackUrl if provided, otherwise redirect based on role
+    let redirectTo = callbackUrl;
+    if (!redirectTo) {
+      const user = await db.user.findUnique({ where: { email } });
+      redirectTo = user?.role === "participant" ? "/my-events" : "/dashboard";
+    }
 
     await signIn("credentials", {
       email,

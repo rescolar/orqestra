@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import type { AuthContext } from "./auth-context";
-import { ownershipFilter } from "./auth-context";
+import { canAccessEvent } from "./auth-context";
 
 type AssignPersonSnapshot = {
   eventPersonId: string;
@@ -45,12 +45,8 @@ export const UndoService = {
     eventId: string,
     ctx: AuthContext
   ): Promise<{ undone: number } | null> {
-    // Verify ownership
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId)))
+      throw new Error("Evento no encontrado");
 
     // Find the most recent batch
     const latest = await db.undoEntry.findFirst({

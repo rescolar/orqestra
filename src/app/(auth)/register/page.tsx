@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { register } from "@/lib/actions/auth";
 
 export default function RegisterPage() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "";
+
   const [state, formAction, pending] = useActionState(
     async (_prev: { error?: string } | undefined, formData: FormData) => {
       return await register(formData);
@@ -26,6 +30,9 @@ export default function RegisterPage() {
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-4">
+          {callbackUrl && (
+            <input type="hidden" name="callbackUrl" value={callbackUrl} />
+          )}
           {state?.error && (
             <p className="text-sm text-danger text-center">{state.error}</p>
           )}
@@ -67,7 +74,10 @@ export default function RegisterPage() {
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             ¿Ya tienes cuenta?{" "}
-            <Link href="/login" className="text-primary hover:underline">
+            <Link
+              href={callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/login"}
+              className="text-primary hover:underline"
+            >
               Inicia sesión
             </Link>
           </p>

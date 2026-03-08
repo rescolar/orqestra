@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,9 @@ import { login } from "@/lib/actions/auth";
 import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "";
+
   const [state, formAction, pending] = useActionState(
     async (_prev: { error?: string } | undefined, formData: FormData) => {
       return await login(formData);
@@ -27,6 +31,9 @@ export default function LoginPage() {
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-4">
+          {callbackUrl && (
+            <input type="hidden" name="callbackUrl" value={callbackUrl} />
+          )}
           {state?.error && (
             <p className="text-sm text-danger text-center">{state.error}</p>
           )}
@@ -79,7 +86,7 @@ export default function LoginPage() {
             variant="outline"
             className="w-full"
             onClick={() =>
-              signIn("google", { callbackUrl: "/" })
+              signIn("google", { callbackUrl: callbackUrl || "/" })
             }
           >
             <svg className="mr-2 size-4" viewBox="0 0 24 24">
@@ -105,7 +112,10 @@ export default function LoginPage() {
 
           <p className="text-center text-sm text-muted-foreground">
             ¿No tienes cuenta?{" "}
-            <Link href="/register" className="text-primary hover:underline">
+            <Link
+              href={callbackUrl ? `/register?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/register"}
+              className="text-primary hover:underline"
+            >
               Regístrate
             </Link>
           </p>

@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { Gender } from "@prisma/client";
 import { UndoService } from "./undo.service";
 import type { AuthContext } from "./auth-context";
-import { ownershipFilter, isOwnerOrAdmin } from "./auth-context";
+import { ownershipFilter, isOwnerOrAdmin, canAccessEvent } from "./auth-context";
 
 const TEST_PERSONS: { name: string; gender: Gender }[] = [
   { name: "María García", gender: "female" },
@@ -140,13 +140,14 @@ export const PersonService = {
   },
 
   async seedTestParticipants(eventId: string, ctx: AuthContext) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
+    if (!(await canAccessEvent(ctx, eventId)))
+      throw new Error("Evento no encontrado");
+    const event = await db.event.findUnique({
+      where: { id: eventId },
       select: { id: true, user_id: true },
     });
-    if (!event) throw new Error("Evento no encontrado");
 
-    const ownerId = event.user_id;
+    const ownerId = event!.user_id;
 
     const [existingEventPersons, existingPersons] = await Promise.all([
       db.eventPerson.count({ where: { event_id: eventId } }),
@@ -227,11 +228,8 @@ export const PersonService = {
     ctx: AuthContext,
     eventId: string
   ) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId)))
+      throw new Error("Evento no encontrado");
 
     const person = await db.person.findFirst({
       where: { id: personId, ...(ctx.role === "admin" ? {} : { user_id: ctx.userId }) },
@@ -262,11 +260,8 @@ export const PersonService = {
     eventId: string
   ) {
     // Verify event access
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId)))
+      throw new Error("Evento no encontrado");
 
     // Verify person access
     const person = await db.person.findFirst({
@@ -329,15 +324,16 @@ export const PersonService = {
     ctx: AuthContext,
     data: { name_full: string; gender: Gender; role: "participant" | "facilitator" }
   ) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
+    if (!(await canAccessEvent(ctx, eventId)))
+      throw new Error("Evento no encontrado");
+    const event = await db.event.findUnique({
+      where: { id: eventId },
       select: { id: true, user_id: true },
     });
-    if (!event) throw new Error("Evento no encontrado");
 
     const person = await db.person.create({
       data: {
-        user_id: event.user_id,
+        user_id: event!.user_id,
         name_full: data.name_full,
         name_display: getDisplayName(data.name_full),
         name_initials: getInitials(data.name_full),
@@ -367,11 +363,8 @@ export const PersonService = {
   },
 
   async getUnassignedPersons(eventId: string, ctx: AuthContext) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId)))
+      throw new Error("Evento no encontrado");
 
     return db.eventPerson.findMany({
       where: { event_id: eventId, room_id: null },
@@ -448,17 +441,18 @@ export const PersonService = {
     ctx: AuthContext,
     names: string[]
   ) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
+    if (!(await canAccessEvent(ctx, eventId)))
+      throw new Error("Evento no encontrado");
+    const event = await db.event.findUnique({
+      where: { id: eventId },
       select: { id: true, user_id: true },
     });
-    if (!event) throw new Error("Evento no encontrado");
 
     const results = [];
     for (const name of names) {
       const person = await db.person.create({
         data: {
-          user_id: event.user_id,
+          user_id: event!.user_id,
           name_full: name,
           name_display: getDisplayName(name),
           name_initials: getInitials(name),
@@ -631,15 +625,16 @@ export const PersonService = {
   },
 
   async addAllPersonsToEvent(eventId: string, ctx: AuthContext) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
+    if (!(await canAccessEvent(ctx, eventId)))
+      throw new Error("Evento no encontrado");
+    const event = await db.event.findUnique({
+      where: { id: eventId },
       select: { id: true, user_id: true },
     });
-    if (!event) throw new Error("Evento no encontrado");
 
     const persons = await db.person.findMany({
       where: {
-        user_id: event.user_id,
+        user_id: event!.user_id,
         event_persons: { none: { event_id: eventId } },
       },
       select: { id: true, default_role: true },

@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import type { AuthContext } from "./auth-context";
-import { ownershipFilter, isOwnerOrAdmin } from "./auth-context";
+import { canAccessEvent } from "./auth-context";
 
 export const GroupService = {
   async createGroup(
@@ -8,11 +8,7 @@ export const GroupService = {
     ctx: AuthContext,
     memberIds: string[]
   ) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
 
     const group = await db.group.create({
       data: {
@@ -36,10 +32,11 @@ export const GroupService = {
 
   async addMemberToGroup(groupId: string, eventPersonId: string, ctx: AuthContext) {
     const group = await db.group.findFirst({
-      where: { id: groupId, event: ownershipFilter(ctx) },
+      where: { id: groupId },
       select: { id: true, event_id: true },
     });
     if (!group) throw new Error("Grupo no encontrado");
+    if (!(await canAccessEvent(ctx, group.event_id))) throw new Error("Grupo no encontrado");
 
     return db.eventPerson.update({
       where: { id: eventPersonId },
@@ -50,9 +47,9 @@ export const GroupService = {
   async removeMemberFromGroup(eventPersonId: string, ctx: AuthContext) {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },
-      include: { event: { select: { user_id: true } } },
+      select: { id: true, group_id: true, inseparable_with_id: true, event_id: true },
     });
-    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
+    if (!ep || !(await canAccessEvent(ctx, ep.event_id))) throw new Error("No encontrado");
     if (!ep.group_id) return;
 
     const groupId = ep.group_id;
@@ -91,14 +88,14 @@ export const GroupService = {
     const [ep, partner] = await Promise.all([
       db.eventPerson.findFirst({
         where: { id: eventPersonId },
-        include: { event: { select: { user_id: true } } },
+        select: { id: true, inseparable_with_id: true, room_id: true, event_id: true },
       }),
       db.eventPerson.findFirst({
         where: { id: partnerId },
         select: { id: true, inseparable_with_id: true, room_id: true },
       }),
     ]);
-    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
+    if (!ep || !(await canAccessEvent(ctx, ep.event_id))) throw new Error("No encontrado");
     if (!partner) throw new Error("Persona no encontrada");
 
     const isCurrentlyLinked = ep.inseparable_with_id === partnerId;

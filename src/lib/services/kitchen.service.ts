@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import type { AuthContext } from "./auth-context";
-import { ownershipFilter } from "./auth-context";
+import { canAccessEvent } from "./auth-context";
 
 export type KitchenReportRow = {
   id: string;
@@ -26,11 +26,8 @@ export const KitchenService = {
     eventId: string,
     ctx: AuthContext
   ): Promise<KitchenReportRow[]> {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId)))
+      throw new Error("Evento no encontrado");
 
     return db.eventPerson.findMany({
       where: {
@@ -69,10 +66,12 @@ export const KitchenService = {
     data: { arrives_for_dinner?: boolean; last_meal_lunch?: boolean }
   ) {
     const ep = await db.eventPerson.findFirst({
-      where: { id: eventPersonId, event: ownershipFilter(ctx) },
-      select: { id: true },
+      where: { id: eventPersonId },
+      select: { id: true, event_id: true },
     });
     if (!ep) throw new Error("Participante no encontrado");
+    if (!(await canAccessEvent(ctx, ep.event_id)))
+      throw new Error("Participante no encontrado");
 
     return db.eventPerson.update({
       where: { id: eventPersonId },
@@ -81,11 +80,8 @@ export const KitchenService = {
   },
 
   async markAllDietaryNotified(eventId: string, ctx: AuthContext) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId)))
+      throw new Error("Evento no encontrado");
 
     return db.eventPerson.updateMany({
       where: {
