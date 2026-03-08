@@ -16,6 +16,7 @@ type EventData = {
   location: string | null;
   totalCapacity: number;
   pendingCount: number;
+  isCollaborator: boolean;
 };
 
 interface DashboardContentProps {

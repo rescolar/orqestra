@@ -14,13 +14,11 @@ export default async function BoardPage({
   if (!session?.user?.id) redirect("/login");
 
   const { id } = await params;
-  const event = await EventService.getEventWithRooms(id, session.user.id);
+  const ctx = { userId: session.user.id, role: session.user.role };
+  const event = await EventService.getEventWithRooms(id, ctx);
   if (!event) notFound();
 
-  const unassigned = await PersonService.getUnassignedPersons(
-    id,
-    session.user.id
-  );
+  const unassigned = await PersonService.getUnassignedPersons(id, ctx);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-surface">

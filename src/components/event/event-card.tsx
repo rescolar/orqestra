@@ -26,6 +26,7 @@ interface EventCardProps {
   location?: string | null;
   totalCapacity: number;
   pendingCount: number;
+  isCollaborator?: boolean;
 }
 
 export function EventCard({
@@ -38,6 +39,7 @@ export function EventCard({
   location,
   totalCapacity,
   pendingCount,
+  isCollaborator,
 }: EventCardProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -62,7 +64,7 @@ export function EventCard({
       <div className="group relative flex overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
         {/* Hover actions */}
         <div className="absolute top-3 right-3 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <InviteLinkButton eventId={id} />
+          {!isCollaborator && <InviteLinkButton eventId={id} />}
           <Link
             href={`/events/${id}/detail`}
             onClick={(e) => e.stopPropagation()}
@@ -71,17 +73,19 @@ export function EventCard({
           >
             <Pencil className="size-4" />
           </Link>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              setConfirmOpen(true);
-            }}
-            className="rounded-lg bg-white/90 p-1.5 text-gray-400 shadow-sm hover:bg-white hover:text-red-600"
-            aria-label="Eliminar evento"
-          >
-            <Trash2 className="size-4" />
-          </button>
+          {!isCollaborator && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                setConfirmOpen(true);
+              }}
+              className="rounded-lg bg-white/90 p-1.5 text-gray-400 shadow-sm hover:bg-white hover:text-red-600"
+              aria-label="Eliminar evento"
+            >
+              <Trash2 className="size-4" />
+            </button>
+          )}
         </div>
 
         <Link href={`/events/${id}/board`} className="flex flex-1 gap-4 p-4">
@@ -105,11 +109,18 @@ export function EventCard({
               <h2 className="truncate text-base font-semibold text-gray-900 group-hover:text-primary">
                 {name}
               </h2>
-              {status !== "active" && (
-                <Badge variant="secondary" className="shrink-0 capitalize">
-                  {status === "draft" ? "borrador" : status === "archived" ? "archivado" : status}
-                </Badge>
-              )}
+              <div className="flex shrink-0 gap-1">
+                {isCollaborator && (
+                  <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+                    Co-org
+                  </Badge>
+                )}
+                {status !== "active" && (
+                  <Badge variant="secondary" className="capitalize">
+                    {status === "draft" ? "borrador" : status === "archived" ? "archivado" : status}
+                  </Badge>
+                )}
+              </div>
             </div>
 
             {/* Date + location */}

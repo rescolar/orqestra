@@ -28,6 +28,7 @@ export default async function DashboardPage() {
     location: event.location,
     totalCapacity: event.total_capacity,
     pendingCount: event.pending_count,
+    isCollaborator: event.is_collaborator,
   }));
 
   return (

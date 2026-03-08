@@ -313,3 +313,53 @@ Esto encaja porque:
 2. Person sigue siendo la fuente de verdad para cada organización.
 3. El flag `open/private` determina si el perfil global se usa como template o se ignora.
 4. Marketplace futuro: los eventos de orgs `open` se listan públicamente, el perfil global del User se usa como "tarjeta de presentación" en la red.
+
+---
+
+## 13. Flujo de login y re-entrada de participantes
+
+### Problema
+
+Un participante registrado a través de un organizador privado pierde la experiencia branded al volver a entrar por `/login` genérico. Además, el flujo actual tiene inconsistencias técnicas que afectan a MVP 1.2.
+
+### Gaps identificados
+
+| # | Problema | Fix |
+|---|----------|-----|
+| 1 | Google OAuth hardcodea `callbackUrl: "/dashboard"` | Usar redirect por rol (como ya hace credentials login) |
+| 2 | `/register` siempre crea `role: organizer` | Mantener — participantes siempre entran vía invite link |
+| 3 | Middleware no puede verificar EventCollaborator (edge, sin Prisma) | Mover check de co-org a nivel de página con `auth()`, no en middleware |
+| 4 | Root `/` no contempla co-organizadores | Query de collabs en lógica de redirect: si tiene collabs y no tiene EventPerson → `/dashboard` |
+| 5 | No hay re-entrada branded para orgs privados | Dos opciones configurables (ver abajo) |
+| 6 | `callbackUrl` se pierde en Google join flow | Ya resuelto con cookie, pero el flujo co-org join necesita el mismo patrón |
+
+### Soluciones para re-entrada branded (Gap 5)
+
+Dos opciones configurables por el organizador — no mutuamente excluyentes:
+
+#### Opción A: Invite link como bookmark (default, gratis)
+
+El participante reutiliza el enlace `/join/[code]` original como punto de entrada. Si ya está logueado y ya está unido al evento, redirige directamente a `/my-events/{eventId}`. Si no está logueado, muestra login branded (logo del organizador, nombre del evento).
+
+- **Ventaja**: cero desarrollo extra — el flujo ya existe.
+- **Desventaja**: el link es largo y específico por evento; si el organizador tiene múltiples eventos, el participante necesita un link por evento.
+
+#### Opción B: Slug branded del organizador (opt-in)
+
+El organizador configura un slug permanente (e.g., `empresax`) → ruta `/o/empresax`. Muestra login branded con identidad del organizador. Tras login, redirige a los eventos de ese organizador filtrados en `/my-events?org={userId}`.
+
+**Schema**:
+```prisma
+// Campo adicional en User (solo organizer/admin)
+slug String? @unique  // e.g., "empresax" → /o/empresax
+```
+
+- **Ventaja**: un único punto de entrada para todos los eventos del organizador, URL corta y memorable.
+- **Desventaja**: requiere desarrollo de la página `/o/[slug]` y configuración por parte del organizador.
+
+### Cambios técnicos requeridos
+
+1. **Google OAuth redirect**: en `login/page.tsx`, cambiar `callbackUrl: "/dashboard"` por `callbackUrl: "/"` y dejar que el root redirect (ya existente) enrute por rol.
+2. **Middleware**: relajar bloqueo de `/events/*` para todos los autenticados. La protección real se hace a nivel de página con `canAccessEvent(ctx, eventId)`.
+3. **Root `/` redirect**: añadir query de `EventCollaborator` para participantes. Si tiene collabs → `/dashboard`. Si solo tiene EventPerson → `/my-events`.
+4. **`/o/[slug]` (Opción B)**: página pública que resuelve slug → User, muestra branding, y ofrece login. Tras login, redirect a `/my-events?org={userId}`.

@@ -1,11 +1,20 @@
 import { db } from "@/lib/db";
 import type { AuthContext } from "./auth-context";
-import { ownershipFilter } from "./auth-context";
+import { ownershipFilter, canAccessEvent, isEventOwner } from "./auth-context";
 
 export const EventService = {
   async getEventsByUser(ctx: AuthContext) {
+    const whereClause = ctx.role === "admin"
+      ? {}
+      : {
+          OR: [
+            { user_id: ctx.userId },
+            { collaborators: { some: { user_id: ctx.userId } } },
+          ],
+        };
+
     const events = await db.event.findMany({
-      where: ownershipFilter(ctx),
+      where: whereClause,
       include: {
         _count: {
           select: { event_persons: true, rooms: true },
@@ -40,9 +49,10 @@ export const EventService = {
       orderBy: { date_start: "desc" },
     });
 
-    return events.map((event) => {
+    return events.map((event: typeof events[number]) => {
       const assignedCount = event.event_persons.filter((ep) => ep.room_id !== null).length;
       const totalCapacity = event.rooms.reduce((sum, r) => sum + r.capacity, 0);
+      const isCollaborator = event.user_id !== ctx.userId && ctx.role !== "admin";
 
       // Pending count: dietary + conflicts + tentatives + requests
       const dietaryCount = event.event_persons.filter(
@@ -79,6 +89,7 @@ export const EventService = {
         room_count: event._count.rooms,
         total_capacity: totalCapacity,
         pending_count: dietaryCount + conflictCount + tentativeCount + requestCount,
+        is_collaborator: isCollaborator,
       };
     });
   },
@@ -109,11 +120,7 @@ export const EventService = {
     ctx: AuthContext,
     types: { capacity: number; hasPrivateBathroom: boolean; quantity: number }[]
   ) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
 
     const rooms: {
       event_id: string;
@@ -142,19 +149,16 @@ export const EventService = {
   },
 
   async deleteEvent(eventId: string, ctx: AuthContext) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await isEventOwner(ctx, eventId))) throw new Error("Solo el propietario puede eliminar el evento");
 
     await db.event.delete({ where: { id: eventId } });
   },
 
   async getEventForDetail(eventId: string, ctx: AuthContext) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
+    if (!(await canAccessEvent(ctx, eventId))) return null;
+
+    const event = await db.event.findUnique({
+      where: { id: eventId },
       select: {
         id: true,
         name: true,
@@ -164,6 +168,7 @@ export const EventService = {
         date_start: true,
         date_end: true,
         estimated_participants: true,
+        user_id: true,
         _count: { select: { rooms: true } },
       },
     });
@@ -173,6 +178,7 @@ export const EventService = {
     return {
       ...event,
       roomCount: event._count.rooms,
+      isOwner: event.user_id === ctx.userId || ctx.role === "admin",
     };
   },
 
@@ -188,11 +194,7 @@ export const EventService = {
       date_end?: string;
     }
   ) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
-      select: { id: true },
-    });
-    if (!event) throw new Error("Evento no encontrado");
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
 
     return db.event.update({
       where: { id: eventId },
@@ -208,8 +210,10 @@ export const EventService = {
   },
 
   async getEventWithRooms(eventId: string, ctx: AuthContext) {
-    const event = await db.event.findFirst({
-      where: { id: eventId, ...ownershipFilter(ctx) },
+    if (!(await canAccessEvent(ctx, eventId))) return null;
+
+    const event = await db.event.findUnique({
+      where: { id: eventId },
       include: {
         rooms: {
           orderBy: { internal_number: "asc" },

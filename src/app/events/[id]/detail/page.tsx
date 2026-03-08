@@ -2,7 +2,9 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { notFound } from "next/navigation";
 import { EventService } from "@/lib/services/event.service";
+import { CollabService } from "@/lib/services/collab.service";
 import { EventDetailForm } from "@/components/event/event-detail-form";
+import { CollaboratorsSection } from "@/components/event/collaborators-section";
 import { WizardStepper } from "@/components/event/wizard-stepper";
 
 const STEPS = [
@@ -20,9 +22,14 @@ export default async function DetailPage({
   if (!session?.user?.id) redirect("/login");
 
   const { id } = await params;
-  const event = await EventService.getEventForDetail(id, session.user.id);
+  const ctx = { userId: session.user.id, role: session.user.role };
+  const event = await EventService.getEventForDetail(id, ctx);
 
   if (!event) notFound();
+
+  const collaborators = event.isOwner
+    ? await CollabService.getCollaborators(id)
+    : [];
 
   return (
     <div className="min-h-screen bg-surface">
@@ -49,6 +56,14 @@ export default async function DetailPage({
             roomCount: event.roomCount,
           }}
         />
+
+        <div className="mt-8 rounded-2xl border bg-white p-6">
+          <CollaboratorsSection
+            eventId={id}
+            collaborators={collaborators}
+            isOwner={event.isOwner}
+          />
+        </div>
       </div>
     </div>
   );
