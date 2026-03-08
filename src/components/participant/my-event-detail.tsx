@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { updateEventPreferences } from "@/lib/actions/participant";
 import { ParticipantSchedule } from "./participant-schedule";
+import { RelationshipInviteForm } from "./relationship-invite-form";
 import Link from "next/link";
 import type { ParticipantDaySchedule } from "@/lib/services/schedule.service";
 
@@ -306,6 +307,9 @@ export function MyEventDetail({
           />
         </CardContent>
       </Card>
+
+      {/* Relationship invite */}
+      <RelationshipInviteForm eventId={eventPerson.event.id} />
 
       {saving && (
         <p className="text-center text-xs text-muted-foreground">
