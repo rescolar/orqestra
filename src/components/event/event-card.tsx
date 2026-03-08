@@ -88,7 +88,7 @@ export function EventCard({
           )}
         </div>
 
-        <Link href={`/events/${id}/board`} className="flex flex-1 gap-4 p-4">
+        <Link href={`/events/${id}/board`} className="flex min-w-0 flex-1 gap-4 p-4">
           {/* Thumbnail */}
           {imageUrl ? (
             <img
@@ -124,14 +124,14 @@ export function EventCard({
             </div>
 
             {/* Date + location */}
-            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-              <span className="inline-flex items-center gap-1">
+            <div className="flex min-w-0 items-center gap-3 text-xs text-gray-500">
+              <span className="inline-flex shrink-0 items-center gap-1">
                 <Calendar className="size-3.5" />
                 {dateRange}
               </span>
               {location && (
-                <span className="inline-flex items-center gap-1">
-                  <MapPin className="size-3.5" />
+                <span className="inline-flex min-w-0 items-center gap-1">
+                  <MapPin className="size-3.5 shrink-0" />
                   <span className="truncate">{location}</span>
                 </span>
               )}
