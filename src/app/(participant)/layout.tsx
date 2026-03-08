@@ -1,6 +1,7 @@
 import { auth, signOut } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { db } from "@/lib/db";
 
 export default async function ParticipantLayout({
   children,
@@ -10,6 +11,12 @@ export default async function ParticipantLayout({
   const session = await auth();
   if (!session?.user) redirect("/login");
 
+  // Check if user has organizer/collab access → show Dashboard link
+  const showDashboard =
+    session.user.role === "organizer" ||
+    session.user.role === "admin" ||
+    (await db.eventCollaborator.count({ where: { user_id: session.user.id } })) > 0;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-primary text-white">
@@ -18,6 +25,14 @@ export default async function ParticipantLayout({
             Orqestra
           </Link>
           <div className="flex items-center gap-3">
+            {showDashboard && (
+              <Link
+                href="/dashboard"
+                className="text-sm opacity-90 hover:opacity-100 transition-opacity"
+              >
+                Dashboard
+              </Link>
+            )}
             <Link
               href="/my-events"
               className="text-sm opacity-90 hover:opacity-100 transition-opacity"

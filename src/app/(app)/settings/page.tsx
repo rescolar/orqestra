@@ -24,6 +24,7 @@ export default async function SettingsPage() {
             brand_welcome_msg: branding?.brand_welcome_msg ?? "",
             brand_bg_color: branding?.brand_bg_color ?? "",
             brand_text_color: branding?.brand_text_color ?? "",
+            environment: branding?.environment ?? "open",
           }}
         />
       </div>

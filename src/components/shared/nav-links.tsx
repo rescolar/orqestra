@@ -3,14 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const links = [
+const baseLinks = [
   { href: "/dashboard", label: "Eventos" },
   { href: "/persons", label: "Personas" },
   { href: "/settings", label: "Ajustes" },
 ];
 
-export function NavLinks() {
+export function NavLinks({ showMyEvents }: { showMyEvents?: boolean }) {
   const pathname = usePathname();
+
+  const links = showMyEvents
+    ? [...baseLinks, { href: "/my-events", label: "Mis eventos" }]
+    : baseLinks;
 
   return (
     <nav className="flex items-center gap-1">

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { AdminService } from "@/lib/services/admin.service";
+import { AdminInviteService } from "@/lib/services/admin-invite.service";
 import type { UserRole } from "@prisma/client";
 
 async function requireAdmin() {
@@ -23,9 +24,9 @@ export async function getAllUsers() {
   return AdminService.getAllUsers();
 }
 
-export async function getAllEvents() {
+export async function getAllEvents(organizerUserId?: string) {
   await requireAdmin();
-  return AdminService.getAllEvents();
+  return AdminService.getAllEvents(organizerUserId);
 }
 
 export async function updateUserRole(userId: string, role: UserRole) {
@@ -52,4 +53,19 @@ export async function adminDeleteEvent(eventId: string) {
   await AdminService.deleteEvent(eventId);
   revalidatePath("/admin/events");
   revalidatePath("/admin");
+}
+
+export async function createAdminInviteToken() {
+  const admin = await requireAdmin();
+  return AdminInviteService.createToken(admin.id);
+}
+
+export async function resolveAdminToken(token: string) {
+  return AdminInviteService.resolveToken(token);
+}
+
+export async function consumeAdminToken(token: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  await AdminInviteService.consumeToken(token, session.user.id);
 }

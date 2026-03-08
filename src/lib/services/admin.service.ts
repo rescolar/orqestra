@@ -24,8 +24,9 @@ export const AdminService = {
     });
   },
 
-  async getAllEvents() {
+  async getAllEvents(organizerUserId?: string) {
     return db.event.findMany({
+      where: organizerUserId ? { user_id: organizerUserId } : undefined,
       select: {
         id: true,
         name: true,

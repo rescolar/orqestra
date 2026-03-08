@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageUpload } from "@/components/shared/image-upload";
-import { updateBranding } from "@/lib/actions/settings";
+import { updateBranding, updateEnvironment } from "@/lib/actions/settings";
 import { Calendar, MapPin } from "lucide-react";
 
 type BrandingState = {
@@ -14,6 +14,7 @@ type BrandingState = {
   brand_welcome_msg: string;
   brand_bg_color: string;
   brand_text_color: string;
+  environment: string;
 };
 
 export function SettingsForm({
@@ -129,6 +130,29 @@ export function SettingsForm({
               />
             </div>
           </div>
+        </div>
+
+        <div className="space-y-2 rounded-xl border p-4">
+          <Label>Entorno</Label>
+          <div className="flex items-center gap-3">
+            <select
+              value={state.environment}
+              onChange={(e) => {
+                const val = e.target.value as "open" | "private";
+                setState((s) => ({ ...s, environment: val }));
+                updateEnvironment(val);
+              }}
+              className="rounded-lg border px-3 py-1.5 text-sm"
+            >
+              <option value="open">Abierto</option>
+              <option value="private">Privado</option>
+            </select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {state.environment === "open"
+              ? "Tus eventos pueden aparecer en el directorio público (futuro)."
+              : "Tus eventos son privados y solo accesibles por invitación."}
+          </p>
         </div>
       </div>
 
