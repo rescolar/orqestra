@@ -9,6 +9,9 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  pointerWithin,
+  rectIntersection,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import {
   assignPerson,
@@ -122,6 +125,14 @@ export function BoardDndProvider({
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
+
+  // Custom collision: prioritize pointerWithin (works inside scroll containers
+  // like the right panel), fall back to rectIntersection for room grid
+  const collisionDetection: CollisionDetection = useCallback((args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) return pointerCollisions;
+    return rectIntersection(args);
+  }, []);
 
   // Find active person across all sources (unassigned, rooms, directory)
   const activePerson = activeId
@@ -274,17 +285,38 @@ export function BoardDndProvider({
       const overId = over.id as string;
 
       // Handle relations drop
+
       if (overId.startsWith("relations-")) {
         const targetPersonId = overId.replace("relations-", "");
 
+
         if (dragId.startsWith("person-")) {
-          // Directory person → add to event first, then create relationship
           const personId = dragId.replace("person-", "");
           const dp = directoryPersons.find((p) => p.id === personId);
-          if (!dp || dp.eventPerson) return;
-          // Optimistic: show chip immediately (use temp ID, will be replaced on refresh)
+          if (!dp) return;
+
+          if (dp.eventPerson) {
+            // Already in event → create relationship using existing EventPerson ID
+            const epId = dp.eventPerson.id;
+            if (epId === targetPersonId) return;
+            const epData = unassigned.find((p) => p.id === epId) ||
+              rooms.flatMap((r) => r.event_persons).find((p) => p.id === epId);
+            if (epData) {
+              setOptimisticRelation({ id: epId, name_display: epData.person.name_display });
+            }
+            try {
+              await createRelationship(eventId, targetPersonId, epId);
+              setOptimisticRelation(null);
+              setPanelRefreshKey((k) => k + 1);
+            } catch (e) {
+              setOptimisticRelation(null);
+              setError(e instanceof Error ? e.message : "Error al crear relación");
+            }
+            return;
+          }
+
+          // Directory person not in event → add to event first, then create relationship
           setOptimisticRelation({ id: `temp-${personId}`, name_display: dp.name_display });
-          // Optimistic: mark person as in-event so repeat drags are blocked
           setDirectoryPersons((prev) =>
             prev.map((p) =>
               p.id === personId
@@ -301,14 +333,13 @@ export function BoardDndProvider({
             setPanelRefreshKey((k) => k + 1);
           } catch (e) {
             setOptimisticRelation(null);
-            // Revert optimistic directory update
             setDirectoryPersons((prev) =>
               prev.map((p) =>
                 p.id === personId ? { ...p, eventPerson: null } : p
               )
             );
             setError(
-              e instanceof Error ? e.message : "Error al crear relacion"
+              e instanceof Error ? e.message : "Error al crear relación"
             );
           }
           return;
@@ -320,10 +351,12 @@ export function BoardDndProvider({
         const draggedPerson =
           unassigned.find((p) => p.id === dragId) ||
           rooms.flatMap((r) => r.event_persons).find((p) => p.id === dragId);
+
         if (draggedPerson) {
           setOptimisticRelation({ id: dragId, name_display: draggedPerson.person.name_display });
         }
         try {
+
           await createRelationship(eventId, targetPersonId, dragId);
           setOptimisticRelation(null);
           setPanelRefreshKey((k) => k + 1);
@@ -817,6 +850,7 @@ export function BoardDndProvider({
     <DndContext
       id={dndId}
       sensors={sensors}
+      collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
@@ -887,6 +921,7 @@ export function BoardDndProvider({
             eventId={eventId}
             refreshKey={panelRefreshKey}
             optimisticRelation={optimisticRelation}
+            isDragActive={!!activeId}
             onClose={() => setSelectedPersonId(null)}
             onPersonUpdated={handlePersonUpdated}
             onPersonRemoved={handlePersonRemoved}

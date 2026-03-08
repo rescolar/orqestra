@@ -78,6 +78,7 @@ type PersonDetailPanelProps = {
   eventId: string;
   refreshKey?: number;
   optimisticRelation?: OptimisticRelation | null;
+  isDragActive?: boolean;
   onClose: () => void;
   onPersonUpdated: (id: string, changes: PersonUpdateData) => void;
   onPersonRemoved: (id: string) => void;
@@ -111,12 +112,15 @@ const DIETARY_OPTIONS = [
 
 const STORAGE_KEY_PREFIX = "orqestra:sections:";
 
+const ALL_SECTIONS = ["Rol", "Estado", "Genero", "Contacto", "Relaciones", "Dieta", "Alergias", "Preferencias"];
+
 function readOpenSections(eventId: string): Set<string> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PREFIX + eventId);
     if (raw) return new Set(JSON.parse(raw));
   } catch {}
-  return new Set<string>();
+  // Default: all sections open for first-time / demo experience
+  return new Set(ALL_SECTIONS);
 }
 
 function writeOpenSections(eventId: string, sections: Set<string>) {
@@ -130,6 +134,7 @@ export function PersonDetailPanel({
   eventId,
   refreshKey,
   optimisticRelation,
+  isDragActive,
   onClose,
   onPersonUpdated,
   onPersonRemoved,
@@ -537,8 +542,8 @@ export function PersonDetailPanel({
           </div>
         </CollapsibleSection>
 
-        {/* Relations */}
-        <CollapsibleSection label="Relaciones" summary={relationsSummary} open={openSections.has("Relaciones")} onToggle={() => toggleSection("Relaciones")} forceOpen={relationsIsOver}>
+        {/* Relations — auto-open during drag so droppable is mounted */}
+        <CollapsibleSection label="Relaciones" summary={relationsSummary} open={openSections.has("Relaciones")} onToggle={() => toggleSection("Relaciones")} forceOpen={relationsIsOver || isDragActive}>
           <RelationsDropZone
             eventPersonId={data.id}
             inseparableWithId={data.inseparable_with_id}
