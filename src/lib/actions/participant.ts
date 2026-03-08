@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { InviteService } from "@/lib/services/invite.service";
 import { ScheduleService } from "@/lib/services/schedule.service";
+import { DiscoveryService } from "@/lib/services/discovery.service";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
@@ -58,6 +59,7 @@ export async function updateMyProfile(data: {
   contact_phone?: string;
   dietary_requirements?: string[];
   allergies_text?: string | null;
+  discoverable?: boolean;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -80,4 +82,11 @@ export async function toggleActivitySignup(activityId: string, eventId: string) 
   const result = await ScheduleService.toggleSignup(activityId, session.user.id);
   revalidatePath(`/my-events/${eventId}`);
   return result;
+}
+
+export async function getDiscoverableParticipants(eventId: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  return DiscoveryService.getDiscoverableParticipants(eventId, session.user.id);
 }

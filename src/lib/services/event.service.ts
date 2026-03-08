@@ -169,6 +169,7 @@ export const EventService = {
         date_end: true,
         estimated_participants: true,
         user_id: true,
+        participant_discovery: true,
         _count: { select: { rooms: true } },
       },
     });
@@ -206,6 +207,14 @@ export const EventService = {
         ...(data.date_start && { date_start: new Date(data.date_start) }),
         ...(data.date_end && { date_end: new Date(data.date_end) }),
       },
+    });
+  },
+
+  async updateParticipantDiscovery(eventId: string, ctx: AuthContext, enabled: boolean) {
+    if (!(await isEventOwner(ctx, eventId))) throw new Error("Solo el propietario puede cambiar esta configuración");
+    return db.event.update({
+      where: { id: eventId },
+      data: { participant_discovery: enabled },
     });
   },
 

@@ -58,6 +58,12 @@ export async function createRoomsFromTypes(
   redirect(`/events/${eventId}/detail`);
 }
 
+export async function updateParticipantDiscovery(eventId: string, enabled: boolean) {
+  const ctx = await requireAuth();
+  await EventService.updateParticipantDiscovery(eventId, ctx, enabled);
+  revalidatePath(`/events/${eventId}/detail`);
+}
+
 export async function updateEventDetails(
   eventId: string,
   data: {

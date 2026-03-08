@@ -32,6 +32,7 @@ type PersonData = {
   dietary_requirements: string[];
   allergies_text: string | null;
   avatar_url: string | null;
+  discoverable: boolean;
 };
 
 export function MyProfileForm({ person }: { person: PersonData }) {
@@ -44,6 +45,7 @@ export function MyProfileForm({ person }: { person: PersonData }) {
   );
   const [allergies, setAllergies] = useState(person.allergies_text ?? "");
   const [avatarUrl, setAvatarUrl] = useState(person.avatar_url);
+  const [discoverable, setDiscoverable] = useState(person.discoverable);
   const [saving, setSaving] = useState(false);
 
   const save = useCallback(
@@ -208,6 +210,41 @@ export function MyProfileForm({ person }: { person: PersonData }) {
             onChange={(e) => setAllergies(e.target.value)}
             onBlur={handleAllergiesBlur}
           />
+        </CardContent>
+      </Card>
+
+      {/* Discoverable */}
+      <Card>
+        <CardContent className="pt-6">
+          <label className="flex items-center justify-between">
+            <div>
+              <span className="text-sm font-medium text-gray-700">Visible para otros participantes</span>
+              <p className="text-xs text-muted-foreground">
+                {discoverable
+                  ? "Otros participantes pueden ver tu nombre en los eventos."
+                  : "Tu nombre no aparecerá en la lista de participantes."}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={discoverable}
+              onClick={() => {
+                const next = !discoverable;
+                setDiscoverable(next);
+                save({ discoverable: next });
+              }}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                discoverable ? "bg-primary" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
+                  discoverable ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </label>
         </CardContent>
       </Card>
 

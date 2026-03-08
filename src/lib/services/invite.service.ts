@@ -312,6 +312,7 @@ export const InviteService = {
       contact_phone?: string;
       dietary_requirements?: string[];
       allergies_text?: string | null;
+      discoverable?: boolean;
     }
   ) {
     // Update ALL Person records for this participant (across all organizers)

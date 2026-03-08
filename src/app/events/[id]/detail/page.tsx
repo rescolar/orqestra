@@ -5,6 +5,7 @@ import { EventService } from "@/lib/services/event.service";
 import { CollabService } from "@/lib/services/collab.service";
 import { EventDetailForm } from "@/components/event/event-detail-form";
 import { CollaboratorsSection } from "@/components/event/collaborators-section";
+import { DiscoveryToggle } from "@/components/event/discovery-toggle";
 import { WizardStepper } from "@/components/event/wizard-stepper";
 
 const STEPS = [
@@ -57,12 +58,18 @@ export default async function DetailPage({
           }}
         />
 
-        <div className="mt-8 rounded-2xl border bg-white p-6">
+        <div className="mt-8 space-y-6 rounded-2xl border bg-white p-6">
           <CollaboratorsSection
             eventId={id}
             collaborators={collaborators}
             isOwner={event.isOwner}
           />
+          {event.isOwner && (
+            <DiscoveryToggle
+              eventId={id}
+              initial={event.participant_discovery}
+            />
+          )}
         </div>
       </div>
     </div>

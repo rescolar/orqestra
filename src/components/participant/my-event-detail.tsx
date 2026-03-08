@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { updateEventPreferences } from "@/lib/actions/participant";
 import { ParticipantSchedule } from "./participant-schedule";
 import { RelationshipInviteForm } from "./relationship-invite-form";
+import { ParticipantDiscovery } from "./participant-discovery";
 import Link from "next/link";
 import type { ParticipantDaySchedule } from "@/lib/services/schedule.service";
 
@@ -37,14 +38,24 @@ function formatDate(date: Date): string {
   });
 }
 
+type DiscoverableParticipant = {
+  id: string;
+  name: string;
+  initials: string;
+  avatarUrl: string | null;
+  status: string;
+};
+
 export function MyEventDetail({
   eventPerson,
   schedule,
   scheduleConfirmed = false,
+  discoverableParticipants = [],
 }: {
   eventPerson: EventPersonData;
   schedule?: ParticipantDaySchedule[];
   scheduleConfirmed?: boolean;
+  discoverableParticipants?: DiscoverableParticipant[];
 }) {
   const [activeTab, setActiveTab] = useState<"data" | "schedule">("data");
   const [status, setStatus] = useState(eventPerson.status);
@@ -310,6 +321,15 @@ export function MyEventDetail({
 
       {/* Relationship invite */}
       <RelationshipInviteForm eventId={eventPerson.event.id} />
+
+      {/* Participant discovery */}
+      {discoverableParticipants.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <ParticipantDiscovery participants={discoverableParticipants} />
+          </CardContent>
+        </Card>
+      )}
 
       {saving && (
         <p className="text-center text-xs text-muted-foreground">

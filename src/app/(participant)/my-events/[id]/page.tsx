@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { getMyEventDetail, getEventSchedule } from "@/lib/actions/participant";
+import { getMyEventDetail, getEventSchedule, getDiscoverableParticipants } from "@/lib/actions/participant";
 import { joinEvent } from "@/lib/actions/participant";
 import { MyEventDetail } from "@/components/participant/my-event-detail";
 import { db } from "@/lib/db";
@@ -27,16 +27,20 @@ export default async function MyEventDetailPage({
     // No schedule available
   }
 
-  const event = await db.event.findFirst({
-    where: { id },
-    select: { schedule_confirmed: true },
-  });
+  const [event, discoverable] = await Promise.all([
+    db.event.findFirst({
+      where: { id },
+      select: { schedule_confirmed: true, participant_discovery: true },
+    }),
+    getDiscoverableParticipants(id),
+  ]);
 
   return (
     <MyEventDetail
       eventPerson={eventPerson}
       schedule={schedule}
       scheduleConfirmed={event?.schedule_confirmed ?? false}
+      discoverableParticipants={event?.participant_discovery ? discoverable : []}
     />
   );
 }
