@@ -148,28 +148,34 @@ export const InviteService = {
   },
 
   async getParticipantPerson(participantUserId: string) {
-    return db.person.findUnique({
+    return db.person.findFirst({
       where: { self_user_id: participantUserId },
     });
   },
 
   async getParticipantEvents(participantUserId: string) {
-    // Find the Person linked to this participant
-    const person = await db.person.findUnique({
+    // Find ALL Persons linked to this participant (across multiple organizers)
+    const persons = await db.person.findMany({
       where: { self_user_id: participantUserId },
     });
-    if (!person) return [];
+    if (persons.length === 0) return [];
 
-    // Get events from the organizer that owns this Person
+    // Get events across all organizers that have this participant
+    const personIds = persons.map((p) => p.id);
+    const orgUserIds = persons.map((p) => p.user_id);
+
     const events = await db.event.findMany({
       where: {
-        user_id: person.user_id,
+        user_id: { in: orgUserIds },
         status: "active",
       },
       include: {
         event_persons: {
-          where: { person_id: person.id },
+          where: { person_id: { in: personIds } },
           select: { id: true, status: true },
+        },
+        user: {
+          select: { name: true, brand_name: true },
         },
       },
       orderBy: { date_start: "asc" },
@@ -183,6 +189,7 @@ export const InviteService = {
       location: e.location,
       description: e.description,
       image_url: e.image_url,
+      organizerName: e.user.brand_name ?? e.user.name,
       isJoined: e.event_persons.length > 0,
       eventPersonId: e.event_persons[0]?.id ?? null,
       status: e.event_persons[0]?.status ?? null,
@@ -193,8 +200,9 @@ export const InviteService = {
     const event = await db.event.findUnique({ where: { id: eventId } });
     if (!event) throw new Error("Event not found");
 
-    let person = await db.person.findUnique({
-      where: { self_user_id: participantUserId },
+    // Find person scoped to this event's organizer
+    let person = await db.person.findFirst({
+      where: { self_user_id: participantUserId, user_id: event.user_id },
     });
 
     // Auto-create Person if missing (Google OAuth creates User without Person)
@@ -214,10 +222,6 @@ export const InviteService = {
       });
     }
 
-    if (event.user_id !== person.user_id) {
-      throw new Error("Event not accessible");
-    }
-
     // Check if already joined
     const existing = await db.eventPerson.findUnique({
       where: { event_id_person_id: { event_id: eventId, person_id: person.id } },
@@ -235,8 +239,11 @@ export const InviteService = {
   },
 
   async isParticipantJoined(participantUserId: string, eventId: string) {
-    const person = await db.person.findUnique({
-      where: { self_user_id: participantUserId },
+    const event = await db.event.findUnique({ where: { id: eventId }, select: { user_id: true } });
+    if (!event) return false;
+
+    const person = await db.person.findFirst({
+      where: { self_user_id: participantUserId, user_id: event.user_id },
     });
     if (!person) return false;
 
@@ -247,8 +254,11 @@ export const InviteService = {
   },
 
   async getEventPersonForParticipant(participantUserId: string, eventId: string) {
-    const person = await db.person.findUnique({
-      where: { self_user_id: participantUserId },
+    const event = await db.event.findUnique({ where: { id: eventId }, select: { user_id: true } });
+    if (!event) return null;
+
+    const person = await db.person.findFirst({
+      where: { self_user_id: participantUserId, user_id: event.user_id },
     });
     if (!person) return null;
 
@@ -304,10 +314,11 @@ export const InviteService = {
       allergies_text?: string | null;
     }
   ) {
-    const person = await db.person.findUnique({
+    // Update ALL Person records for this participant (across all organizers)
+    const persons = await db.person.findMany({
       where: { self_user_id: participantUserId },
     });
-    if (!person) throw new Error("Person not found");
+    if (persons.length === 0) throw new Error("Person not found");
 
     const updateData: Record<string, unknown> = { ...data };
 
@@ -322,9 +333,15 @@ export const InviteService = {
       });
     }
 
-    return db.person.update({
-      where: { id: person.id },
+    // Update all Person records
+    await db.person.updateMany({
+      where: { self_user_id: participantUserId },
       data: updateData,
+    });
+
+    // Return the first one for the response
+    return db.person.findFirst({
+      where: { self_user_id: participantUserId },
     });
   },
 };

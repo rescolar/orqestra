@@ -15,6 +15,11 @@ enum UserRole {
   participant
 }
 
+enum OrganizerEnvironment {
+  open
+  private
+}
+
 model User {
   id          String   @id @default(cuid())
   email       String   @unique
@@ -23,15 +28,18 @@ model User {
   avatar_url        String?
   role              UserRole @default(organizer)
   google_id         String?  @unique
+  environment       OrganizerEnvironment @default(open)
+  slug              String?  @unique
   brand_name        String?
   brand_welcome_msg String?
   brand_bg_color    String?
   brand_text_color  String?
   created_at  DateTime @default(now())
 
-  persons     Person[]
-  events      Event[]
-  self_person Person[] @relation("SelfPerson")
+  persons        Person[]
+  events         Event[]
+  self_person    Person[] @relation("SelfPerson")
+  collaborations EventCollaborator[]
 
   @@map("users")
 }
@@ -67,11 +75,13 @@ model Person {
   notes                String?
   created_at           DateTime   @default(now())
 
-  self_user_id  String?       @unique
+  self_user_id  String?
+  discoverable  Boolean       @default(true)
   user          User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
   self_user     User?         @relation("SelfPerson", fields: [self_user_id], references: [id], onDelete: SetNull)
   event_persons EventPerson[]
 
+  @@unique([user_id, self_user_id])
   @@map("persons")
 }
 
@@ -95,6 +105,8 @@ model Event {
   location               String?
   image_url              String?
   invite_code            String?         @unique
+  collab_invite_code     String?         @unique
+  participant_discovery  Boolean         @default(false)
   schedule_confirmed     Boolean         @default(false)
 
   user                User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -104,6 +116,8 @@ model Event {
   undo_entries        UndoEntry[]
   centro_share_token  CentroShareToken?
   schedule_blocks     ScheduleBlock[]
+  collaborators       EventCollaborator[]
+  relationship_invites RelationshipInvite[]
 
   @@map("events")
 }
@@ -280,4 +294,62 @@ model UndoEntry {
   event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
 
   @@map("undo_entries")
+}
+
+// ─── EventCollaborator ──────────────────────────────────────────────────────
+
+model EventCollaborator {
+  id       String @id @default(cuid())
+  event_id String
+  user_id  String
+
+  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([event_id, user_id])
+  @@map("event_collaborators")
+}
+
+// ─── AdminInviteToken ───────────────────────────────────────────────────────
+
+model AdminInviteToken {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  created_by String
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  @@map("admin_invite_tokens")
+}
+
+// ─── RelationshipInvite ─────────────────────────────────────────────────────
+
+enum RelationshipType {
+  inseparable
+  flexible
+}
+
+enum InviteStatus {
+  pending
+  accepted
+  declined
+  expired
+}
+
+model RelationshipInvite {
+  id                String           @id @default(cuid())
+  event_id          String
+  sender_user_id    String
+  recipient_email   String
+  recipient_user_id String?
+  relationship_type RelationshipType
+  token             String           @unique
+  status            InviteStatus     @default(pending)
+  expires_at        DateTime
+  created_at        DateTime         @default(now())
+  resolved_at       DateTime?
+
+  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+
+  @@map("relationship_invites")
 }

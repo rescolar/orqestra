@@ -15,6 +15,7 @@ type EventItem = {
   location: string | null;
   description: string | null;
   image_url: string | null;
+  organizerName?: string;
   isJoined: boolean;
   eventPersonId: string | null;
   status: string | null;
@@ -90,6 +91,11 @@ function EventCard({ event }: { event: EventItem }) {
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-gray-900">{event.name}</h3>
+            {event.organizerName && (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                por {event.organizerName}
+              </p>
+            )}
             <p className="mt-1 text-sm text-muted-foreground">
               {formatDateRange(event.date_start, event.date_end)}
             </p>
