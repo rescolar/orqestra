@@ -79,6 +79,38 @@ function EventCard({ event }: { event: EventItem }) {
     router.push(`/my-events/${event.id}`);
   };
 
+  if (event.isJoined) {
+    return (
+      <Link href={`/my-events/${event.id}`} className="block">
+        <Card className="transition-shadow hover:shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-gray-900">{event.name}</h3>
+                {event.organizerName && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    por {event.organizerName}
+                  </p>
+                )}
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {formatDateRange(event.date_start, event.date_end)}
+                </p>
+                {event.location && (
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {event.location}
+                  </p>
+                )}
+              </div>
+              <div className="flex-shrink-0">
+                <StatusBadge status={event.status} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
+    );
+  }
+
   return (
     <Card>
       <CardContent className="p-4">
@@ -100,20 +132,14 @@ function EventCard({ event }: { event: EventItem }) {
             )}
           </div>
           <div className="flex-shrink-0">
-            {event.isJoined ? (
-              <Link href={`/my-events/${event.id}`}>
-                <StatusBadge status={event.status} />
-              </Link>
-            ) : (
-              <Button
-                size="sm"
-                className="bg-primary hover:bg-primary-light"
-                onClick={handleJoin}
-                disabled={joining}
-              >
-                {joining ? "Uniéndome..." : "Unirme"}
-              </Button>
-            )}
+            <Button
+              size="sm"
+              className="bg-primary hover:bg-primary-light"
+              onClick={handleJoin}
+              disabled={joining}
+            >
+              {joining ? "Uniéndome..." : "Unirme"}
+            </Button>
           </div>
         </div>
       </CardContent>
