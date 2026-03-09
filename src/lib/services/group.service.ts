@@ -47,7 +47,7 @@ export const GroupService = {
   async removeMemberFromGroup(eventPersonId: string, ctx: AuthContext) {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },
-      select: { id: true, group_id: true, inseparable_with_id: true, event_id: true },
+      select: { id: true, group_id: true, companion_id: true, event_id: true },
     });
     if (!ep || !(await canAccessEvent(ctx, ep.event_id))) throw new Error("No encontrado");
     if (!ep.group_id) return;
@@ -55,17 +55,17 @@ export const GroupService = {
     const groupId = ep.group_id;
 
     // Clear any inseparable link involving this person
-    if (ep.inseparable_with_id) {
+    if (ep.companion_id) {
       await db.eventPerson.update({
-        where: { id: ep.inseparable_with_id },
-        data: { inseparable_with_id: null },
+        where: { id: ep.companion_id },
+        data: { companion_id: null },
       });
     }
 
     // Remove this person from the group
     await db.eventPerson.update({
       where: { id: eventPersonId },
-      data: { group_id: null, inseparable_with_id: null },
+      data: { group_id: null, companion_id: null },
     });
 
     // Count remaining members
@@ -78,7 +78,7 @@ export const GroupService = {
       // Clear inseparable links for remaining member
       await db.eventPerson.updateMany({
         where: { group_id: groupId },
-        data: { group_id: null, inseparable_with_id: null },
+        data: { group_id: null, companion_id: null },
       });
       await db.group.delete({ where: { id: groupId } });
     }
@@ -88,46 +88,46 @@ export const GroupService = {
     const [ep, partner] = await Promise.all([
       db.eventPerson.findFirst({
         where: { id: eventPersonId },
-        select: { id: true, inseparable_with_id: true, room_id: true, event_id: true },
+        select: { id: true, companion_id: true, room_id: true, event_id: true },
       }),
       db.eventPerson.findFirst({
         where: { id: partnerId },
-        select: { id: true, inseparable_with_id: true, room_id: true },
+        select: { id: true, companion_id: true, room_id: true },
       }),
     ]);
     if (!ep || !(await canAccessEvent(ctx, ep.event_id))) throw new Error("No encontrado");
     if (!partner) throw new Error("Persona no encontrada");
-    if (eventPersonId === partnerId) throw new Error("No se puede ser inseparable consigo mismo");
+    if (eventPersonId === partnerId) throw new Error("No se puede ser acompañante de sí mismo");
 
-    const isCurrentlyLinked = ep.inseparable_with_id === partnerId;
+    const isCurrentlyLinked = ep.companion_id === partnerId;
 
     if (isCurrentlyLinked) {
       // Unlink both — don't move rooms
       await db.eventPerson.updateMany({
         where: { id: { in: [eventPersonId, partnerId] } },
-        data: { inseparable_with_id: null },
+        data: { companion_id: null },
       });
     } else {
       // Clear any existing inseparable links for both persons
       const toClear: string[] = [];
-      if (ep.inseparable_with_id) toClear.push(ep.inseparable_with_id);
-      if (partner.inseparable_with_id) toClear.push(partner.inseparable_with_id);
+      if (ep.companion_id) toClear.push(ep.companion_id);
+      if (partner.companion_id) toClear.push(partner.companion_id);
 
       if (toClear.length > 0) {
         await db.eventPerson.updateMany({
           where: { id: { in: toClear } },
-          data: { inseparable_with_id: null },
+          data: { companion_id: null },
         });
       }
 
       // Link them
       await db.eventPerson.update({
         where: { id: eventPersonId },
-        data: { inseparable_with_id: partnerId },
+        data: { companion_id: partnerId },
       });
       await db.eventPerson.update({
         where: { id: partnerId },
-        data: { inseparable_with_id: eventPersonId },
+        data: { companion_id: eventPersonId },
       });
 
       // Auto-move: partner joins the person's room (or vice versa)

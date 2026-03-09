@@ -41,7 +41,7 @@ export type PersonData = {
   id: string;
   role: string;
   status: string;
-  inseparable_with_id: string | null;
+  companion_id: string | null;
   dietary_notified: boolean;
   requests_text: string | null;
   requests_managed: boolean;
@@ -74,7 +74,7 @@ type BoardDndProviderProps = {
     id: string;
     role: string;
     status: string;
-    inseparable_with_id: string | null;
+    companion_id: string | null;
     dietary_notified: boolean;
     requests_text: string | null;
     requests_managed: boolean;
@@ -479,9 +479,9 @@ export function BoardDndProvider({
 
       // Find inseparable partner (if any)
       const inseparableId =
-        "inseparable_with_id" in personData
-          ? (personData as { inseparable_with_id: string | null })
-              .inseparable_with_id
+        "companion_id" in personData
+          ? (personData as { companion_id: string | null })
+              .companion_id
           : null;
 
       let partnerData: PersonData | (typeof unassigned)[number] | null = null;
@@ -522,7 +522,7 @@ export function BoardDndProvider({
           id: personData.id,
           role: personData.role,
           status: "status" in personData ? personData.status : "inscrito",
-          inseparable_with_id: inseparableId,
+          companion_id: inseparableId,
           dietary_notified: "dietary_notified" in personData ? (personData as PersonData).dietary_notified : false,
           requests_text: "requests_text" in personData ? (personData as PersonData).requests_text : null,
           requests_managed: "requests_managed" in personData ? (personData as PersonData).requests_managed : false,
@@ -545,10 +545,10 @@ export function BoardDndProvider({
             role: partnerData.role,
             status:
               "status" in partnerData ? partnerData.status : "inscrito",
-            inseparable_with_id:
-              "inseparable_with_id" in partnerData
-                ? (partnerData as { inseparable_with_id: string | null })
-                    .inseparable_with_id
+            companion_id:
+              "companion_id" in partnerData
+                ? (partnerData as { companion_id: string | null })
+                    .companion_id
                 : null,
             dietary_notified: "dietary_notified" in partnerData ? (partnerData as PersonData).dietary_notified : false,
             requests_text: "requests_text" in partnerData ? (partnerData as PersonData).requests_text : null,
@@ -655,7 +655,7 @@ export function BoardDndProvider({
             id: person.id,
             role: person.role,
             status: person.status,
-            inseparable_with_id: person.inseparable_with_id,
+            companion_id: person.companion_id,
             dietary_notified: person.dietary_notified,
             requests_text: person.requests_text,
             requests_managed: person.requests_managed,

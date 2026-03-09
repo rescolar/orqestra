@@ -26,8 +26,8 @@ export const RelationshipInviteService = {
     if (!senderEp) throw new Error("No eres participante de este evento");
 
     // If inseparable, check sender doesn't already have one in this event
-    if (type === "inseparable" && senderEp.inseparable_with_id) {
-      throw new Error("Ya tienes un compañero inseparable en este evento");
+    if (type === "inseparable" && senderEp.companion_id) {
+      throw new Error("Ya tienes un acompañante en este evento");
     }
 
     const token = crypto.randomBytes(16).toString("base64url");
@@ -185,11 +185,11 @@ export const RelationshipInviteService = {
       await db.$transaction([
         db.eventPerson.update({
           where: { id: senderEp.id },
-          data: { inseparable_with_id: recipientEp.id },
+          data: { companion_id: recipientEp.id },
         }),
         db.eventPerson.update({
           where: { id: recipientEp.id },
-          data: { inseparable_with_id: senderEp.id },
+          data: { companion_id: senderEp.id },
         }),
       ]);
     }

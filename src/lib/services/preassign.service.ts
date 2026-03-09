@@ -7,7 +7,7 @@ type UnassignedPerson = {
   id: string;
   role: string;
   status: string;
-  inseparable_with_id: string | null;
+  companion_id: string | null;
   person: { gender: string };
 };
 
@@ -87,7 +87,7 @@ export const PreAssignService = {
         id: true,
         role: true,
         status: true,
-        inseparable_with_id: true,
+        companion_id: true,
         person: { select: { gender: true } },
       },
     });
@@ -101,9 +101,9 @@ export const PreAssignService = {
     const pairs: [UnassignedPerson, UnassignedPerson][] = [];
 
     for (const p of unassigned) {
-      if (p.inseparable_with_id && !pairedIds.has(p.id)) {
+      if (p.companion_id && !pairedIds.has(p.id)) {
         const partner = unassigned.find(
-          (u) => u.id === p.inseparable_with_id
+          (u) => u.id === p.companion_id
         );
         if (partner) {
           pairedIds.add(p.id);

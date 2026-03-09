@@ -373,7 +373,7 @@ export const PersonService = {
         id: true,
         role: true,
         status: true,
-        inseparable_with_id: true,
+        companion_id: true,
         dietary_notified: true,
         requests_text: true,
         requests_managed: true,
@@ -543,7 +543,7 @@ export const PersonService = {
             members: {
               select: {
                 id: true,
-                inseparable_with_id: true,
+                companion_id: true,
                 person: {
                   select: {
                     name_display: true,
@@ -574,7 +574,6 @@ export const PersonService = {
       allergies_text?: string | null;
       requests_text?: string | null;
       requests_managed?: boolean;
-      move_with_partner?: boolean;
       amount_paid?: number | null;
       payment_note?: string | null;
     }

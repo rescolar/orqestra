@@ -16,7 +16,7 @@ import {
 
 type GroupMember = {
   id: string;
-  inseparable_with_id: string | null;
+  companion_id: string | null;
   person: { name_display: string };
 };
 
@@ -30,7 +30,7 @@ type EventPersonDetail = {
   id: string;
   role: string;
   status: string;
-  inseparable_with_id: string | null;
+  companion_id: string | null;
   dietary_notified: boolean;
   requests_text: string | null;
   requests_managed: boolean;
@@ -373,8 +373,8 @@ export function PersonDetailPanel({
       // Optimistic: toggle inseparable immediately
       setData((prev) => {
         if (!prev) return prev;
-        const newInseparable = prev.inseparable_with_id === partnerId ? null : partnerId;
-        return { ...prev, inseparable_with_id: newInseparable };
+        const newInseparable = prev.companion_id === partnerId ? null : partnerId;
+        return { ...prev, companion_id: newInseparable };
       });
       try {
         await toggleInseparable(eventPersonId, partnerId, eventId);
@@ -418,7 +418,7 @@ export function PersonDetailPanel({
     if (optimisticRelation && !members.some((m) => m.id === optimisticRelation.id)) {
       members.push({
         id: optimisticRelation.id,
-        inseparable_with_id: null,
+        companion_id: null,
         person: { name_display: optimisticRelation.name_display },
       });
     }
@@ -431,7 +431,7 @@ export function PersonDetailPanel({
   const genderSummary = GENDER_OPTIONS.find((o) => o.value === data.person.gender)?.label ?? "ND";
   const hasContact = data.person.contact_email || data.person.contact_phone || data.person.contact_address;
   const contactSummary = hasContact ? "Si" : "No";
-  const inseparablePartner = otherMembers.find((m) => m.id === data.inseparable_with_id);
+  const inseparablePartner = otherMembers.find((m) => m.id === data.companion_id);
   const relationsSummary = inseparablePartner
     ? inseparablePartner.person.name_display
     : otherMembers.length > 0
@@ -644,7 +644,7 @@ export function PersonDetailPanel({
         <CollapsibleSection label="Relaciones" summary={relationsSummary} open={openSections.has("Relaciones")} onToggle={() => toggleSection("Relaciones")} forceOpen={relationsIsOver || isDragActive}>
           <RelationsDropZone
             eventPersonId={data.id}
-            inseparableWithId={data.inseparable_with_id}
+            inseparableWithId={data.companion_id}
             otherMembers={otherMembers}
             onRemoveMember={handleRemoveMember}
             onToggleInseparable={handleToggleInseparable}
@@ -815,7 +815,7 @@ function RelationsDropZone({
                       "flex items-center gap-1",
                       isInseparable ? "text-white" : "text-primary hover:text-primary/80"
                     )}
-                    title={isInseparable ? "Quitar inseparable" : "Marcar como inseparable"}
+                    title={isInseparable ? "Quitar acompañante" : "Marcar como acompañante"}
                   >
                     <span className={cn(
                       "material-symbols-outlined text-sm",

@@ -82,7 +82,6 @@ export async function updateEventPerson(
     allergies_text?: string | null;
     requests_text?: string | null;
     requests_managed?: boolean;
-    move_with_partner?: boolean;
     amount_paid?: number | null;
     payment_note?: string | null;
   }

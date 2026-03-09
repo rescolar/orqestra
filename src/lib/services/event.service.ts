@@ -243,7 +243,7 @@ export const EventService = {
                 id: true,
                 status: true,
                 role: true,
-                inseparable_with_id: true,
+                companion_id: true,
                 dietary_notified: true,
                 requests_text: true,
                 requests_managed: true,

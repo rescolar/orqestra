@@ -20,7 +20,7 @@ type UnassignedPerson = {
   id: string;
   role: string;
   status: string;
-  inseparable_with_id: string | null;
+  companion_id: string | null;
   dietary_notified: boolean;
   requests_text: string | null;
   requests_managed: boolean;

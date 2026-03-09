@@ -113,7 +113,7 @@ Instance of a Person participating in a specific Event. Contains all event-scope
 - role: participant | facilitator (initialized from person.default_role, editable per event)
 - status: confirmed | tentative | cancelled
 - group_id (optional, event-scoped)
-- move_with_partner (boolean, default false — when true and role is facilitator, suggest moving their partner too on drag)
+- companion_id (optional, self-reference to another EventPerson — paired companions are always assigned to the same room)
 - dietary_requirements[]: (copied from Person on creation, editable per event)
 - allergies_text (copied from Person on creation, editable per event)
 - dietary_notified (boolean, default false — "diet+allergies communicated to venue/kitchen")

@@ -110,7 +110,7 @@ export function RelationshipInviteForm({ eventId }: { eventId: string }) {
               className={type === "inseparable" ? "bg-primary" : ""}
               onClick={() => setType("inseparable")}
             >
-              Inseparable
+              Acompañante
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">

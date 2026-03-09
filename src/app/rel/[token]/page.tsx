@@ -15,7 +15,7 @@ export default async function RelationshipInvitePage({
 
   const session = await auth();
 
-  const typeLabel = invite.relationship_type === "inseparable" ? "inseparable" : "preferida";
+  const typeLabel = invite.relationship_type === "inseparable" ? "acompañante" : "preferida";
 
   // Expired or already resolved
   if (invite.expired || invite.status !== "pending") {

@@ -144,8 +144,7 @@ model EventPerson {
   group_id             String?
   amount_paid          Decimal?          @db.Decimal(10, 2)
   payment_note         String?
-  inseparable_with_id  String?
-  move_with_partner    Boolean           @default(false)
+  companion_id         String?
   dietary_notified     Boolean           @default(false)
   arrives_for_dinner   Boolean           @default(true)
   last_meal_lunch      Boolean           @default(true)
