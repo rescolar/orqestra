@@ -55,6 +55,8 @@ export default async function DetailPage({
             date_end: event.date_end.toISOString(),
             estimated_participants: event.estimated_participants,
             roomCount: event.roomCount,
+            event_price: event.event_price ? Number(event.event_price) : null,
+            deposit_amount: event.deposit_amount ? Number(event.deposit_amount) : null,
           }}
         />
 

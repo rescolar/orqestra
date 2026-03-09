@@ -75,14 +75,17 @@ const GENDER_OPTIONS = [
   { value: "men", label: "Hombres" },
 ] as const;
 
-const STORAGE_KEY_PREFIX = "orqestra:sections:";
+const STORAGE_KEY_PREFIX = "orqestra:room-sections:";
+
+const ALL_ROOM_SECTIONS = ["Capacidad", "Configuracion", "Personas asignadas", "Descripcion"];
 
 function readOpenSections(eventId: string): Set<string> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PREFIX + eventId);
     if (raw) return new Set(JSON.parse(raw));
   } catch {}
-  return new Set<string>();
+  // Default: all sections open for first-time / discovery experience
+  return new Set(ALL_ROOM_SECTIONS);
 }
 
 function writeOpenSections(eventId: string, sections: Set<string>) {

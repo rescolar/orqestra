@@ -49,11 +49,13 @@ function generateCsv(participants: ReceptionPerson[], eventName: string) {
         : p.person.gender === "other"
           ? "Otro"
           : "No especificado",
-    p.status === "confirmed"
-      ? "Confirmado"
-      : p.status === "tentative"
-        ? "Tentativo"
-        : p.status,
+    p.status === "inscrito" ? "Inscrito"
+      : p.status === "reservado" ? "Reservado"
+      : p.status === "pagado" ? "Pagado"
+      : p.status === "confirmado_sin_pago" ? "Confirmado s/p"
+      : p.status === "solicita_cancelacion" ? "Solicita cancelación"
+      : p.status === "cancelado" ? "Cancelado"
+      : p.status,
     p.person.dietary_requirements.join(", "),
     p.person.allergies_text || "",
     p.arrives_for_dinner ? "Sí" : "No",

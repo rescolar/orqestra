@@ -58,7 +58,7 @@ export const ReceptionService = {
     const participants = await db.eventPerson.findMany({
       where: {
         event_id: eventId,
-        status: { not: "cancelled" },
+        status: { not: "cancelado" },
       },
       select: {
         id: true,
@@ -142,7 +142,7 @@ export const ReceptionService = {
         capacity: true,
         has_private_bathroom: true,
         event_persons: {
-          where: { status: { not: "cancelled" } },
+          where: { status: { not: "cancelado" } },
           select: {
             id: true,
             person: {

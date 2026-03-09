@@ -107,6 +107,30 @@ export default function NewEventPage() {
                 required
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="event_price">Precio por persona (€)</Label>
+                <Input
+                  id="event_price"
+                  name="event_price"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  placeholder="Opcional"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deposit_amount">Reserva (€)</Label>
+                <Input
+                  id="deposit_amount"
+                  name="deposit_amount"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  placeholder="Opcional"
+                />
+              </div>
+            </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex items-center justify-between pt-2">
               <Link

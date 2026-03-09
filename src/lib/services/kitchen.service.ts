@@ -32,7 +32,7 @@ export const KitchenService = {
     return db.eventPerson.findMany({
       where: {
         event_id: eventId,
-        status: { not: "cancelled" },
+        status: { not: "cancelado" },
       },
       select: {
         id: true,

@@ -108,6 +108,8 @@ model Event {
   collab_invite_code     String?         @unique
   participant_discovery  Boolean         @default(false)
   schedule_confirmed     Boolean         @default(false)
+  event_price            Decimal?        @db.Decimal(10, 2)
+  deposit_amount         Decimal?        @db.Decimal(10, 2)
 
   user                User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
   event_persons       EventPerson[]
@@ -125,9 +127,12 @@ model Event {
 // ─── EventPerson ─────────────────────────────────────────────────────────────
 
 enum EventPersonStatus {
-  confirmed
-  tentative
-  cancelled
+  inscrito
+  reservado
+  pagado
+  confirmado_sin_pago
+  solicita_cancelacion
+  cancelado
 }
 
 model EventPerson {
@@ -135,8 +140,10 @@ model EventPerson {
   event_id             String
   person_id            String
   role                 PersonRole        @default(participant)
-  status               EventPersonStatus @default(confirmed)
+  status               EventPersonStatus @default(inscrito)
   group_id             String?
+  amount_paid          Decimal?          @db.Decimal(10, 2)
+  payment_note         String?
   inseparable_with_id  String?
   move_with_partner    Boolean           @default(false)
   dietary_notified     Boolean           @default(false)

@@ -72,7 +72,7 @@ export async function updateEventPerson(
   eventId: string,
   data: {
     role?: "participant" | "facilitator";
-    status?: "confirmed" | "tentative" | "cancelled";
+    status?: "inscrito" | "reservado" | "pagado" | "confirmado_sin_pago" | "solicita_cancelacion" | "cancelado";
     gender?: "unknown" | "female" | "male" | "other";
     contact_email?: string | null;
     contact_phone?: string | null;
@@ -83,6 +83,8 @@ export async function updateEventPerson(
     requests_text?: string | null;
     requests_managed?: boolean;
     move_with_partner?: boolean;
+    amount_paid?: number | null;
+    payment_note?: string | null;
   }
 ) {
   const ctx = await requireAuth();

@@ -23,7 +23,7 @@ export default async function SchedulePage({
 
   const [schedule, totalConfirmedParticipants] = await Promise.all([
     ScheduleService.getSchedule(id, session.user.id),
-    db.eventPerson.count({ where: { event_id: id, status: "confirmed" } }),
+    db.eventPerson.count({ where: { event_id: id, status: { not: "cancelado" } } }),
   ]);
 
   return (

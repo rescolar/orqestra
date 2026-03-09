@@ -31,12 +31,17 @@ function freeSlots(room: EligibleRoom): number {
 
 function sortPriority(a: UnassignedPerson, b: UnassignedPerson): number {
   const priority = (p: UnassignedPerson) => {
-    const isTentative = p.status === "tentative" ? 100 : 0;
-    // Inseparable pairs handled separately, but within the solo pass:
-    if (p.role === "facilitator") return 10 + isTentative;
-    if (p.person.gender === "female") return 20 + isTentative;
-    if (p.person.gender === "male") return 30 + isTentative;
-    return 40 + isTentative; // other/unknown
+    // Priority by payment status: pagado/confirmado_sin_pago > reservado > inscrito
+    const statusPriority = (s: string) => {
+      if (s === "pagado" || s === "confirmado_sin_pago") return 0;
+      if (s === "reservado") return 50;
+      return 100; // inscrito
+    };
+    const sp = statusPriority(p.status);
+    if (p.role === "facilitator") return 10 + sp;
+    if (p.person.gender === "female") return 20 + sp;
+    if (p.person.gender === "male") return 30 + sp;
+    return 40 + sp; // other/unknown
   };
   return priority(a) - priority(b);
 }
@@ -76,7 +81,7 @@ export const PreAssignService = {
       where: {
         event_id: eventId,
         room_id: null,
-        status: { not: "cancelled" },
+        status: { not: "cancelado" },
       },
       select: {
         id: true,

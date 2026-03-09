@@ -32,7 +32,7 @@ export async function getMyEventDetail(eventId: string) {
 export async function updateEventPreferences(
   eventPersonId: string,
   data: {
-    status?: "confirmed" | "tentative" | "cancelled";
+    status?: "solicita_cancelacion";
     arrives_for_dinner?: boolean;
     last_meal_lunch?: boolean;
     requests_text?: string;

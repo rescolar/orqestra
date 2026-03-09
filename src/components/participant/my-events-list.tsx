@@ -50,27 +50,21 @@ export function MyEventsList({ events }: { events: EventItem[] }) {
   );
 }
 
+const STATUS_BADGE_MAP: Record<string, { bg: string; text: string; icon: string; label: string }> = {
+  inscrito: { bg: "bg-blue-100", text: "text-blue-800", icon: "how_to_reg", label: "Inscrito" },
+  reservado: { bg: "bg-amber-100", text: "text-amber-800", icon: "payments", label: "Reservado" },
+  pagado: { bg: "bg-green-100", text: "text-green-800", icon: "check_circle", label: "Pagado" },
+  confirmado_sin_pago: { bg: "bg-green-100", text: "text-green-800", icon: "verified", label: "Confirmado" },
+  solicita_cancelacion: { bg: "bg-amber-100", text: "text-amber-800", icon: "pending", label: "Cancelación solicitada" },
+  cancelado: { bg: "bg-red-100", text: "text-red-800", icon: "cancel", label: "Cancelado" },
+};
+
 function StatusBadge({ status }: { status: string | null }) {
-  if (status === "cancelled") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-800">
-        <span className="material-symbols-outlined text-sm">cancel</span>
-        No asiste
-      </span>
-    );
-  }
-  if (status === "tentative") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
-        <span className="material-symbols-outlined text-sm">help</span>
-        Tentativo
-      </span>
-    );
-  }
+  const cfg = STATUS_BADGE_MAP[status ?? ""] ?? STATUS_BADGE_MAP.inscrito;
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
-      <span className="material-symbols-outlined text-sm">check_circle</span>
-      Confirmado
+    <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+      <span className="material-symbols-outlined text-sm">{cfg.icon}</span>
+      {cfg.label}
     </span>
   );
 }

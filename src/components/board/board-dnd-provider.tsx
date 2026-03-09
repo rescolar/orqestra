@@ -94,6 +94,10 @@ type BoardDndProviderProps = {
     roomCount: number;
     userName?: string | null;
   };
+  eventPricing?: {
+    event_price: number | null;
+    deposit_amount: number | null;
+  } | null;
 };
 
 export function BoardDndProvider({
@@ -101,6 +105,7 @@ export function BoardDndProvider({
   initialRooms,
   initialUnassigned,
   headerData,
+  eventPricing,
 }: BoardDndProviderProps) {
   const dndId = useId();
   const [rooms, setRooms] = useState(initialRooms);
@@ -516,7 +521,7 @@ export function BoardDndProvider({
         entry: {
           id: personData.id,
           role: personData.role,
-          status: "status" in personData ? personData.status : "confirmed",
+          status: "status" in personData ? personData.status : "inscrito",
           inseparable_with_id: inseparableId,
           dietary_notified: "dietary_notified" in personData ? (personData as PersonData).dietary_notified : false,
           requests_text: "requests_text" in personData ? (personData as PersonData).requests_text : null,
@@ -539,7 +544,7 @@ export function BoardDndProvider({
             id: partnerData.id,
             role: partnerData.role,
             status:
-              "status" in partnerData ? partnerData.status : "confirmed",
+              "status" in partnerData ? partnerData.status : "inscrito",
             inseparable_with_id:
               "inseparable_with_id" in partnerData
                 ? (partnerData as { inseparable_with_id: string | null })
@@ -837,13 +842,13 @@ export function BoardDndProvider({
     const dietaryPending = allPersons.filter(
       (ep) => !ep.dietary_notified && (ep.person.dietary_requirements.length > 0 || ep.person.allergies_text)
     ).length;
-    // Tentative participants
-    const tentativePending = allPersons.filter((ep) => ep.status === "tentative").length;
+    // Cancellation requests
+    const cancelRequestPending = allPersons.filter((ep) => ep.status === "solicita_cancelacion").length;
     // Unresolved requests
     const requestsPending = allPersons.filter(
       (ep) => ep.requests_text && !ep.requests_managed
     ).length;
-    return roomConflicts + dietaryPending + tentativePending + requestsPending;
+    return roomConflicts + dietaryPending + cancelRequestPending + requestsPending;
   }, [rooms, unassigned]);
 
   return (
@@ -922,6 +927,7 @@ export function BoardDndProvider({
             refreshKey={panelRefreshKey}
             optimisticRelation={optimisticRelation}
             isDragActive={!!activeId}
+            eventPricing={eventPricing}
             onClose={() => setSelectedPersonId(null)}
             onPersonUpdated={handlePersonUpdated}
             onPersonRemoved={handlePersonRemoved}

@@ -26,10 +26,14 @@ export type PendingConflict = {
   genders: string[];
 };
 
-export type PendingTentative = {
+export type PendingPayment = {
   id: string;
   person: { name_display: string };
-  room: { display_name: string | null } | null;
+};
+
+export type PendingCancelRequest = {
+  id: string;
+  person: { name_display: string };
 };
 
 export type PendingRequest = {
@@ -41,8 +45,10 @@ export type PendingRequest = {
 export type PendingData = {
   dietary: PendingDietary[];
   conflicts: PendingConflict[];
-  tentatives: PendingTentative[];
+  payments: PendingPayment[];
+  cancelRequests: PendingCancelRequest[];
   requests: PendingRequest[];
+  hasPricing: boolean;
 };
 
 async function requireAuth(): Promise<AuthContext> {
@@ -121,13 +127,31 @@ export async function getPendingItems(eventId: string): Promise<PendingData> {
       genders: r.event_persons.map((ep) => ep.person.gender),
     }));
 
-  // Tentative participants
-  const tentativesRaw = await db.eventPerson.findMany({
-    where: { event_id: eventId, status: "tentative" },
+  // Check if event has pricing configured
+  const event = await db.event.findUnique({
+    where: { id: eventId },
+    select: { event_price: true, deposit_amount: true },
+  });
+  const hasPricing = event?.event_price != null || event?.deposit_amount != null;
+
+  // Pending payments: inscrito status (haven't paid anything) — only when pricing configured
+  const paymentsRaw = hasPricing
+    ? await db.eventPerson.findMany({
+        where: { event_id: eventId, status: "inscrito" },
+        select: {
+          id: true,
+          person: { select: { name_display: true } },
+        },
+        orderBy: { person: { name_display: "asc" } },
+      })
+    : [];
+
+  // Cancellation requests
+  const cancelRequestsRaw = await db.eventPerson.findMany({
+    where: { event_id: eventId, status: "solicita_cancelacion" },
     select: {
       id: true,
       person: { select: { name_display: true } },
-      room: { select: { display_name: true } },
     },
     orderBy: { person: { name_display: "asc" } },
   });
@@ -150,10 +174,12 @@ export async function getPendingItems(eventId: string): Promise<PendingData> {
   return {
     dietary: dietaryRaw,
     conflicts,
-    tentatives: tentativesRaw,
+    payments: paymentsRaw,
+    cancelRequests: cancelRequestsRaw,
     requests: requestsRaw.map((r) => ({
       ...r,
       requests_text: r.requests_text!,
     })),
+    hasPricing,
   };
 }

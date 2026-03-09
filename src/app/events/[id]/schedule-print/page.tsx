@@ -29,7 +29,7 @@ export default async function SchedulePrintPage({
 
   const [printData, confirmedCount] = await Promise.all([
     ScheduleService.getSchedulePrintData(id, session.user.id),
-    db.eventPerson.count({ where: { event_id: id, status: "confirmed" } }),
+    db.eventPerson.count({ where: { event_id: id, status: { not: "cancelado" } } }),
   ]);
 
   return (

@@ -30,6 +30,8 @@ export async function createEvent(formData: FormData) {
   const dateStart = formData.get("date_start") as string;
   const dateEnd = formData.get("date_end") as string;
   const estimatedParticipants = Number(formData.get("estimated_participants"));
+  const eventPriceRaw = formData.get("event_price") as string | null;
+  const depositAmountRaw = formData.get("deposit_amount") as string | null;
 
   if (!name || !dateStart || !dateEnd || !estimatedParticipants) {
     throw new Error("Todos los campos son obligatorios");
@@ -39,11 +41,16 @@ export async function createEvent(formData: FormData) {
     throw new Error("El número de participantes debe ser al menos 1");
   }
 
+  const eventPrice = eventPriceRaw ? parseFloat(eventPriceRaw) : null;
+  const depositAmount = depositAmountRaw ? parseFloat(depositAmountRaw) : null;
+
   const event = await EventService.createEvent(ctx.id, {
     name,
     date_start: new Date(dateStart),
     date_end: new Date(dateEnd),
     estimated_participants: estimatedParticipants,
+    event_price: eventPrice && !isNaN(eventPrice) ? eventPrice : null,
+    deposit_amount: depositAmount && !isNaN(depositAmount) ? depositAmount : null,
   });
 
   redirect(`/events/${event.id}/setup`);
@@ -73,6 +80,8 @@ export async function updateEventDetails(
     image_url: string | null;
     date_start?: string;
     date_end?: string;
+    event_price?: number | null;
+    deposit_amount?: number | null;
   }
 ) {
   const ctx = await requireAuth();

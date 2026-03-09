@@ -54,7 +54,7 @@ export const EventService = {
       const totalCapacity = event.rooms.reduce((sum, r) => sum + r.capacity, 0);
       const isCollaborator = event.user_id !== ctx.userId && ctx.role !== "admin";
 
-      // Pending count: dietary + conflicts + tentatives + requests
+      // Pending count: dietary + conflicts + cancel requests + requests
       const dietaryCount = event.event_persons.filter(
         (ep) =>
           !ep.dietary_notified &&
@@ -71,7 +71,7 @@ export const EventService = {
         return false;
       }).length;
 
-      const tentativeCount = event.event_persons.filter((ep) => ep.status === "tentative").length;
+      const cancelRequestCount = event.event_persons.filter((ep) => ep.status === "solicita_cancelacion").length;
       const requestCount = event.event_persons.filter(
         (ep) => !ep.requests_managed && ep.requests_text !== null
       ).length;
@@ -88,7 +88,7 @@ export const EventService = {
         assigned_count: assignedCount,
         room_count: event._count.rooms,
         total_capacity: totalCapacity,
-        pending_count: dietaryCount + conflictCount + tentativeCount + requestCount,
+        pending_count: dietaryCount + conflictCount + cancelRequestCount + requestCount,
         is_collaborator: isCollaborator,
       };
     });
@@ -101,6 +101,8 @@ export const EventService = {
       date_start: Date;
       date_end: Date;
       estimated_participants: number;
+      event_price?: number | null;
+      deposit_amount?: number | null;
     }
   ) {
     return db.event.create({
@@ -111,6 +113,8 @@ export const EventService = {
         date_end: data.date_end,
         estimated_participants: data.estimated_participants,
         status: "active",
+        ...(data.event_price != null && { event_price: data.event_price }),
+        ...(data.deposit_amount != null && { deposit_amount: data.deposit_amount }),
       },
     });
   },
@@ -170,6 +174,8 @@ export const EventService = {
         estimated_participants: true,
         user_id: true,
         participant_discovery: true,
+        event_price: true,
+        deposit_amount: true,
         _count: { select: { rooms: true } },
       },
     });
@@ -193,6 +199,8 @@ export const EventService = {
       image_url: string | null;
       date_start?: string;
       date_end?: string;
+      event_price?: number | null;
+      deposit_amount?: number | null;
     }
   ) {
     if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
@@ -206,6 +214,8 @@ export const EventService = {
         image_url: data.image_url,
         ...(data.date_start && { date_start: new Date(data.date_start) }),
         ...(data.date_end && { date_end: new Date(data.date_end) }),
+        ...(data.event_price !== undefined && { event_price: data.event_price }),
+        ...(data.deposit_amount !== undefined && { deposit_amount: data.deposit_amount }),
       },
     });
   },

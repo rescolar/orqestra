@@ -126,7 +126,7 @@ export const RelationshipInviteService = {
           event_id: eventId,
           person_id: recipientPerson.id,
           role: "participant",
-          status: "confirmed",
+          status: "inscrito",
         },
       });
     }

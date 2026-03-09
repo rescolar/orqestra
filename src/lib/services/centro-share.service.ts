@@ -78,7 +78,7 @@ export const CentroShareService = {
             _count: {
               select: {
                 event_persons: {
-                  where: { status: "confirmed" },
+                  where: { status: { in: ["reservado", "pagado", "confirmado_sin_pago"] } },
                 },
               },
             },
@@ -120,7 +120,7 @@ export const CentroShareService = {
     const rows = await db.eventPerson.findMany({
       where: {
         event_id: record.event.id,
-        status: { not: "cancelled" },
+        status: { not: "cancelado" },
       },
       select: {
         id: true,

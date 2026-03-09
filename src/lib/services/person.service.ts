@@ -175,7 +175,7 @@ export const PersonService = {
             event_id: eventId,
             person_id: person.id,
             role: "participant",
-            status: "confirmed",
+            status: "inscrito",
           },
         });
       }
@@ -249,7 +249,7 @@ export const PersonService = {
         event_id: eventId,
         person_id: personId,
         role: person.default_role,
-        status: "confirmed",
+        status: "inscrito",
       },
     });
   },
@@ -304,7 +304,7 @@ export const PersonService = {
         event_id: eventId,
         person_id: personId,
         role: person.default_role,
-        status: "confirmed",
+        status: "inscrito",
         room_id: roomId,
       },
       include: {
@@ -348,7 +348,7 @@ export const PersonService = {
         event_id: eventId,
         person_id: person.id,
         role: data.role,
-        status: "confirmed",
+        status: "inscrito",
       },
       include: {
         person: {
@@ -467,7 +467,7 @@ export const PersonService = {
           event_id: eventId,
           person_id: person.id,
           role: "participant",
-          status: "confirmed",
+          status: "inscrito",
         },
         include: {
           person: {
@@ -564,7 +564,7 @@ export const PersonService = {
     ctx: AuthContext,
     data: {
       role?: "participant" | "facilitator";
-      status?: "confirmed" | "tentative" | "cancelled";
+      status?: "inscrito" | "reservado" | "pagado" | "confirmado_sin_pago" | "solicita_cancelacion" | "cancelado";
       gender?: Gender;
       contact_email?: string | null;
       contact_phone?: string | null;
@@ -575,6 +575,8 @@ export const PersonService = {
       requests_text?: string | null;
       requests_managed?: boolean;
       move_with_partner?: boolean;
+      amount_paid?: number | null;
+      payment_note?: string | null;
     }
   ) {
     const ep = await db.eventPerson.findFirst({
@@ -648,7 +650,7 @@ export const PersonService = {
         event_id: eventId,
         person_id: p.id,
         role: p.default_role,
-        status: "confirmed" as const,
+        status: "inscrito" as const,
       })),
     });
 

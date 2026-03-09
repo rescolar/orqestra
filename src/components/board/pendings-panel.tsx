@@ -7,7 +7,8 @@ import {
   PendingData,
   PendingDietary,
   PendingConflict,
-  PendingTentative,
+  PendingPayment,
+  PendingCancelRequest,
   PendingRequest,
 } from "@/lib/actions/pending";
 import { updateEventPerson } from "@/lib/actions/person";
@@ -65,7 +66,7 @@ export function PendingsPanel({
   const [data, setData] = useState<PendingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [openSections, setOpenSections] = useState<Set<string>>(
-    () => new Set(["dietary", "conflicts", "tentatives", "requests"])
+    () => new Set(["dietary", "conflicts", "payments", "cancelRequests", "requests"])
   );
 
   const toggleSection = useCallback((key: string) => {
@@ -114,16 +115,37 @@ export function PendingsPanel({
     [eventId, onItemResolved]
   );
 
-  const handleConfirmTentative = useCallback(
+  const handleMarkReservado = useCallback(
     async (epId: string) => {
       setData((prev) => {
         if (!prev) return prev;
-        return {
-          ...prev,
-          tentatives: prev.tentatives.filter((t) => t.id !== epId),
-        };
+        return { ...prev, payments: prev.payments.filter((p) => p.id !== epId) };
       });
-      await updateEventPerson(epId, eventId, { status: "confirmed" });
+      await updateEventPerson(epId, eventId, { status: "reservado" });
+      onItemResolved();
+    },
+    [eventId, onItemResolved]
+  );
+
+  const handleConfirmCancel = useCallback(
+    async (epId: string) => {
+      setData((prev) => {
+        if (!prev) return prev;
+        return { ...prev, cancelRequests: prev.cancelRequests.filter((c) => c.id !== epId) };
+      });
+      await updateEventPerson(epId, eventId, { status: "cancelado" });
+      onItemResolved();
+    },
+    [eventId, onItemResolved]
+  );
+
+  const handleRestoreFromCancel = useCallback(
+    async (epId: string) => {
+      setData((prev) => {
+        if (!prev) return prev;
+        return { ...prev, cancelRequests: prev.cancelRequests.filter((c) => c.id !== epId) };
+      });
+      await updateEventPerson(epId, eventId, { status: "inscrito" });
       onItemResolved();
     },
     [eventId, onItemResolved]
@@ -278,20 +300,60 @@ export function PendingsPanel({
           )}
         </PendingSection>
 
-        {/* Tentative Participants */}
+        {/* Pending Payments — only when pricing configured */}
+        {data.hasPricing && (
+          <PendingSection
+            label="Pagos Pendientes"
+            icon="payments"
+            count={data.payments.length}
+            accentColor="text-warning"
+            open={openSections.has("payments")}
+            onToggle={() => toggleSection("payments")}
+          >
+            {data.payments.length === 0 ? (
+              <p className="text-xs text-gray-400">Sin pendientes</p>
+            ) : (
+              <div className="space-y-1">
+                {data.payments.map((item) => (
+                  <div
+                    key={item.id}
+                    className="group flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-gray-50"
+                  >
+                    <button
+                      onClick={() => onPersonClick(item.id)}
+                      className="flex-1 min-w-0 text-left"
+                    >
+                      <p className="truncate text-sm font-medium text-gray-700">
+                        {item.person.name_display}
+                      </p>
+                    </button>
+                    <button
+                      onClick={() => handleMarkReservado(item.id)}
+                      className="shrink-0 rounded-md border border-gray-200 px-2 py-1 text-[10px] font-medium text-gray-500 hover:bg-success/10 hover:text-success hover:border-success/30"
+                    >
+                      Marcar Reservado
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </PendingSection>
+        )}
+
+        {/* Cancellation Requests */}
         <PendingSection
-          label="Participantes Dudosos"
-          icon="help"
-          count={data.tentatives.length}
-          accentColor="text-accent"
-          open={openSections.has("tentatives")}
-          onToggle={() => toggleSection("tentatives")}
+          label="Solicitudes de Cancelación"
+          icon="person_cancel"
+          count={data.cancelRequests.length}
+          accentColor="text-danger"
+          open={openSections.has("cancelRequests")}
+          onToggle={() => toggleSection("cancelRequests")}
         >
-          {data.tentatives.length === 0 ? (
+          {data.cancelRequests.length === 0 ? (
             <p className="text-xs text-gray-400">Sin pendientes</p>
           ) : (
             <div className="space-y-1">
-              {data.tentatives.map((item) => (
+              {data.cancelRequests.map((item) => (
                 <div
                   key={item.id}
                   className="group flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-gray-50"
@@ -303,18 +365,21 @@ export function PendingsPanel({
                     <p className="truncate text-sm font-medium text-gray-700">
                       {item.person.name_display}
                     </p>
-                    <p className="truncate text-xs text-gray-400">
-                      {item.room
-                        ? item.room.display_name || "Habitacion asignada"
-                        : "Sin asignar"}
-                    </p>
                   </button>
-                  <button
-                    onClick={() => handleConfirmTentative(item.id)}
-                    className="shrink-0 rounded-md border border-gray-200 px-2 py-1 text-[10px] font-medium text-gray-500 hover:bg-success/10 hover:text-success hover:border-success/30"
-                  >
-                    Confirmar
-                  </button>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleRestoreFromCancel(item.id)}
+                      className="shrink-0 rounded-md border border-gray-200 px-2 py-1 text-[10px] font-medium text-gray-500 hover:bg-accent/10 hover:text-accent hover:border-accent/30"
+                    >
+                      Restaurar
+                    </button>
+                    <button
+                      onClick={() => handleConfirmCancel(item.id)}
+                      className="shrink-0 rounded-md border border-danger/30 px-2 py-1 text-[10px] font-medium text-danger hover:bg-danger/10"
+                    >
+                      Confirmar
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

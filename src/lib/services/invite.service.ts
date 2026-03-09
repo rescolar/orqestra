@@ -110,7 +110,7 @@ export const InviteService = {
           event_id: eventId,
           person_id: person.id,
           role: "participant",
-          status: "confirmed",
+          status: "inscrito",
         },
       });
 
@@ -233,7 +233,7 @@ export const InviteService = {
         event_id: eventId,
         person_id: person.id,
         role: "participant",
-        status: "confirmed",
+        status: "inscrito",
       },
     });
   },
@@ -282,7 +282,7 @@ export const InviteService = {
     participantUserId: string,
     eventPersonId: string,
     data: {
-      status?: "confirmed" | "tentative" | "cancelled";
+      status?: "solicita_cancelacion";
       arrives_for_dinner?: boolean;
       last_meal_lunch?: boolean;
       requests_text?: string;
@@ -295,6 +295,11 @@ export const InviteService = {
     });
     if (!ep || ep.person.self_user_id !== participantUserId) {
       throw new Error("Not authorized");
+    }
+
+    // Participants can only set solicita_cancelacion (not cancelado or payment statuses)
+    if (data.status && data.status !== "solicita_cancelacion") {
+      throw new Error("Not authorized to set this status");
     }
 
     return db.eventPerson.update({

@@ -34,6 +34,8 @@ type EventPersonDetail = {
   dietary_notified: boolean;
   requests_text: string | null;
   requests_managed: boolean;
+  amount_paid: unknown; // Prisma Decimal | null
+  payment_note: string | null;
   group: GroupData | null;
   room: {
     display_name: string | null;
@@ -66,6 +68,8 @@ export type PersonUpdateData = {
   allergies_text?: string | null;
   requests_text?: string | null;
   requests_managed?: boolean;
+  amount_paid?: number | null;
+  payment_note?: string | null;
 };
 
 export type OptimisticRelation = {
@@ -79,6 +83,7 @@ type PersonDetailPanelProps = {
   refreshKey?: number;
   optimisticRelation?: OptimisticRelation | null;
   isDragActive?: boolean;
+  eventPricing?: { event_price: number | null; deposit_amount: number | null } | null;
   onClose: () => void;
   onPersonUpdated: (id: string, changes: PersonUpdateData) => void;
   onPersonRemoved: (id: string) => void;
@@ -92,9 +97,12 @@ const ROLE_OPTIONS = [
 ] as const;
 
 const STATUS_OPTIONS = [
-  { value: "confirmed", label: "Confirmado" },
-  { value: "tentative", label: "Dudoso" },
-  { value: "cancelled", label: "Cancelado" },
+  { value: "inscrito", label: "Inscrito" },
+  { value: "reservado", label: "Reservado" },
+  { value: "pagado", label: "Pagado" },
+  { value: "confirmado_sin_pago", label: "Confirmado s/p" },
+  { value: "solicita_cancelacion", label: "Solicita cancelación" },
+  { value: "cancelado", label: "Cancelado" },
 ] as const;
 
 const GENDER_OPTIONS = [
@@ -112,7 +120,7 @@ const DIETARY_OPTIONS = [
 
 const STORAGE_KEY_PREFIX = "orqestra:sections:";
 
-const ALL_SECTIONS = ["Rol", "Estado", "Genero", "Contacto", "Relaciones", "Dieta", "Alergias", "Preferencias"];
+const ALL_SECTIONS = ["Rol", "Estado", "Pago", "Genero", "Contacto", "Relaciones", "Dieta", "Alergias", "Preferencias"];
 
 function readOpenSections(eventId: string): Set<string> {
   try {
@@ -135,6 +143,7 @@ export function PersonDetailPanel({
   refreshKey,
   optimisticRelation,
   isDragActive,
+  eventPricing,
   onClose,
   onPersonUpdated,
   onPersonRemoved,
@@ -164,6 +173,10 @@ export function PersonDetailPanel({
   const [addressLocal, setAddressLocal] = useState("");
   const [allergiesLocal, setAllergiesLocal] = useState("");
   const [requestsLocal, setRequestsLocal] = useState("");
+  const [amountPaidLocal, setAmountPaidLocal] = useState("");
+  const [paymentNoteLocal, setPaymentNoteLocal] = useState("");
+
+  const hasPricing = eventPricing?.event_price != null || eventPricing?.deposit_amount != null;
 
   useEffect(() => {
     setLoading(true);
@@ -175,6 +188,8 @@ export function PersonDetailPanel({
       setAddressLocal(result.person.contact_address ?? "");
       setAllergiesLocal(result.person.allergies_text ?? "");
       setRequestsLocal(result.requests_text ?? "");
+      setAmountPaidLocal(result.amount_paid != null ? String(result.amount_paid) : "");
+      setPaymentNoteLocal(result.payment_note ?? "");
       setLoading(false);
     });
   }, [eventPersonId, refreshKey]);
@@ -200,9 +215,27 @@ export function PersonDetailPanel({
     (status: string) => {
       if (!data || data.status === status) return;
       setData((prev) => (prev ? { ...prev, status } : prev));
-      saveField({ status });
+
+      // Auto-fill amount_paid based on status change
+      const changes: Record<string, unknown> = { status };
+      if (status === "reservado" && eventPricing?.deposit_amount != null) {
+        changes.amount_paid = Number(eventPricing.deposit_amount);
+        setAmountPaidLocal(String(eventPricing.deposit_amount));
+        setData((prev) => prev ? { ...prev, amount_paid: Number(eventPricing.deposit_amount) } : prev);
+      } else if (status === "pagado" && eventPricing?.event_price != null) {
+        changes.amount_paid = Number(eventPricing.event_price);
+        setAmountPaidLocal(String(eventPricing.event_price));
+        setData((prev) => prev ? { ...prev, amount_paid: Number(eventPricing.event_price) } : prev);
+      } else if (status === "inscrito" || status === "confirmado_sin_pago") {
+        changes.amount_paid = null;
+        setAmountPaidLocal("");
+        setData((prev) => prev ? { ...prev, amount_paid: null } : prev);
+      }
+      // cancelado: leave amount_paid as-is
+
+      saveField(changes);
     },
-    [data, saveField]
+    [data, saveField, eventPricing]
   );
 
   const handleGenderChange = useCallback(
@@ -290,6 +323,23 @@ export function PersonDetailPanel({
     setData((prev) => (prev ? { ...prev, requests_text: newVal } : prev));
     saveField({ requests_text: newVal });
   }, [data, requestsLocal, saveField]);
+
+  const handleAmountPaidBlur = useCallback(() => {
+    if (!data) return;
+    const newVal = amountPaidLocal ? parseFloat(amountPaidLocal) : null;
+    const current = data.amount_paid != null ? Number(data.amount_paid) : null;
+    if (newVal === current) return;
+    setData((prev) => (prev ? { ...prev, amount_paid: newVal } : prev));
+    saveField({ amount_paid: newVal });
+  }, [data, amountPaidLocal, saveField]);
+
+  const handlePaymentNoteBlur = useCallback(() => {
+    if (!data) return;
+    const newVal = paymentNoteLocal || null;
+    if (newVal === data.payment_note) return;
+    setData((prev) => (prev ? { ...prev, payment_note: newVal } : prev));
+    saveField({ payment_note: newVal });
+  }, [data, paymentNoteLocal, saveField]);
 
   const handleDiscard = useCallback(async () => {
     await removeEventPerson(eventPersonId, eventId);
@@ -483,6 +533,54 @@ export function PersonDetailPanel({
             ))}
           </select>
         </CollapsibleSection>
+
+        {/* Payment — only when event has pricing */}
+        {hasPricing && (() => {
+          const ep = eventPricing!.event_price != null ? Number(eventPricing!.event_price) : null;
+          const paid = data.amount_paid != null ? Number(data.amount_paid) : 0;
+          const paidColor = ep != null && paid >= ep ? "text-success" : paid > 0 ? "text-warning" : "text-gray-400";
+          const paySummary = ep != null ? `${paid} / ${ep} €` : paid > 0 ? `${paid} €` : "—";
+          return (
+            <CollapsibleSection label="Pago" summary={paySummary} open={openSections.has("Pago")} onToggle={() => toggleSection("Pago")}>
+              <div className="space-y-2">
+                {ep != null && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                      <div
+                        className={cn("h-full rounded-full transition-all", paid >= ep ? "bg-success" : paid > 0 ? "bg-warning" : "bg-gray-200")}
+                        style={{ width: `${Math.min(100, ep > 0 ? (paid / ep) * 100 : 0)}%` }}
+                      />
+                    </div>
+                    <span className={cn("text-xs font-medium whitespace-nowrap", paidColor)}>{paid} / {ep} €</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm text-gray-400">payments</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={amountPaidLocal}
+                    onChange={(e) => setAmountPaidLocal(e.target.value)}
+                    onBlur={handleAmountPaidBlur}
+                    placeholder="Importe pagado"
+                    className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm text-gray-400">note</span>
+                  <input
+                    value={paymentNoteLocal}
+                    onChange={(e) => setPaymentNoteLocal(e.target.value)}
+                    onBlur={handlePaymentNoteBlur}
+                    placeholder="Nota de pago (Bizum, transferencia...)"
+                    className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+            </CollapsibleSection>
+          );
+        })()}
 
         {/* Gender */}
         <CollapsibleSection label="Genero" summary={genderSummary} open={openSections.has("Genero")} onToggle={() => toggleSection("Genero")}>

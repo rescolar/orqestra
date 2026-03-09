@@ -20,6 +20,8 @@ interface EventDetailFormProps {
     date_end: string;
     estimated_participants: number;
     roomCount: number;
+    event_price: number | string | null;
+    deposit_amount: number | string | null;
   };
 }
 
@@ -35,6 +37,8 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
   const [imageUrl, setImageUrl] = useState(event.image_url ?? "");
   const [dateStart, setDateStart] = useState(toInputDate(event.date_start));
   const [dateEnd, setDateEnd] = useState(toInputDate(event.date_end));
+  const [eventPrice, setEventPrice] = useState(event.event_price != null ? String(event.event_price) : "");
+  const [depositAmount, setDepositAmount] = useState(event.deposit_amount != null ? String(event.deposit_amount) : "");
   const [showDateConfirm, setShowDateConfirm] = useState(false);
   const [pendingDates, setPendingDates] = useState<{ start?: string; end?: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -44,12 +48,17 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
   const originalDateEnd = toInputDate(event.date_end);
   const datesChanged = dateStart !== originalDateStart || dateEnd !== originalDateEnd;
 
+  const originalPrice = event.event_price != null ? String(event.event_price) : "";
+  const originalDeposit = event.deposit_amount != null ? String(event.deposit_amount) : "";
+  const pricingChanged = eventPrice !== originalPrice || depositAmount !== originalDeposit;
+
   const isDirty =
     name !== event.name ||
     description !== (event.description ?? "") ||
     location !== (event.location ?? "") ||
     imageUrl !== (event.image_url ?? "") ||
-    datesChanged;
+    datesChanged ||
+    pricingChanged;
 
   const handleDateChange = (field: "start" | "end", value: string) => {
     const newStart = field === "start" ? value : dateStart;
@@ -88,6 +97,8 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
           location: location.trim() || null,
           image_url: imageUrl.trim() || null,
           ...(datesChanged && { date_start: dateStart, date_end: dateEnd }),
+          event_price: eventPrice ? parseFloat(eventPrice) : null,
+          deposit_amount: depositAmount ? parseFloat(depositAmount) : null,
         });
       }
       router.push(`/events/${event.id}/board`);
@@ -164,6 +175,32 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
               onChange={(e) => setLocation(e.target.value)}
               placeholder="Casa de retiro, dirección..."
             />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="event_price">Precio por persona (€)</Label>
+              <Input
+                id="event_price"
+                type="number"
+                step="0.01"
+                min={0}
+                value={eventPrice}
+                onChange={(e) => setEventPrice(e.target.value)}
+                placeholder="Opcional"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deposit_amount">Reserva (€)</Label>
+              <Input
+                id="deposit_amount"
+                type="number"
+                step="0.01"
+                min={0}
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(e.target.value)}
+                placeholder="Opcional"
+              />
+            </div>
           </div>
         </div>
       </div>

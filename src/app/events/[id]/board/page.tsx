@@ -33,6 +33,10 @@ export default async function BoardPage({
           roomCount: event.rooms.length,
           userName: session.user.name,
         }}
+        eventPricing={{
+          event_price: event.event_price ? Number(event.event_price) : null,
+          deposit_amount: event.deposit_amount ? Number(event.deposit_amount) : null,
+        }}
       />
     </div>
   );

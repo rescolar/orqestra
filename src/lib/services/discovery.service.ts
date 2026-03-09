@@ -18,7 +18,7 @@ export const DiscoveryService = {
     const eventPersons = await db.eventPerson.findMany({
       where: {
         event_id: eventId,
-        status: { in: ["confirmed", "tentative"] },
+        status: { not: "cancelado" },
         person: {
           discoverable: true,
           ...(selfPerson ? { id: { not: selfPerson.id } } : {}),

@@ -79,11 +79,9 @@ export function MyEventDetail({
     [eventPerson.id]
   );
 
-  const handleStatusChange = async (
-    newStatus: "confirmed" | "tentative" | "cancelled"
-  ) => {
-    setStatus(newStatus);
-    await save({ status: newStatus });
+  const handleRequestCancel = async () => {
+    setStatus("solicita_cancelacion");
+    await save({ status: "solicita_cancelacion" });
   };
 
   const handleDinnerToggle = async () => {
@@ -176,48 +174,65 @@ export function MyEventDetail({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            {status === "confirmed" && (
+            {status === "inscrito" && (
+              <span className="text-blue-600">
+                <span className="material-symbols-outlined align-middle text-base">how_to_reg</span>{" "}
+                Inscrito
+              </span>
+            )}
+            {status === "reservado" && (
+              <span className="text-amber-600">
+                <span className="material-symbols-outlined align-middle text-base">payments</span>{" "}
+                Reservado (depósito pagado)
+              </span>
+            )}
+            {status === "pagado" && (
               <span className="text-green-700">
                 <span className="material-symbols-outlined align-middle text-base">check_circle</span>{" "}
-                Asistencia confirmada
+                Pagado
               </span>
             )}
-            {status === "tentative" && (
+            {status === "confirmado_sin_pago" && (
+              <span className="text-green-700">
+                <span className="material-symbols-outlined align-middle text-base">verified</span>{" "}
+                Confirmado
+              </span>
+            )}
+            {status === "solicita_cancelacion" && (
               <span className="text-amber-600">
-                <span className="material-symbols-outlined align-middle text-base">help</span>{" "}
-                Asistencia tentativa
+                <span className="material-symbols-outlined align-middle text-base">pending</span>{" "}
+                Cancelación solicitada
               </span>
             )}
-            {status === "cancelled" && (
+            {status === "cancelado" && (
               <span className="text-red-600">
                 <span className="material-symbols-outlined align-middle text-base">cancel</span>{" "}
-                No asiste
+                Cancelado
               </span>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2">
-            {(
-              [
-                { value: "confirmed", label: "Confirmo" },
-                { value: "tentative", label: "Tentativo" },
-                { value: "cancelled", label: "No puedo" },
-              ] as const
-            ).map(({ value, label }) => (
-              <Button
-                key={value}
-                size="sm"
-                variant={status === value ? "default" : "outline"}
-                className={
-                  status === value ? "bg-primary hover:bg-primary-light" : ""
-                }
-                onClick={() => handleStatusChange(value)}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
+          {status !== "cancelado" && status !== "solicita_cancelacion" && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-red-600 border-red-200 hover:bg-red-50"
+              onClick={handleRequestCancel}
+            >
+              Cancelar inscripción
+            </Button>
+          )}
+          {status === "solicita_cancelacion" && (
+            <p className="text-sm text-amber-600">
+              Tu solicitud de cancelación está pendiente de revisión por el organizador.
+            </p>
+          )}
+          {status === "cancelado" && (
+            <p className="text-sm text-gray-500">
+              Tu inscripción ha sido cancelada.
+            </p>
+          )}
         </CardContent>
       </Card>
 

@@ -522,9 +522,9 @@ export const ScheduleService = {
     });
     if (!block) throw new Error("Bloque no encontrado");
 
-    // Get all confirmed event persons
+    // Get all non-cancelled event persons
     const confirmedPersons = await db.eventPerson.findMany({
-      where: { event_id: block.event.id, status: "confirmed" },
+      where: { event_id: block.event.id, status: { not: "cancelado" } },
       include: { person: { select: { name_display: true, name_initials: true } } },
     });
 

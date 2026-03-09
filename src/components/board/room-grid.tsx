@@ -41,7 +41,7 @@ export function RoomGrid({ eventId, rooms, onUnassign, onPersonClick, onRoomClic
             hasPrivateBathroom={room.has_private_bathroom}
             genderRestriction={room.gender_restriction}
             hasTentatives={room.event_persons.some(
-              (ep) => ep.status === "tentative"
+              (ep) => ep.status === "solicita_cancelacion"
             )}
             hasGenderViolation={checkGenderViolation(room)}
             assignedPersons={room.event_persons}
