@@ -87,6 +87,7 @@ export const RelationshipInviteService = {
     });
     if (!invite || invite.status !== "pending") throw new Error("Invitación no válida");
     if (invite.expires_at < new Date()) throw new Error("Invitación expirada");
+    if (invite.sender_user_id === recipientUserId) throw new Error("No puedes aceptar tu propia invitación");
 
     const eventId = invite.event.id;
     const orgUserId = invite.event.user_id;

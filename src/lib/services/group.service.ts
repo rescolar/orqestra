@@ -97,6 +97,7 @@ export const GroupService = {
     ]);
     if (!ep || !(await canAccessEvent(ctx, ep.event_id))) throw new Error("No encontrado");
     if (!partner) throw new Error("Persona no encontrada");
+    if (eventPersonId === partnerId) throw new Error("No se puede ser inseparable consigo mismo");
 
     const isCurrentlyLinked = ep.inseparable_with_id === partnerId;
 
