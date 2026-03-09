@@ -6,7 +6,6 @@ export const RelationshipInviteService = {
   async createInvite(
     senderUserId: string,
     eventId: string,
-    recipientEmail: string,
     type: RelationshipType
   ) {
     // Validate sender is a participant in this event
@@ -37,7 +36,6 @@ export const RelationshipInviteService = {
       data: {
         event_id: eventId,
         sender_user_id: senderUserId,
-        recipient_email: recipientEmail,
         relationship_type: type,
         token,
         expires_at: event.date_start,

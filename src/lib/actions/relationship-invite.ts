@@ -14,14 +14,12 @@ async function requireAuth() {
 
 export async function createRelationshipInvite(
   eventId: string,
-  recipientEmail: string,
   type: RelationshipType
 ) {
   const user = await requireAuth();
   const invite = await RelationshipInviteService.createInvite(
     user.id,
     eventId,
-    recipientEmail,
     type
   );
   revalidatePath(`/my-events/${eventId}`);

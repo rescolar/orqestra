@@ -3,14 +3,12 @@
 import { useState, useTransition } from "react";
 import { createRelationshipInvite } from "@/lib/actions/relationship-invite";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, Copy, UserPlus } from "lucide-react";
 
 export function RelationshipInviteForm({ eventId }: { eventId: string }) {
   const [showForm, setShowForm] = useState(false);
-  const [email, setEmail] = useState("");
   const [type, setType] = useState<"inseparable" | "flexible">("flexible");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -18,11 +16,10 @@ export function RelationshipInviteForm({ eventId }: { eventId: string }) {
   const [copied, setCopied] = useState(false);
 
   function handleSubmit() {
-    if (!email.trim()) return;
     setError(null);
     startTransition(async () => {
       try {
-        const invite = await createRelationshipInvite(eventId, email.trim(), type);
+        const invite = await createRelationshipInvite(eventId, type);
         const url = `${window.location.origin}/rel/${invite.token}`;
         setInviteLink(url);
         await navigator.clipboard.writeText(url);
@@ -42,7 +39,7 @@ export function RelationshipInviteForm({ eventId }: { eventId: string }) {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Comparte este enlace con {email}:
+            Comparte este enlace con tu compañero/a:
           </p>
           <div className="flex items-center gap-2">
             <input
@@ -67,7 +64,6 @@ export function RelationshipInviteForm({ eventId }: { eventId: string }) {
             variant="outline"
             onClick={() => {
               setInviteLink(null);
-              setEmail("");
               setShowForm(false);
             }}
           >
@@ -97,17 +93,6 @@ export function RelationshipInviteForm({ eventId }: { eventId: string }) {
         <CardTitle className="text-base">Invitar compañero/a</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="rel-email">Email del compañero/a</Label>
-          <Input
-            id="rel-email"
-            type="email"
-            placeholder="compañero@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-
         <div className="space-y-2">
           <Label>Tipo de relación</Label>
           <div className="flex gap-2">
@@ -140,7 +125,7 @@ export function RelationshipInviteForm({ eventId }: { eventId: string }) {
         <div className="flex gap-2">
           <Button
             onClick={handleSubmit}
-            disabled={isPending || !email.trim()}
+            disabled={isPending}
             className="bg-primary hover:bg-primary/90"
           >
             {isPending ? "Creando..." : "Crear invitación"}

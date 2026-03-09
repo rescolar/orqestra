@@ -347,7 +347,7 @@ model RelationshipInvite {
   id                String           @id @default(cuid())
   event_id          String
   sender_user_id    String
-  recipient_email   String
+  recipient_email   String?
   recipient_user_id String?
   relationship_type RelationshipType
   token             String           @unique
