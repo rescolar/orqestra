@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { Gender } from "@prisma/client";
 import { UndoService } from "./undo.service";
 import type { AuthContext } from "./auth-context";
-import { ownershipFilter, isOwnerOrAdmin, canAccessEvent } from "./auth-context";
+import { ownershipFilter, canAccessEvent } from "./auth-context";
 
 const TEST_PERSONS: { name: string; gender: Gender }[] = [
   { name: "María García", gender: "female" },
@@ -183,15 +183,16 @@ export const PersonService = {
   },
 
   async getAllPersonsForUser(ctx: AuthContext, eventId: string) {
-    // For admin, get persons belonging to the event's owner
+    if (!(await canAccessEvent(ctx, eventId)))
+      throw new Error("Evento no encontrado");
+    // Get persons belonging to the event's owner
+    const event = await db.event.findUnique({
+      where: { id: eventId },
+      select: { user_id: true },
+    });
     let userFilter: { user_id: string } | Record<string, never> = {};
-    if (ctx.role === "admin") {
-      const event = await db.event.findFirst({
-        where: { id: eventId },
-        select: { user_id: true },
-      });
-      if (!event) throw new Error("Evento no encontrado");
-      userFilter = { user_id: event.user_id };
+    if (ctx.role === "admin" || ctx.userId !== event!.user_id) {
+      userFilter = { user_id: event!.user_id };
     } else {
       userFilter = { user_id: ctx.userId };
     }
@@ -395,11 +396,11 @@ export const PersonService = {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },
       include: {
-        event: { select: { user_id: true } },
+        event: { select: { id: true } },
         person: { select: { gender: true } },
       },
     });
-    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
+    if (!ep || !(await canAccessEvent(ctx, ep.event.id))) throw new Error("No encontrado");
 
     const room = await db.room.findFirst({
       where: { id: roomId },
@@ -487,9 +488,9 @@ export const PersonService = {
   async unassignPerson(eventPersonId: string, ctx: AuthContext) {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },
-      include: { event: { select: { user_id: true } } },
+      include: { event: { select: { id: true } } },
     });
-    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
+    if (!ep || !(await canAccessEvent(ctx, ep.event.id))) throw new Error("No encontrado");
 
     const previousRoomId = ep.room_id;
     const result = await db.eventPerson.update({
@@ -513,7 +514,7 @@ export const PersonService = {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },
       include: {
-        event: { select: { user_id: true } },
+        event: { select: { id: true } },
         person: {
           select: {
             id: true,
@@ -554,7 +555,7 @@ export const PersonService = {
         },
       },
     });
-    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
+    if (!ep || !(await canAccessEvent(ctx, ep.event.id))) throw new Error("No encontrado");
     return ep;
   },
 
@@ -578,9 +579,9 @@ export const PersonService = {
   ) {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },
-      include: { event: { select: { user_id: true } } },
+      include: { event: { select: { id: true } } },
     });
-    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
+    if (!ep || !(await canAccessEvent(ctx, ep.event.id))) throw new Error("No encontrado");
 
     const {
       gender,
@@ -657,9 +658,9 @@ export const PersonService = {
   async removeEventPerson(eventPersonId: string, ctx: AuthContext) {
     const ep = await db.eventPerson.findFirst({
       where: { id: eventPersonId },
-      include: { event: { select: { user_id: true } } },
+      include: { event: { select: { id: true } } },
     });
-    if (!ep || !isOwnerOrAdmin(ctx, ep.event.user_id)) throw new Error("No encontrado");
+    if (!ep || !(await canAccessEvent(ctx, ep.event.id))) throw new Error("No encontrado");
 
     return db.eventPerson.delete({
       where: { id: eventPersonId },

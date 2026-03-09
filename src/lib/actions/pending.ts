@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import type { AuthContext } from "@/lib/services/auth-context";
-import { ownershipFilter } from "@/lib/services/auth-context";
+import { canAccessEvent } from "@/lib/services/auth-context";
 
 export type PendingDietary = {
   id: string;
@@ -55,11 +55,8 @@ export async function getPendingItems(eventId: string): Promise<PendingData> {
   const ctx = await requireAuth();
 
   // Verify event access
-  const event = await db.event.findFirst({
-    where: { id: eventId, ...ownershipFilter(ctx) },
-    select: { id: true },
-  });
-  if (!event) throw new Error("Evento no encontrado");
+  if (!(await canAccessEvent(ctx, eventId)))
+    throw new Error("Evento no encontrado");
 
   // Dietary/allergies not notified (dietary data lives on Person)
   const dietaryRaw = await db.eventPerson.findMany({
