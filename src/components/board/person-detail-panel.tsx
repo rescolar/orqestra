@@ -40,6 +40,8 @@ type EventPersonDetail = {
   room: {
     display_name: string | null;
     internal_number: string;
+    capacity: number;
+    has_private_bathroom: boolean;
   } | null;
   person: {
     id: string;
@@ -83,7 +85,12 @@ type PersonDetailPanelProps = {
   refreshKey?: number;
   optimisticRelation?: OptimisticRelation | null;
   isDragActive?: boolean;
-  eventPricing?: { event_price: number | null; deposit_amount: number | null } | null;
+  eventPricing?: {
+    event_price: number | null;
+    deposit_amount: number | null;
+    pricing_by_room_type?: boolean;
+    room_pricings?: { capacity: number; has_private_bathroom: boolean; price: number }[];
+  } | null;
   onClose: () => void;
   onPersonUpdated: (id: string, changes: PersonUpdateData) => void;
   onPersonRemoved: (id: string) => void;
@@ -176,7 +183,19 @@ export function PersonDetailPanel({
   const [amountPaidLocal, setAmountPaidLocal] = useState("");
   const [paymentNoteLocal, setPaymentNoteLocal] = useState("");
 
-  const hasPricing = eventPricing?.event_price != null || eventPricing?.deposit_amount != null;
+  const hasPricing = eventPricing?.event_price != null || eventPricing?.deposit_amount != null || eventPricing?.pricing_by_room_type;
+
+  // Resolve effective price for this person based on their room
+  const resolvedPrice = (() => {
+    if (!eventPricing) return null;
+    if (eventPricing.pricing_by_room_type && eventPricing.room_pricings && data?.room) {
+      const rp = eventPricing.room_pricings.find(
+        (p) => p.capacity === data.room!.capacity && p.has_private_bathroom === data.room!.has_private_bathroom
+      );
+      return rp?.price ?? null;
+    }
+    return eventPricing.event_price;
+  })();
 
   useEffect(() => {
     setLoading(true);
@@ -222,10 +241,10 @@ export function PersonDetailPanel({
         changes.amount_paid = Number(eventPricing.deposit_amount);
         setAmountPaidLocal(String(eventPricing.deposit_amount));
         setData((prev) => prev ? { ...prev, amount_paid: Number(eventPricing.deposit_amount) } : prev);
-      } else if (status === "pagado" && eventPricing?.event_price != null) {
-        changes.amount_paid = Number(eventPricing.event_price);
-        setAmountPaidLocal(String(eventPricing.event_price));
-        setData((prev) => prev ? { ...prev, amount_paid: Number(eventPricing.event_price) } : prev);
+      } else if (status === "pagado" && resolvedPrice != null) {
+        changes.amount_paid = resolvedPrice;
+        setAmountPaidLocal(String(resolvedPrice));
+        setData((prev) => prev ? { ...prev, amount_paid: resolvedPrice } : prev);
       } else if (status === "inscrito" || status === "confirmado_sin_pago") {
         changes.amount_paid = null;
         setAmountPaidLocal("");
@@ -536,10 +555,11 @@ export function PersonDetailPanel({
 
         {/* Payment — only when event has pricing */}
         {hasPricing && (() => {
-          const ep = eventPricing!.event_price != null ? Number(eventPricing!.event_price) : null;
+          const ep = resolvedPrice;
           const paid = data.amount_paid != null ? Number(data.amount_paid) : 0;
           const paidColor = ep != null && paid >= ep ? "text-success" : paid > 0 ? "text-warning" : "text-gray-400";
-          const paySummary = ep != null ? `${paid} / ${ep} €` : paid > 0 ? `${paid} €` : "—";
+          const noRoomYet = eventPricing?.pricing_by_room_type && !data.room;
+          const paySummary = noRoomYet ? "Sin habitación" : ep != null ? `${paid} / ${ep} €` : paid > 0 ? `${paid} €` : "—";
           return (
             <CollapsibleSection label="Pago" summary={paySummary} open={openSections.has("Pago")} onToggle={() => toggleSection("Pago")}>
               <div className="space-y-2">

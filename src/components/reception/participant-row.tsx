@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { ReceptionPerson } from "@/lib/services/reception.service";
+import type { ReceptionPerson, ReceptionPricing } from "@/lib/services/reception.service";
+import { resolvePrice } from "./reception-client";
 
 type ParticipantRowProps = {
   participant: ReceptionPerson;
+  pricing: ReceptionPricing;
+  isPublic?: boolean;
   onCheckIn: (id: string) => Promise<void>;
   onUndoCheckIn: (id: string) => Promise<void>;
 };
@@ -23,6 +26,8 @@ function mealLabels(p: ReceptionPerson) {
 
 export function ParticipantRow({
   participant: p,
+  pricing,
+  isPublic = false,
   onCheckIn,
   onUndoCheckIn,
 }: ParticipantRowProps) {
@@ -36,6 +41,20 @@ export function ParticipantRow({
   const hasDiet =
     p.person.dietary_requirements.length > 0 || !!p.person.allergies_text;
   const room = roomLabel(p);
+
+  const hasPricing = pricing.eventPrice != null || pricing.pricingByRoomType;
+  const price = resolvePrice(p, pricing);
+  const paid = p.amount_paid ?? 0;
+  const pending = price != null ? Math.max(0, price - paid) : null;
+  const paymentStatus = !hasPricing
+    ? null
+    : price != null && paid >= price
+      ? "paid"
+      : pricing.depositAmount != null && paid >= pricing.depositAmount
+        ? "deposit"
+        : paid > 0
+          ? "partial"
+          : "none";
 
   const handleCheckToggle = () => {
     const newValue = !checkedIn;
@@ -61,20 +80,34 @@ export function ParticipantRow({
     >
       <div className="flex items-center gap-3 px-4 py-3">
         {/* Checkbox */}
-        <button
-          onClick={handleCheckToggle}
-          disabled={isPending}
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 transition-colors ${
-            checkedIn
-              ? "border-success bg-success text-white"
-              : "border-gray-300 bg-white hover:border-primary/50"
-          } ${isPending ? "opacity-50" : ""}`}
-          aria-label={checkedIn ? "Desmarcar llegada" : "Marcar llegada"}
-        >
-          {checkedIn && (
-            <span className="material-symbols-outlined text-xl">check</span>
-          )}
-        </button>
+        {isPublic ? (
+          <div
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 ${
+              checkedIn
+                ? "border-success bg-success text-white"
+                : "border-gray-300 bg-white"
+            }`}
+          >
+            {checkedIn && (
+              <span className="material-symbols-outlined text-xl">check</span>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={handleCheckToggle}
+            disabled={isPending}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 transition-colors ${
+              checkedIn
+                ? "border-success bg-success text-white"
+                : "border-gray-300 bg-white hover:border-primary/50"
+            } ${isPending ? "opacity-50" : ""}`}
+            aria-label={checkedIn ? "Desmarcar llegada" : "Marcar llegada"}
+          >
+            {checkedIn && (
+              <span className="material-symbols-outlined text-xl">check</span>
+            )}
+          </button>
+        )}
 
         {/* Info */}
         <button
@@ -107,6 +140,26 @@ export function ParticipantRow({
                   restaurant
                 </span>
               )}
+              {paymentStatus === "paid" && (
+                <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+                  Pagado
+                </span>
+              )}
+              {paymentStatus === "deposit" && (
+                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                  Reserva
+                </span>
+              )}
+              {paymentStatus === "partial" && (
+                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                  Parcial
+                </span>
+              )}
+              {paymentStatus === "none" && (
+                <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+                  Sin pago
+                </span>
+              )}
             </div>
           </div>
           <span className="material-symbols-outlined shrink-0 text-gray-400 text-base">
@@ -133,6 +186,26 @@ export function ParticipantRow({
 
           {p.person.contact_email && (
             <p className="text-gray-500">{p.person.contact_email}</p>
+          )}
+
+          {hasPricing && (
+            <div className="flex items-center gap-3">
+              {price != null && (
+                <span>
+                  <span className="font-medium text-gray-700">Precio: </span>
+                  {price.toFixed(2)}€
+                </span>
+              )}
+              <span>
+                <span className="font-medium text-gray-700">Pagado: </span>
+                {paid.toFixed(2)}€
+              </span>
+              {pending != null && pending > 0 && (
+                <span className="font-medium text-red-600">
+                  Pendiente: {pending.toFixed(2)}€
+                </span>
+              )}
+            </div>
           )}
 
           {p.person.dietary_requirements.length > 0 && (

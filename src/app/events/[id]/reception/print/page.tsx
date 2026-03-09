@@ -15,8 +15,8 @@ export default async function ReceptionPrintPage({
   const { id } = await params;
 
   try {
-    const { event, participants, rooms } =
-      await ReceptionService.getReceptionPrintData(id, session.user.id);
+    const { event, participants, rooms, pricing } =
+      await ReceptionService.getReceptionPrintData(id, { userId: session.user.id, role: session.user.role });
 
     return (
       <ReceptionPrintClient
@@ -26,6 +26,7 @@ export default async function ReceptionPrintPage({
         dateEnd={event.date_end}
         participants={participants}
         rooms={rooms}
+        pricing={pricing}
       />
     );
   } catch {

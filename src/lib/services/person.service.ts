@@ -534,6 +534,8 @@ export const PersonService = {
           select: {
             display_name: true,
             internal_number: true,
+            capacity: true,
+            has_private_bathroom: true,
           },
         },
         group: {

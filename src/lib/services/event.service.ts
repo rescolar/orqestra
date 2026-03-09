@@ -122,7 +122,8 @@ export const EventService = {
   async createRoomsFromTypes(
     eventId: string,
     ctx: AuthContext,
-    types: { capacity: number; hasPrivateBathroom: boolean; quantity: number }[]
+    types: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number }[],
+    pricingByRoomType?: boolean
   ) {
     if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
 
@@ -150,6 +151,60 @@ export const EventService = {
     }
 
     await db.room.createMany({ data: rooms });
+
+    // Create room pricings if pricing by room type is enabled
+    if (pricingByRoomType) {
+      const pricings = types
+        .filter((t) => t.price != null)
+        .map((t) => ({
+          event_id: eventId,
+          capacity: t.capacity,
+          has_private_bathroom: t.hasPrivateBathroom,
+          price: t.price!,
+        }));
+
+      // Deduplicate by capacity+bathroom (in case user added same combo twice)
+      const seen = new Set<string>();
+      const uniquePricings = pricings.filter((p) => {
+        const key = `${p.capacity}-${p.has_private_bathroom}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      if (uniquePricings.length > 0) {
+        await db.roomPricing.createMany({ data: uniquePricings });
+      }
+
+      await db.event.update({
+        where: { id: eventId },
+        data: { pricing_by_room_type: true },
+      });
+    }
+  },
+
+  async getRoomPricings(eventId: string, ctx: AuthContext) {
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
+    return db.roomPricing.findMany({
+      where: { event_id: eventId },
+      orderBy: [{ capacity: "asc" }, { has_private_bathroom: "asc" }],
+    });
+  },
+
+  async updateRoomPricings(
+    eventId: string,
+    ctx: AuthContext,
+    pricings: { capacity: number; has_private_bathroom: boolean; price: number }[]
+  ) {
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
+
+    // Delete existing and recreate
+    await db.roomPricing.deleteMany({ where: { event_id: eventId } });
+    if (pricings.length > 0) {
+      await db.roomPricing.createMany({
+        data: pricings.map((p) => ({ event_id: eventId, ...p })),
+      });
+    }
   },
 
   async deleteEvent(eventId: string, ctx: AuthContext) {
@@ -176,6 +231,7 @@ export const EventService = {
         participant_discovery: true,
         event_price: true,
         deposit_amount: true,
+        pricing_by_room_type: true,
         _count: { select: { rooms: true } },
       },
     });
@@ -201,6 +257,7 @@ export const EventService = {
       date_end?: string;
       event_price?: number | null;
       deposit_amount?: number | null;
+      pricing_by_room_type?: boolean;
     }
   ) {
     if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
@@ -216,6 +273,7 @@ export const EventService = {
         ...(data.date_end && { date_end: new Date(data.date_end) }),
         ...(data.event_price !== undefined && { event_price: data.event_price }),
         ...(data.deposit_amount !== undefined && { deposit_amount: data.deposit_amount }),
+        ...(data.pricing_by_room_type !== undefined && { pricing_by_room_type: data.pricing_by_room_type }),
       },
     });
   },

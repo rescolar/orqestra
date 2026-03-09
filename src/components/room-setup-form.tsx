@@ -23,6 +23,7 @@ type RoomType = {
   capacity: number;
   hasPrivateBathroom: boolean;
   quantity: number;
+  price?: number;
 };
 
 type EditingState = {
@@ -30,22 +31,27 @@ type EditingState = {
   capacity: string;
   hasPrivateBathroom: boolean;
   quantity: string;
+  price: string;
 };
 
 export function RoomSetupForm({
   eventId,
   estimatedParticipants,
+  eventPrice,
 }: {
   eventId: string;
   estimatedParticipants: number;
+  eventPrice: number | null;
 }) {
   const [types, setTypes] = useState<RoomType[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [pricingByRoomType, setPricingByRoomType] = useState(false);
 
   // Add form state (strings to allow empty field while typing)
   const [newCapacity, setNewCapacity] = useState("2");
   const [newBathroom, setNewBathroom] = useState(false);
   const [newQuantity, setNewQuantity] = useState("1");
+  const [newPrice, setNewPrice] = useState("");
 
   // Edit state
   const [editing, setEditing] = useState<EditingState | null>(null);
@@ -58,6 +64,7 @@ export function RoomSetupForm({
 
   function handleAdd() {
     if (newCapacityNum < 1 || newQuantityNum < 1) return;
+    if (pricingByRoomType && (!newPrice || parseFloat(newPrice) <= 0)) return;
     setTypes((prev) => [
       ...prev,
       {
@@ -65,12 +72,14 @@ export function RoomSetupForm({
         capacity: newCapacityNum,
         hasPrivateBathroom: newBathroom,
         quantity: newQuantityNum,
+        ...(pricingByRoomType && { price: parseFloat(newPrice) }),
       },
     ]);
     // Reset
     setNewCapacity("2");
     setNewBathroom(false);
     setNewQuantity("1");
+    setNewPrice("");
   }
 
   function handleDelete(id: string) {
@@ -88,6 +97,7 @@ export function RoomSetupForm({
       capacity: String(t.capacity),
       hasPrivateBathroom: t.hasPrivateBathroom,
       quantity: String(t.quantity),
+      price: t.price != null ? String(t.price) : "",
     });
   }
 
@@ -96,6 +106,7 @@ export function RoomSetupForm({
     const cap = parseInt(editing.capacity) || 0;
     const qty = parseInt(editing.quantity) || 0;
     if (cap < 1 || qty < 1) return;
+    if (pricingByRoomType && (!editing.price || parseFloat(editing.price) <= 0)) return;
     setTypes((prev) =>
       prev.map((t) =>
         t.id === editing.id
@@ -104,6 +115,7 @@ export function RoomSetupForm({
               capacity: cap,
               hasPrivateBathroom: editing.hasPrivateBathroom,
               quantity: qty,
+              ...(pricingByRoomType && { price: parseFloat(editing.price) }),
             }
           : t
       )
@@ -121,7 +133,9 @@ export function RoomSetupForm({
           capacity: t.capacity,
           hasPrivateBathroom: t.hasPrivateBathroom,
           quantity: t.quantity,
-        }))
+          ...(pricingByRoomType && t.price != null && { price: t.price }),
+        })),
+        pricingByRoomType
       );
     } catch (e) {
       // redirect throws — re-throw
@@ -130,17 +144,61 @@ export function RoomSetupForm({
     }
   }
 
+  const showPriceCol = pricingByRoomType;
+
   return (
     <div className="space-y-6">
+      {/* Pricing toggle */}
+      <div className="flex items-center gap-3 rounded-xl bg-white px-5 py-4 border border-gray-200">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={pricingByRoomType}
+          onClick={() => {
+            setPricingByRoomType(!pricingByRoomType);
+            // Clear prices when toggling off
+            if (pricingByRoomType) {
+              setTypes((prev) => prev.map((t) => ({ ...t, price: undefined })));
+            }
+          }}
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors ${
+            pricingByRoomType ? "bg-primary" : "bg-gray-300"
+          }`}
+        >
+          <span
+            className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
+              pricingByRoomType ? "translate-x-6" : "translate-x-0.5"
+            } mt-0.5`}
+          />
+        </button>
+        <div>
+          <span className="text-sm font-medium text-gray-700">Precio por tipo de habitación</span>
+          <p className="text-xs text-gray-500">
+            {pricingByRoomType
+              ? "Cada tipo de habitación tiene su propio precio."
+              : eventPrice
+                ? `Precio fijo: ${eventPrice} € por persona.`
+                : "No se ha definido precio. Puedes añadirlo en Detalles."}
+          </p>
+        </div>
+      </div>
+
       {/* Add form */}
       <div className="rounded-xl bg-slate-50 p-5">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
           Añadir tipo de habitación
         </h2>
-        <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-x-4 gap-y-2">
+        <div className={`grid items-center gap-x-4 gap-y-2 ${
+          showPriceCol
+            ? "grid-cols-[1fr_auto_1fr_1fr_auto]"
+            : "grid-cols-[1fr_auto_1fr_auto]"
+        }`}>
           <label className="text-xs font-medium text-gray-600">Capacidad</label>
           <label className="text-xs font-medium text-gray-600">Baño</label>
           <label className="text-xs font-medium text-gray-600">Cantidad</label>
+          {showPriceCol && (
+            <label className="text-xs font-medium text-gray-600">Precio €</label>
+          )}
           <span />
 
           <Input
@@ -170,6 +228,18 @@ export function RoomSetupForm({
             onChange={(e) => setNewQuantity(e.target.value)}
             className="bg-white"
           />
+
+          {showPriceCol && (
+            <Input
+              type="number"
+              min={0}
+              step={0.01}
+              value={newPrice}
+              onChange={(e) => setNewPrice(e.target.value)}
+              placeholder="0.00"
+              className="bg-white"
+            />
+          )}
 
           <Button onClick={handleAdd} size="sm">
             <Plus className="mr-1 size-4" />
@@ -202,16 +272,13 @@ export function RoomSetupForm({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left">
-                <th className="px-4 py-3 font-medium text-gray-600">
-                  Capacidad
-                </th>
+                <th className="px-4 py-3 font-medium text-gray-600">Capacidad</th>
                 <th className="px-4 py-3 font-medium text-gray-600">Baño</th>
-                <th className="px-4 py-3 font-medium text-gray-600">
-                  Cantidad
-                </th>
-                <th className="px-4 py-3 font-medium text-gray-600">
-                  Plazas totales
-                </th>
+                <th className="px-4 py-3 font-medium text-gray-600">Cantidad</th>
+                {showPriceCol && (
+                  <th className="px-4 py-3 font-medium text-gray-600">Precio €</th>
+                )}
+                <th className="px-4 py-3 font-medium text-gray-600">Plazas totales</th>
                 <th className="hidden px-4 py-3 font-medium text-gray-600 sm:table-cell">
                   Acciones
                 </th>
@@ -235,10 +302,7 @@ export function RoomSetupForm({
                           min={1}
                           value={editing.capacity}
                           onChange={(e) =>
-                            setEditing({
-                              ...editing,
-                              capacity: e.target.value,
-                            })
+                            setEditing({ ...editing, capacity: e.target.value })
                           }
                           className="w-20"
                         />
@@ -267,14 +331,25 @@ export function RoomSetupForm({
                           min={1}
                           value={editing.quantity}
                           onChange={(e) =>
-                            setEditing({
-                              ...editing,
-                              quantity: e.target.value,
-                            })
+                            setEditing({ ...editing, quantity: e.target.value })
                           }
                           className="w-20"
                         />
                       </td>
+                      {showPriceCol && (
+                        <td className="px-4 py-2.5">
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={editing.price}
+                            onChange={(e) =>
+                              setEditing({ ...editing, price: e.target.value })
+                            }
+                            className="w-24"
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-2.5 text-gray-500">
                         <div className="flex items-center gap-2">
                           <span>
@@ -357,6 +432,14 @@ export function RoomSetupForm({
                       >
                         {t.quantity}
                       </td>
+                      {showPriceCol && (
+                        <td
+                          className="cursor-pointer px-4 py-2.5"
+                          onClick={() => startEdit(t)}
+                        >
+                          {t.price != null ? `${t.price} €` : "—"}
+                        </td>
+                      )}
                       <td
                         className="cursor-pointer px-4 py-2.5 text-gray-500"
                         onClick={() => startEdit(t)}

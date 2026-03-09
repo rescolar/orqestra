@@ -110,6 +110,7 @@ model Event {
   schedule_confirmed     Boolean         @default(false)
   event_price            Decimal?        @db.Decimal(10, 2)
   deposit_amount         Decimal?        @db.Decimal(10, 2)
+  pricing_by_room_type   Boolean         @default(false)
 
   user                User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
   event_persons       EventPerson[]
@@ -120,6 +121,7 @@ model Event {
   schedule_blocks     ScheduleBlock[]
   collaborators       EventCollaborator[]
   relationship_invites RelationshipInvite[]
+  room_pricings       RoomPricing[]
 
   @@map("events")
 }
@@ -191,6 +193,21 @@ model Room {
   event_persons EventPerson[]
 
   @@map("rooms")
+}
+
+// ─── RoomPricing ──────────────────────────────────────────────────────────────
+
+model RoomPricing {
+  id                   String  @id @default(cuid())
+  event_id             String
+  capacity             Int
+  has_private_bathroom Boolean
+  price                Decimal @db.Decimal(10, 2)
+
+  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+
+  @@unique([event_id, capacity, has_private_bathroom])
+  @@map("room_pricings")
 }
 
 // ─── Group ───────────────────────────────────────────────────────────────────

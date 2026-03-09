@@ -26,6 +26,8 @@ export default async function SetupPage({
       id: true,
       name: true,
       estimated_participants: true,
+      event_price: true,
+      deposit_amount: true,
       _count: { select: { rooms: true } },
     },
   });
@@ -51,6 +53,7 @@ export default async function SetupPage({
         <RoomSetupForm
           eventId={event.id}
           estimatedParticipants={event.estimated_participants}
+          eventPrice={event.event_price ? Number(event.event_price) : null}
         />
       </div>
     </div>

@@ -2,9 +2,25 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import type { ReceptionPerson } from "@/lib/services/reception.service";
+import type { ReceptionPerson, ReceptionPricing } from "@/lib/services/reception.service";
 import { checkIn, undoCheckIn } from "@/lib/actions/reception";
 import { ParticipantRow } from "./participant-row";
+
+export function resolvePrice(
+  person: ReceptionPerson,
+  pricing: ReceptionPricing
+): number | null {
+  if (pricing.pricingByRoomType) {
+    if (!person.room) return null;
+    const match = pricing.roomPricings.find(
+      (rp) =>
+        rp.capacity === person.room!.capacity &&
+        rp.has_private_bathroom === person.room!.has_private_bathroom
+    );
+    return match?.price ?? null;
+  }
+  return pricing.eventPrice;
+}
 
 type Props = {
   eventId: string;
@@ -12,59 +28,63 @@ type Props = {
   dateStart: Date;
   dateEnd: Date;
   initialParticipants: ReceptionPerson[];
+  pricing: ReceptionPricing;
+  variant?: "organizer" | "public";
 };
 
 type Filter = "all" | "pending" | "arrived";
 
-function generateCsv(participants: ReceptionPerson[], eventName: string) {
+function generateCsv(participants: ReceptionPerson[], eventName: string, pricing: ReceptionPricing) {
   const BOM = "\uFEFF";
+  const hasPricing = pricing.eventPrice != null || pricing.pricingByRoomType;
   const headers = [
     "Nombre",
     "Rol",
     "Habitación",
+    "Estado",
+    ...(hasPricing ? ["Precio hab.", "Reserva", "Pagado", "Pendiente"] : []),
     "Teléfono",
     "Email",
-    "Género",
-    "Estado",
     "Dieta",
     "Alergias",
-    "Cena llegada",
-    "Almuerzo final",
-    "Solicitudes",
     "Check-in",
   ];
 
-  const rows = participants.map((p) => [
-    p.person.name_full,
-    p.role === "facilitator" ? "Facilitador" : "Participante",
-    p.room
-      ? p.room.display_name || `Hab ${p.room.internal_number}`
-      : "Sin habitación",
-    p.person.contact_phone || "",
-    p.person.contact_email || "",
-    p.person.gender === "female"
-      ? "Mujer"
-      : p.person.gender === "male"
-        ? "Hombre"
-        : p.person.gender === "other"
-          ? "Otro"
-          : "No especificado",
-    p.status === "inscrito" ? "Inscrito"
-      : p.status === "reservado" ? "Reservado"
-      : p.status === "pagado" ? "Pagado"
-      : p.status === "confirmado_sin_pago" ? "Confirmado s/p"
-      : p.status === "solicita_cancelacion" ? "Solicita cancelación"
-      : p.status === "cancelado" ? "Cancelado"
-      : p.status,
-    p.person.dietary_requirements.join(", "),
-    p.person.allergies_text || "",
-    p.arrives_for_dinner ? "Sí" : "No",
-    p.last_meal_lunch ? "Sí" : "No",
-    p.requests_text || "",
-    p.checked_in_at
-      ? new Date(p.checked_in_at).toLocaleString("es-ES")
-      : "No",
-  ]);
+  const rows = participants.map((p) => {
+    const price = resolvePrice(p, pricing);
+    const paid = p.amount_paid ?? 0;
+    const pending = price != null ? Math.max(0, price - paid) : null;
+
+    return [
+      p.person.name_full,
+      p.role === "facilitator" ? "Facilitador" : "Participante",
+      p.room
+        ? p.room.display_name || `Hab ${p.room.internal_number}`
+        : "Sin habitación",
+      p.status === "inscrito" ? "Inscrito"
+        : p.status === "reservado" ? "Reservado"
+        : p.status === "pagado" ? "Pagado"
+        : p.status === "confirmado_sin_pago" ? "Confirmado s/p"
+        : p.status === "solicita_cancelacion" ? "Solicita cancelación"
+        : p.status === "cancelado" ? "Cancelado"
+        : p.status,
+      ...(hasPricing
+        ? [
+            price != null ? `${price.toFixed(2)}` : "—",
+            pricing.depositAmount != null ? `${pricing.depositAmount.toFixed(2)}` : "—",
+            `${paid.toFixed(2)}`,
+            pending != null ? `${pending.toFixed(2)}` : "—",
+          ]
+        : []),
+      p.person.contact_phone || "",
+      p.person.contact_email || "",
+      p.person.dietary_requirements.join(", "),
+      p.person.allergies_text || "",
+      p.checked_in_at
+        ? new Date(p.checked_in_at).toLocaleString("es-ES")
+        : "No",
+    ];
+  });
 
   const escape = (val: string) => {
     if (val.includes(",") || val.includes('"') || val.includes("\n")) {
@@ -94,11 +114,16 @@ export function ReceptionClient({
   dateStart,
   dateEnd,
   initialParticipants,
+  pricing,
+  variant = "organizer",
 }: Props) {
+  const isPublic = variant === "public";
   const [participants, setParticipants] =
     useState<ReceptionPerson[]>(initialParticipants);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+
+  const hasPricing = pricing.eventPrice != null || pricing.pricingByRoomType;
 
   const checkedInCount = useMemo(
     () => participants.filter((p) => p.checked_in_at).length,
@@ -108,6 +133,35 @@ export function ReceptionClient({
     () => participants.filter((p) => !p.room).length,
     [participants]
   );
+
+  const paymentStats = useMemo(() => {
+    if (!hasPricing) return null;
+    let totalExpected = 0;
+    let totalPaid = 0;
+    let depositPaid = 0;
+    let fullyPaid = 0;
+    let noPay = 0;
+
+    for (const p of participants) {
+      const price = resolvePrice(p, pricing);
+      if (price != null) totalExpected += price;
+      const paid = p.amount_paid ?? 0;
+      totalPaid += paid;
+
+      if (paid <= 0) {
+        noPay++;
+      } else if (price != null && paid >= price) {
+        fullyPaid++;
+      } else if (pricing.depositAmount != null && paid >= pricing.depositAmount) {
+        depositPaid++;
+      } else {
+        // Partial payment that doesn't reach deposit
+        noPay++;
+      }
+    }
+
+    return { totalExpected, totalPaid, depositPaid, fullyPaid, noPay, pending: totalExpected - totalPaid };
+  }, [participants, pricing, hasPricing]);
 
   const filtered = useMemo(() => {
     let list = participants;
@@ -173,16 +227,18 @@ export function ReceptionClient({
             </h1>
             <p className="text-xs text-gray-400">{dateRange}</p>
           </div>
-          <Link
-            href={`/events/${eventId}/board`}
-            className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
-          >
-            Tablero
-          </Link>
+          {!isPublic && (
+            <Link
+              href={`/events/${eventId}/board`}
+              className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              Tablero
+            </Link>
+          )}
         </div>
 
         {/* KPIs */}
-        <div className="mt-2 flex items-center gap-3 text-sm">
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
           <span className="font-medium text-primary">
             {checkedInCount}/{participants.length}{" "}
             <span className="font-normal text-gray-500">llegados</span>
@@ -193,21 +249,44 @@ export function ReceptionClient({
               <span className="font-normal">sin hab.</span>
             </span>
           )}
+          {paymentStats && (
+            <>
+              <span className="text-gray-300">|</span>
+              <span className="font-medium text-green-600">
+                {paymentStats.fullyPaid}{" "}
+                <span className="font-normal text-gray-500">pagados</span>
+              </span>
+              {paymentStats.depositPaid > 0 && (
+                <span className="font-medium text-amber-600">
+                  {paymentStats.depositPaid}{" "}
+                  <span className="font-normal text-gray-500">reserva</span>
+                </span>
+              )}
+              {paymentStats.noPay > 0 && (
+                <span className="font-medium text-red-600">
+                  {paymentStats.noPay}{" "}
+                  <span className="font-normal text-gray-500">sin pago</span>
+                </span>
+              )}
+            </>
+          )}
           <div className="flex-1" />
           <button
-            onClick={() => generateCsv(participants, eventName)}
+            onClick={() => generateCsv(participants, eventName, pricing)}
             className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
           >
             <span className="material-symbols-outlined text-sm">download</span>
             CSV
           </button>
-          <Link
-            href={`/events/${eventId}/reception/print`}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
-          >
-            <span className="material-symbols-outlined text-sm">print</span>
-            Descargas
-          </Link>
+          {!isPublic && (
+            <Link
+              href={`/events/${eventId}/reception/print`}
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+            >
+              <span className="material-symbols-outlined text-sm">print</span>
+              Descargas
+            </Link>
+          )}
         </div>
 
         {/* Search */}
@@ -257,6 +336,23 @@ export function ReceptionClient({
         </div>
       </header>
 
+      {/* Payment summary bar */}
+      {paymentStats && (
+        <div className="flex items-center justify-between border-b bg-gray-50 px-4 py-2 text-xs">
+          <span className="text-gray-500">
+            Recaudado: <span className="font-semibold text-green-700">{paymentStats.totalPaid.toFixed(2)}€</span>
+          </span>
+          {paymentStats.pending > 0 && (
+            <span className="text-gray-500">
+              Pendiente: <span className="font-semibold text-red-600">{paymentStats.pending.toFixed(2)}€</span>
+            </span>
+          )}
+          <span className="text-gray-500">
+            Total: <span className="font-semibold text-gray-700">{paymentStats.totalExpected.toFixed(2)}€</span>
+          </span>
+        </div>
+      )}
+
       {/* List */}
       <div>
         {filtered.length === 0 ? (
@@ -270,6 +366,8 @@ export function ReceptionClient({
             <ParticipantRow
               key={p.id}
               participant={p}
+              pricing={pricing}
+              isPublic={isPublic}
               onCheckIn={handleCheckIn}
               onUndoCheckIn={handleUndoCheckIn}
             />

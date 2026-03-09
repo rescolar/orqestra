@@ -7,6 +7,8 @@ export type ReceptionPerson = {
   role: string;
   status: string;
   checked_in_at: Date | null;
+  amount_paid: number | null;
+  payment_note: string | null;
   arrives_for_dinner: boolean;
   last_meal_lunch: boolean;
   requests_text: string | null;
@@ -24,7 +26,16 @@ export type ReceptionPerson = {
     id: string;
     display_name: string | null;
     internal_number: string;
+    capacity: number;
+    has_private_bathroom: boolean;
   } | null;
+};
+
+export type ReceptionPricing = {
+  eventPrice: number | null;
+  depositAmount: number | null;
+  pricingByRoomType: boolean;
+  roomPricings: { capacity: number; has_private_bathroom: boolean; price: number }[];
 };
 
 export type ReceptionRoom = {
@@ -45,53 +56,89 @@ export const ReceptionService = {
   async getReceptionData(
     eventId: string,
     ctx: AuthContext
-  ): Promise<{ event: { name: string; date_start: Date; date_end: Date }; participants: ReceptionPerson[] }> {
+  ): Promise<{ event: { name: string; date_start: Date; date_end: Date }; participants: ReceptionPerson[]; pricing: ReceptionPricing }> {
     if (!(await canAccessEvent(ctx, eventId)))
       throw new Error("Evento no encontrado");
 
     const event = await db.event.findFirst({
       where: { id: eventId },
-      select: { id: true, name: true, date_start: true, date_end: true },
+      select: {
+        id: true,
+        name: true,
+        date_start: true,
+        date_end: true,
+        event_price: true,
+        deposit_amount: true,
+        pricing_by_room_type: true,
+      },
     });
     if (!event) throw new Error("Evento no encontrado");
 
-    const participants = await db.eventPerson.findMany({
-      where: {
-        event_id: eventId,
-        status: { not: "cancelado" },
-      },
-      select: {
-        id: true,
-        role: true,
-        status: true,
-        checked_in_at: true,
-        arrives_for_dinner: true,
-        last_meal_lunch: true,
-        requests_text: true,
-        requests_managed: true,
-        person: {
-          select: {
-            name_full: true,
-            name_display: true,
-            gender: true,
-            contact_phone: true,
-            contact_email: true,
-            dietary_requirements: true,
-            allergies_text: true,
+    const [participants, roomPricings] = await Promise.all([
+      db.eventPerson.findMany({
+        where: {
+          event_id: eventId,
+          status: { not: "cancelado" },
+        },
+        select: {
+          id: true,
+          role: true,
+          status: true,
+          checked_in_at: true,
+          amount_paid: true,
+          payment_note: true,
+          arrives_for_dinner: true,
+          last_meal_lunch: true,
+          requests_text: true,
+          requests_managed: true,
+          person: {
+            select: {
+              name_full: true,
+              name_display: true,
+              gender: true,
+              contact_phone: true,
+              contact_email: true,
+              dietary_requirements: true,
+              allergies_text: true,
+            },
+          },
+          room: {
+            select: {
+              id: true,
+              display_name: true,
+              internal_number: true,
+              capacity: true,
+              has_private_bathroom: true,
+            },
           },
         },
-        room: {
-          select: {
-            id: true,
-            display_name: true,
-            internal_number: true,
-          },
-        },
-      },
-      orderBy: { person: { name_display: "asc" } },
-    });
+        orderBy: { person: { name_display: "asc" } },
+      }),
+      event.pricing_by_room_type
+        ? db.roomPricing.findMany({
+            where: { event_id: eventId },
+            select: { capacity: true, has_private_bathroom: true, price: true },
+          })
+        : Promise.resolve([]),
+    ]);
 
-    return { event, participants };
+    return {
+      event,
+      participants: participants.map((p) => ({
+        ...p,
+        amount_paid: p.amount_paid ? Number(p.amount_paid) : null,
+      })),
+      pricing: {
+        eventPrice: event.event_price ? Number(event.event_price) : null,
+        depositAmount: event.deposit_amount ? Number(event.deposit_amount) : null,
+        pricingByRoomType: event.pricing_by_room_type,
+        roomPricings: roomPricings.map((rp) => ({
+          capacity: rp.capacity,
+          has_private_bathroom: rp.has_private_bathroom,
+          price: Number(rp.price),
+        })),
+      },
+    };
   },
 
   async checkIn(eventPersonId: string, ctx: AuthContext) {
@@ -127,8 +174,8 @@ export const ReceptionService = {
   async getReceptionPrintData(
     eventId: string,
     ctx: AuthContext
-  ): Promise<{ event: { name: string; date_start: Date; date_end: Date }; participants: ReceptionPerson[]; rooms: ReceptionRoom[] }> {
-    const { event, participants } = await this.getReceptionData(eventId, ctx);
+  ): Promise<{ event: { name: string; date_start: Date; date_end: Date }; participants: ReceptionPerson[]; rooms: ReceptionRoom[]; pricing: ReceptionPricing }> {
+    const { event, participants, pricing } = await this.getReceptionData(eventId, ctx);
 
     const rooms = await db.room.findMany({
       where: {
@@ -155,6 +202,6 @@ export const ReceptionService = {
       orderBy: { internal_number: "asc" },
     });
 
-    return { event, participants, rooms };
+    return { event, participants, rooms, pricing };
   },
 };

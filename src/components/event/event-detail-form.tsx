@@ -2,12 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateEventDetails } from "@/lib/actions/event";
+import { updateEventDetails, updateRoomPricings } from "@/lib/actions/event";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, DoorOpen, Users, Calendar, ImageIcon, UtensilsCrossed } from "lucide-react";
+import { ArrowLeft, DoorOpen, Users, Calendar, ImageIcon, UtensilsCrossed, Bath } from "lucide-react";
 import Link from "next/link";
+
+type RoomPricingRow = {
+  capacity: number;
+  has_private_bathroom: boolean;
+  price: number;
+};
 
 interface EventDetailFormProps {
   event: {
@@ -22,6 +28,8 @@ interface EventDetailFormProps {
     roomCount: number;
     event_price: number | string | null;
     deposit_amount: number | string | null;
+    pricing_by_room_type?: boolean;
+    room_pricings?: RoomPricingRow[];
   };
 }
 
@@ -39,6 +47,9 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
   const [dateEnd, setDateEnd] = useState(toInputDate(event.date_end));
   const [eventPrice, setEventPrice] = useState(event.event_price != null ? String(event.event_price) : "");
   const [depositAmount, setDepositAmount] = useState(event.deposit_amount != null ? String(event.deposit_amount) : "");
+  const [pricingByRoomType, setPricingByRoomType] = useState(event.pricing_by_room_type ?? false);
+  const [roomPricings, setRoomPricings] = useState<RoomPricingRow[]>(event.room_pricings ?? []);
+  const [editingPrices, setEditingPrices] = useState<Record<string, string>>({});
   const [showDateConfirm, setShowDateConfirm] = useState(false);
   const [pendingDates, setPendingDates] = useState<{ start?: string; end?: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -50,7 +61,9 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
 
   const originalPrice = event.event_price != null ? String(event.event_price) : "";
   const originalDeposit = event.deposit_amount != null ? String(event.deposit_amount) : "";
-  const pricingChanged = eventPrice !== originalPrice || depositAmount !== originalDeposit;
+  const pricingModeChanged = pricingByRoomType !== (event.pricing_by_room_type ?? false);
+  const roomPricingsChanged = JSON.stringify(roomPricings) !== JSON.stringify(event.room_pricings ?? []);
+  const pricingChanged = eventPrice !== originalPrice || depositAmount !== originalDeposit || pricingModeChanged || roomPricingsChanged;
 
   const isDirty =
     name !== event.name ||
@@ -99,7 +112,18 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
           ...(datesChanged && { date_start: dateStart, date_end: dateEnd }),
           event_price: eventPrice ? parseFloat(eventPrice) : null,
           deposit_amount: depositAmount ? parseFloat(depositAmount) : null,
+          pricing_by_room_type: pricingByRoomType,
         });
+        if (pricingByRoomType && (pricingModeChanged || roomPricingsChanged)) {
+          await updateRoomPricings(
+            event.id,
+            roomPricings.map((rp) => ({
+              capacity: rp.capacity,
+              has_private_bathroom: rp.has_private_bathroom,
+              price: rp.price,
+            }))
+          );
+        }
       }
       router.push(`/events/${event.id}/board`);
     } catch (e) {
@@ -176,32 +200,141 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
               placeholder="Casa de retiro, dirección..."
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="event_price">Precio por persona (€)</Label>
-              <Input
-                id="event_price"
-                type="number"
-                step="0.01"
-                min={0}
-                value={eventPrice}
-                onChange={(e) => setEventPrice(e.target.value)}
-                placeholder="Opcional"
-              />
+          {/* Pricing mode toggle */}
+          <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Precio por tipo de habitación</p>
+              <p className="text-xs text-gray-500">
+                {pricingByRoomType
+                  ? "Cada tipo de habitación tiene su precio"
+                  : "Precio fijo para todos los participantes"}
+              </p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="deposit_amount">Reserva (€)</Label>
-              <Input
-                id="deposit_amount"
-                type="number"
-                step="0.01"
-                min={0}
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
-                placeholder="Opcional"
+            <button
+              type="button"
+              role="switch"
+              aria-checked={pricingByRoomType}
+              onClick={() => setPricingByRoomType(!pricingByRoomType)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                pricingByRoomType ? "bg-primary" : "bg-gray-200"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block size-5 rounded-full bg-white shadow ring-0 transition-transform ${
+                  pricingByRoomType ? "translate-x-5" : "translate-x-0"
+                }`}
               />
-            </div>
+            </button>
           </div>
+
+          {!pricingByRoomType ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="event_price">Precio por persona (€)</Label>
+                <Input
+                  id="event_price"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={eventPrice}
+                  onChange={(e) => setEventPrice(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deposit_amount">Reserva (€)</Label>
+                <Input
+                  id="deposit_amount"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="deposit_amount">Reserva (€)</Label>
+                <Input
+                  id="deposit_amount"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  placeholder="Opcional"
+                  className="max-w-[200px]"
+                />
+              </div>
+              {roomPricings.length > 0 ? (
+                <div className="overflow-hidden rounded-lg border border-gray-200">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Ocupación</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Baño</th>
+                        <th className="px-3 py-2 text-right font-medium text-gray-600">Precio €</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {roomPricings.map((rp, idx) => {
+                        const key = `${rp.capacity}-${rp.has_private_bathroom}`;
+                        const editValue = editingPrices[key];
+                        return (
+                          <tr key={key} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 text-gray-700">
+                              {rp.capacity} {rp.capacity === 1 ? "persona" : "personas"}
+                            </td>
+                            <td className="px-3 py-2">
+                              {rp.has_private_bathroom ? (
+                                <span className="inline-flex items-center gap-1 text-primary">
+                                  <Bath className="size-3.5" /> Privado
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">Compartido</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min={0}
+                                value={editValue ?? String(rp.price)}
+                                onChange={(e) => {
+                                  setEditingPrices((prev) => ({ ...prev, [key]: e.target.value }));
+                                }}
+                                onBlur={() => {
+                                  const val = parseFloat(editingPrices[key] ?? "");
+                                  if (!isNaN(val) && val >= 0) {
+                                    setRoomPricings((prev) =>
+                                      prev.map((p, i) => (i === idx ? { ...p, price: val } : p))
+                                    );
+                                  }
+                                  setEditingPrices((prev) => {
+                                    const next = { ...prev };
+                                    delete next[key];
+                                    return next;
+                                  });
+                                }}
+                                className="w-24 rounded border border-gray-200 px-2 py-1 text-right text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">
+                  No hay tipos de habitación definidos. Configúralos en el paso de habitaciones.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

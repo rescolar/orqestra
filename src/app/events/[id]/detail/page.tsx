@@ -28,9 +28,10 @@ export default async function DetailPage({
 
   if (!event) notFound();
 
-  const collaborators = event.isOwner
-    ? await CollabService.getCollaborators(id)
-    : [];
+  const [collaborators, roomPricings] = await Promise.all([
+    event.isOwner ? CollabService.getCollaborators(id) : Promise.resolve([]),
+    event.pricing_by_room_type ? EventService.getRoomPricings(id, ctx) : Promise.resolve([]),
+  ]);
 
   return (
     <div className="min-h-screen bg-surface">
@@ -57,6 +58,12 @@ export default async function DetailPage({
             roomCount: event.roomCount,
             event_price: event.event_price ? Number(event.event_price) : null,
             deposit_amount: event.deposit_amount ? Number(event.deposit_amount) : null,
+            pricing_by_room_type: event.pricing_by_room_type,
+            room_pricings: roomPricings.map((rp) => ({
+              capacity: rp.capacity,
+              has_private_bathroom: rp.has_private_bathroom,
+              price: Number(rp.price),
+            })),
           }}
         />
 

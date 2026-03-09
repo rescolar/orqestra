@@ -58,10 +58,11 @@ export async function createEvent(formData: FormData) {
 
 export async function createRoomsFromTypes(
   eventId: string,
-  types: { capacity: number; hasPrivateBathroom: boolean; quantity: number }[]
+  types: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number }[],
+  pricingByRoomType?: boolean
 ) {
   const ctx = await requireAuth();
-  await EventService.createRoomsFromTypes(eventId, ctx, types);
+  await EventService.createRoomsFromTypes(eventId, ctx, types, pricingByRoomType);
   redirect(`/events/${eventId}/detail`);
 }
 
@@ -82,9 +83,24 @@ export async function updateEventDetails(
     date_end?: string;
     event_price?: number | null;
     deposit_amount?: number | null;
+    pricing_by_room_type?: boolean;
   }
 ) {
   const ctx = await requireAuth();
   await EventService.updateEventDetails(eventId, ctx, data);
   revalidatePath("/dashboard");
+}
+
+export async function getRoomPricings(eventId: string) {
+  const ctx = await requireAuth();
+  return EventService.getRoomPricings(eventId, ctx);
+}
+
+export async function updateRoomPricings(
+  eventId: string,
+  pricings: { capacity: number; has_private_bathroom: boolean; price: number }[]
+) {
+  const ctx = await requireAuth();
+  await EventService.updateRoomPricings(eventId, ctx, pricings);
+  revalidatePath(`/events/${eventId}/detail`);
 }

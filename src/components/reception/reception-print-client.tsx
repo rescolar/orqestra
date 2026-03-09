@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import type { ReceptionPerson, ReceptionRoom } from "@/lib/services/reception.service";
+import type { ReceptionPerson, ReceptionRoom, ReceptionPricing } from "@/lib/services/reception.service";
+import { resolvePrice } from "./reception-client";
 
 type Props = {
   eventId: string;
@@ -10,6 +11,7 @@ type Props = {
   dateEnd: Date;
   participants: ReceptionPerson[];
   rooms: ReceptionRoom[];
+  pricing: ReceptionPricing;
 };
 
 function roomLabel(p: ReceptionPerson) {
@@ -17,55 +19,57 @@ function roomLabel(p: ReceptionPerson) {
   return p.room.display_name || `Hab ${p.room.internal_number}`;
 }
 
-function generateCsv(participants: ReceptionPerson[], eventName: string) {
+function generateCsv(participants: ReceptionPerson[], eventName: string, pricing?: ReceptionPricing) {
   const BOM = "\uFEFF";
+  const hasPricing = pricing && (pricing.eventPrice != null || pricing.pricingByRoomType);
   const headers = [
     "Nombre",
     "Rol",
     "Habitación",
+    "Estado",
+    ...(hasPricing ? ["Precio hab.", "Reserva", "Pagado", "Pendiente"] : []),
     "Teléfono",
     "Email",
-    "Género",
-    "Estado",
     "Dieta",
     "Alergias",
-    "Cena llegada",
-    "Almuerzo final",
-    "Solicitudes",
     "Check-in",
   ];
 
-  const rows = participants.map((p) => [
-    p.person.name_full,
-    p.role === "facilitator" ? "Facilitador" : "Participante",
-    p.room
-      ? p.room.display_name || `Hab ${p.room.internal_number}`
-      : "Sin habitación",
-    p.person.contact_phone || "",
-    p.person.contact_email || "",
-    p.person.gender === "female"
-      ? "Mujer"
-      : p.person.gender === "male"
-        ? "Hombre"
-        : p.person.gender === "other"
-          ? "Otro"
-          : "No especificado",
-    p.status === "inscrito" ? "Inscrito"
-      : p.status === "reservado" ? "Reservado"
-      : p.status === "pagado" ? "Pagado"
-      : p.status === "confirmado_sin_pago" ? "Confirmado s/p"
-      : p.status === "solicita_cancelacion" ? "Solicita cancelación"
-      : p.status === "cancelado" ? "Cancelado"
-      : p.status,
-    p.person.dietary_requirements.join(", "),
-    p.person.allergies_text || "",
-    p.arrives_for_dinner ? "Sí" : "No",
-    p.last_meal_lunch ? "Sí" : "No",
-    p.requests_text || "",
-    p.checked_in_at
-      ? new Date(p.checked_in_at).toLocaleString("es-ES")
-      : "No",
-  ]);
+  const rows = participants.map((p) => {
+    const price = pricing ? resolvePrice(p, pricing) : null;
+    const paid = p.amount_paid ?? 0;
+    const pending = price != null ? Math.max(0, price - paid) : null;
+
+    return [
+      p.person.name_full,
+      p.role === "facilitator" ? "Facilitador" : "Participante",
+      p.room
+        ? p.room.display_name || `Hab ${p.room.internal_number}`
+        : "Sin habitación",
+      p.status === "inscrito" ? "Inscrito"
+        : p.status === "reservado" ? "Reservado"
+        : p.status === "pagado" ? "Pagado"
+        : p.status === "confirmado_sin_pago" ? "Confirmado s/p"
+        : p.status === "solicita_cancelacion" ? "Solicita cancelación"
+        : p.status === "cancelado" ? "Cancelado"
+        : p.status,
+      ...(hasPricing
+        ? [
+            price != null ? `${price.toFixed(2)}` : "—",
+            pricing.depositAmount != null ? `${pricing.depositAmount.toFixed(2)}` : "—",
+            `${paid.toFixed(2)}`,
+            pending != null ? `${pending.toFixed(2)}` : "—",
+          ]
+        : []),
+      p.person.contact_phone || "",
+      p.person.contact_email || "",
+      p.person.dietary_requirements.join(", "),
+      p.person.allergies_text || "",
+      p.checked_in_at
+        ? new Date(p.checked_in_at).toLocaleString("es-ES")
+        : "No",
+    ];
+  });
 
   const escape = (val: string) => {
     if (val.includes(",") || val.includes('"') || val.includes("\n")) {
@@ -100,7 +104,9 @@ export function ReceptionPrintClient({
   dateEnd,
   participants,
   rooms,
+  pricing,
 }: Props) {
+  const hasPricing = pricing.eventPrice != null || pricing.pricingByRoomType;
   const sorted = [...participants].sort((a, b) =>
     a.person.name_full.localeCompare(b.person.name_full)
   );
@@ -132,7 +138,7 @@ export function ReceptionPrintClient({
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => generateCsv(participants, eventName)}
+            onClick={() => generateCsv(participants, eventName, pricing)}
             className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
           >
             <span className="material-symbols-outlined text-base">
@@ -200,6 +206,13 @@ export function ReceptionPrintClient({
                 <th className="w-8 pb-1"></th>
                 <th className="pb-1 font-semibold">Nombre</th>
                 <th className="pb-1 font-semibold">Habitación</th>
+                {hasPricing && (
+                  <>
+                    <th className="pb-1 text-right font-semibold">Precio</th>
+                    <th className="pb-1 text-right font-semibold">Pagado</th>
+                    <th className="pb-1 text-right font-semibold">Pdte.</th>
+                  </>
+                )}
                 <th className="pb-1 font-semibold">Teléfono</th>
                 <th className="pb-1 font-semibold">Notas</th>
               </tr>
@@ -212,6 +225,9 @@ export function ReceptionPrintClient({
                 ]
                   .filter(Boolean)
                   .join(", ");
+                const price = resolvePrice(p, pricing);
+                const paid = p.amount_paid ?? 0;
+                const pend = price != null ? Math.max(0, price - paid) : null;
 
                 return (
                   <tr key={p.id} className="border-b border-gray-100">
@@ -220,6 +236,15 @@ export function ReceptionPrintClient({
                     </td>
                     <td className="py-1">{p.person.name_full}</td>
                     <td className="py-1">{roomLabel(p)}</td>
+                    {hasPricing && (
+                      <>
+                        <td className="py-1 text-right">{price != null ? `${price.toFixed(2)}€` : "—"}</td>
+                        <td className="py-1 text-right">{paid > 0 ? `${paid.toFixed(2)}€` : "—"}</td>
+                        <td className={`py-1 text-right ${pend && pend > 0 ? "font-medium" : ""}`}>
+                          {pend != null ? (pend > 0 ? `${pend.toFixed(2)}€` : "✓") : "—"}
+                        </td>
+                      </>
+                    )}
                     <td className="py-1">{p.person.contact_phone || "—"}</td>
                     <td className="py-1 text-xs text-gray-600">{notes || "—"}</td>
                   </tr>

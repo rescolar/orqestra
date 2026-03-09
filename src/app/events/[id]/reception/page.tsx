@@ -15,9 +15,9 @@ export default async function ReceptionPage({
   const { id } = await params;
 
   try {
-    const { event, participants } = await ReceptionService.getReceptionData(
+    const { event, participants, pricing } = await ReceptionService.getReceptionData(
       id,
-      session.user.id
+      { userId: session.user.id, role: session.user.role }
     );
 
     return (
@@ -27,6 +27,7 @@ export default async function ReceptionPage({
         dateStart={event.date_start}
         dateEnd={event.date_end}
         initialParticipants={participants}
+        pricing={pricing}
       />
     );
   } catch {

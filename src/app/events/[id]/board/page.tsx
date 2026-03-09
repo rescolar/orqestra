@@ -18,7 +18,12 @@ export default async function BoardPage({
   const event = await EventService.getEventWithRooms(id, ctx);
   if (!event) notFound();
 
-  const unassigned = await PersonService.getUnassignedPersons(id, ctx);
+  const [unassigned, roomPricings] = await Promise.all([
+    PersonService.getUnassignedPersons(id, ctx),
+    event.pricing_by_room_type
+      ? EventService.getRoomPricings(id, ctx)
+      : Promise.resolve([]),
+  ]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-surface">
@@ -36,6 +41,12 @@ export default async function BoardPage({
         eventPricing={{
           event_price: event.event_price ? Number(event.event_price) : null,
           deposit_amount: event.deposit_amount ? Number(event.deposit_amount) : null,
+          pricing_by_room_type: event.pricing_by_room_type,
+          room_pricings: roomPricings.map((rp) => ({
+            capacity: rp.capacity,
+            has_private_bathroom: rp.has_private_bathroom,
+            price: Number(rp.price),
+          })),
         }}
       />
     </div>
