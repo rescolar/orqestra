@@ -141,6 +141,45 @@ export const RelationshipInviteService = {
     });
     if (!senderEp) throw new Error("Sender not in event");
 
+    // Create group relationship (so it shows in the panel)
+    // Check if either already has a group
+    const senderGroupId = senderEp.group_id;
+    const recipientGroupId = recipientEp.group_id;
+
+    let groupId: string;
+    if (senderGroupId && recipientGroupId) {
+      // Both in groups — add recipient to sender's group
+      groupId = senderGroupId;
+      await db.eventPerson.update({
+        where: { id: recipientEp.id },
+        data: { group_id: senderGroupId },
+      });
+    } else if (senderGroupId) {
+      groupId = senderGroupId;
+      await db.eventPerson.update({
+        where: { id: recipientEp.id },
+        data: { group_id: senderGroupId },
+      });
+    } else if (recipientGroupId) {
+      groupId = recipientGroupId;
+      await db.eventPerson.update({
+        where: { id: senderEp.id },
+        data: { group_id: recipientGroupId },
+      });
+    } else {
+      const group = await db.group.create({
+        data: {
+          event_id: eventId,
+          name: `rel-${Date.now()}`,
+        },
+      });
+      groupId = group.id;
+      await db.eventPerson.updateMany({
+        where: { id: { in: [senderEp.id, recipientEp.id] } },
+        data: { group_id: groupId },
+      });
+    }
+
     // Set inseparable relationship if type is inseparable
     if (invite.relationship_type === "inseparable") {
       await db.$transaction([
