@@ -26,6 +26,17 @@ export async function updateMealFlags(
   revalidatePath("/events");
 }
 
+export async function updateMealAttendance(
+  eventPersonId: string,
+  dayIndex: number,
+  field: "breakfast" | "lunch" | "dinner",
+  value: boolean
+) {
+  const ctx = await requireAuth();
+  await KitchenService.updateMealAttendance(eventPersonId, dayIndex, field, value, ctx);
+  revalidatePath("/events");
+}
+
 export async function markAllDietaryNotified(eventId: string) {
   const ctx = await requireAuth();
   await KitchenService.markAllDietaryNotified(eventId, ctx);

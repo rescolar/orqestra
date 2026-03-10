@@ -111,6 +111,9 @@ model Event {
   event_price            Decimal?        @db.Decimal(10, 2)
   deposit_amount         Decimal?        @db.Decimal(10, 2)
   pricing_by_room_type   Boolean         @default(false)
+  meal_cost_breakfast    Decimal?        @db.Decimal(10, 2)
+  meal_cost_lunch        Decimal?        @db.Decimal(10, 2)
+  meal_cost_dinner       Decimal?        @db.Decimal(10, 2)
 
   user                User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
   event_persons       EventPerson[]
@@ -147,6 +150,11 @@ model EventPerson {
   amount_paid          Decimal?          @db.Decimal(10, 2)
   payment_note         String?
   companion_id         String?
+  date_arrival         DateTime?
+  date_departure       DateTime?
+  discount_breakfast   Int               @default(0)
+  discount_lunch       Int               @default(0)
+  discount_dinner      Int               @default(0)
   dietary_notified     Boolean           @default(false)
   arrives_for_dinner   Boolean           @default(true)
   last_meal_lunch      Boolean           @default(true)
@@ -164,6 +172,7 @@ model EventPerson {
   @@map("event_persons")
 
   activity_signups ActivitySignup[]
+  meal_attendances MealAttendance[]
 }
 
 // ─── Room ────────────────────────────────────────────────────────────────────
@@ -198,11 +207,12 @@ model Room {
 // ─── RoomPricing ──────────────────────────────────────────────────────────────
 
 model RoomPricing {
-  id                   String  @id @default(cuid())
+  id                   String   @id @default(cuid())
   event_id             String
   capacity             Int
   has_private_bathroom Boolean
-  price                Decimal @db.Decimal(10, 2)
+  price                Decimal  @db.Decimal(10, 2)
+  daily_rate           Decimal? @db.Decimal(10, 2)
 
   event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
 
@@ -284,6 +294,22 @@ model ActivitySignup {
 
   @@unique([activity_id, event_person_id])
   @@map("activity_signups")
+}
+
+// ─── MealAttendance ─────────────────────────────────────────────────────────
+
+model MealAttendance {
+  id              String      @id @default(cuid())
+  event_person_id String
+  day_index       Int
+  breakfast       Boolean     @default(true)
+  lunch           Boolean     @default(true)
+  dinner          Boolean     @default(true)
+
+  event_person    EventPerson @relation(fields: [event_person_id], references: [id], onDelete: Cascade)
+
+  @@unique([event_person_id, day_index])
+  @@map("meal_attendances")
 }
 
 // ─── PasswordResetToken ──────────────────────────────────────────────────────

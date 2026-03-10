@@ -1,9 +1,9 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
 import { KitchenService } from "@/lib/services/kitchen.service";
 import { KitchenReportClient } from "@/components/kitchen/kitchen-report";
+import { db } from "@/lib/db";
 
 export default async function KitchenPage({
   params,
@@ -21,15 +21,23 @@ export default async function KitchenPage({
   });
   if (!event) notFound();
 
-  const rows = await KitchenService.getKitchenReport(id, session.user.id);
+  const { rows, eventDates } = await KitchenService.getKitchenReport(id, {
+    userId: session.user.id,
+    role: session.user.role,
+  });
 
   return (
     <div className="min-h-screen bg-surface">
-      <div className="mx-auto max-w-5xl px-4 py-10">
+      <div className="mx-auto max-w-7xl px-4 py-10">
         <KitchenReportClient
           eventId={event.id}
           eventName={event.name}
           rows={rows}
+          eventDates={{
+            dateStart: eventDates.dateStart,
+            dateEnd: eventDates.dateEnd,
+            totalDays: eventDates.totalDays,
+          }}
         />
       </div>
     </div>

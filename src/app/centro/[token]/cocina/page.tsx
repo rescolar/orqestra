@@ -13,11 +13,16 @@ export default async function CocinaPage({
   if (!report) notFound();
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
+    <div className="mx-auto max-w-7xl px-4 py-10">
       <KitchenReportClient
         eventId=""
         eventName={report.eventName}
         rows={report.rows}
+        eventDates={{
+          dateStart: report.eventDates.dateStart,
+          dateEnd: report.eventDates.dateEnd,
+          totalDays: report.eventDates.totalDays,
+        }}
         variant="public"
       />
     </div>
