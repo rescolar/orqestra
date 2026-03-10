@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { ReceptionPerson, ReceptionPricing } from "@/lib/services/reception.service";
-import { resolvePrice } from "./reception-client";
+import { resolvePrice, resolveDiscount, resolveAmountOwed } from "./reception-client";
 
 type ParticipantRowProps = {
   participant: ReceptionPerson;
@@ -44,11 +44,13 @@ export function ParticipantRow({
 
   const hasPricing = pricing.eventPrice != null || pricing.pricingByRoomType;
   const price = resolvePrice(p, pricing);
+  const discount = resolveDiscount(p, pricing);
+  const owed = resolveAmountOwed(p, pricing);
   const paid = p.amount_paid ?? 0;
-  const pending = price != null ? Math.max(0, price - paid) : null;
+  const pending = owed != null ? Math.max(0, owed - paid) : null;
   const paymentStatus = !hasPricing
     ? null
-    : price != null && paid >= price
+    : owed != null && paid >= owed
       ? "paid"
       : pricing.depositAmount != null && paid >= pricing.depositAmount
         ? "deposit"
@@ -189,11 +191,23 @@ export function ParticipantRow({
           )}
 
           {hasPricing && (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {price != null && (
                 <span>
                   <span className="font-medium text-gray-700">Precio: </span>
                   {price.toFixed(2)}€
+                </span>
+              )}
+              {discount > 0 && (
+                <span className="text-primary">
+                  <span className="font-medium">Desc: </span>
+                  -{discount.toFixed(2)}€
+                </span>
+              )}
+              {owed != null && discount > 0 && (
+                <span>
+                  <span className="font-medium text-gray-700">Ajustado: </span>
+                  {owed.toFixed(2)}€
                 </span>
               )}
               <span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,11 @@ type EventPersonDetail = {
   requests_managed: boolean;
   amount_paid: unknown; // Prisma Decimal | null
   payment_note: string | null;
+  date_arrival: string | null;
+  date_departure: string | null;
+  discount_breakfast: number;
+  discount_lunch: number;
+  discount_dinner: number;
   group: GroupData | null;
   room: {
     display_name: string | null;
@@ -72,6 +77,11 @@ export type PersonUpdateData = {
   requests_managed?: boolean;
   amount_paid?: number | null;
   payment_note?: string | null;
+  date_arrival?: string | null;
+  date_departure?: string | null;
+  discount_breakfast?: number;
+  discount_lunch?: number;
+  discount_dinner?: number;
 };
 
 export type OptimisticRelation = {
@@ -89,7 +99,9 @@ type PersonDetailPanelProps = {
     event_price: number | null;
     deposit_amount: number | null;
     pricing_by_room_type?: boolean;
-    room_pricings?: { capacity: number; has_private_bathroom: boolean; price: number }[];
+    room_pricings?: { capacity: number; has_private_bathroom: boolean; price: number; daily_rate?: number | null }[];
+    meal_costs?: { breakfast: number | null; lunch: number | null; dinner: number | null };
+    event_dates?: { start: string; end: string };
   } | null;
   onClose: () => void;
   onPersonUpdated: (id: string, changes: PersonUpdateData) => void;
@@ -97,6 +109,39 @@ type PersonDetailPanelProps = {
   onPersonClick?: (id: string) => void;
   onBoardRefresh?: () => void;
 };
+
+function computeDiscount(opts: {
+  eventDates?: { start: string; end: string };
+  dateArrival: string | null;
+  dateDeparture: string | null;
+  dailyRate: number | null;
+  discountBreakfast: number;
+  discountLunch: number;
+  discountDinner: number;
+  mealCosts?: { breakfast: number | null; lunch: number | null; dinner: number | null };
+}) {
+  let dayDiscount = 0;
+  let daysLess = 0;
+
+  if (opts.eventDates && opts.dailyRate) {
+    const eventStart = new Date(opts.eventDates.start);
+    const eventEnd = new Date(opts.eventDates.end);
+    const arrival = opts.dateArrival ? new Date(opts.dateArrival) : eventStart;
+    const departure = opts.dateDeparture ? new Date(opts.dateDeparture) : eventEnd;
+    const eventDays = Math.round((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24));
+    const personDays = Math.round((departure.getTime() - arrival.getTime()) / (1000 * 60 * 60 * 24));
+    daysLess = Math.max(0, eventDays - personDays);
+    dayDiscount = daysLess * opts.dailyRate;
+  }
+
+  const mc = opts.mealCosts;
+  const mealDiscount =
+    (opts.discountBreakfast * (mc?.breakfast ?? 0)) +
+    (opts.discountLunch * (mc?.lunch ?? 0)) +
+    (opts.discountDinner * (mc?.dinner ?? 0));
+
+  return { dayDiscount, daysLess, mealDiscount, total: dayDiscount + mealDiscount };
+}
 
 const ROLE_OPTIONS = [
   { value: "participant", label: "Participante" },
@@ -159,6 +204,13 @@ export function PersonDetailPanel({
 }: PersonDetailPanelProps) {
   const [data, setData] = useState<EventPersonDetail | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const normalizeDetail = (raw: any): EventPersonDetail => ({
+    ...raw,
+    date_arrival: raw.date_arrival ? new Date(raw.date_arrival).toISOString() : null,
+    date_departure: raw.date_departure ? new Date(raw.date_departure).toISOString() : null,
+  });
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [relationsIsOver, setRelationsIsOver] = useState(false);
   const [openSections, setOpenSections] = useState<Set<string>>(() => readOpenSections(eventId));
@@ -182,25 +234,32 @@ export function PersonDetailPanel({
   const [requestsLocal, setRequestsLocal] = useState("");
   const [amountPaidLocal, setAmountPaidLocal] = useState("");
   const [paymentNoteLocal, setPaymentNoteLocal] = useState("");
+  const [dateArrivalLocal, setDateArrivalLocal] = useState("");
+  const [dateDepartureLocal, setDateDepartureLocal] = useState("");
+  const [discountBreakfastLocal, setDiscountBreakfastLocal] = useState("0");
+  const [discountLunchLocal, setDiscountLunchLocal] = useState("0");
+  const [discountDinnerLocal, setDiscountDinnerLocal] = useState("0");
 
   const hasPricing = eventPricing?.event_price != null || eventPricing?.deposit_amount != null || eventPricing?.pricing_by_room_type;
 
-  // Resolve effective price for this person based on their room
-  const resolvedPrice = (() => {
-    if (!eventPricing) return null;
+  // Resolve effective price and daily_rate for this person based on their room
+  const resolvedPricing = (() => {
+    if (!eventPricing) return { price: null, dailyRate: null };
     if (eventPricing.pricing_by_room_type && eventPricing.room_pricings && data?.room) {
       const rp = eventPricing.room_pricings.find(
         (p) => p.capacity === data.room!.capacity && p.has_private_bathroom === data.room!.has_private_bathroom
       );
-      return rp?.price ?? null;
+      return { price: rp?.price ?? null, dailyRate: rp?.daily_rate ?? null };
     }
-    return eventPricing.event_price;
+    return { price: eventPricing.event_price, dailyRate: null };
   })();
+  const resolvedPrice = resolvedPricing.price;
 
   useEffect(() => {
     setLoading(true);
     setConfirmDiscard(false);
-    getEventPersonDetail(eventPersonId).then((result) => {
+    getEventPersonDetail(eventPersonId).then((raw) => {
+      const result = normalizeDetail(raw);
       setData(result);
       setEmailLocal(result.person.contact_email ?? "");
       setPhoneLocal(result.person.contact_phone ?? "");
@@ -209,6 +268,13 @@ export function PersonDetailPanel({
       setRequestsLocal(result.requests_text ?? "");
       setAmountPaidLocal(result.amount_paid != null ? String(result.amount_paid) : "");
       setPaymentNoteLocal(result.payment_note ?? "");
+      const evStart = eventPricing?.event_dates?.start?.slice(0, 10) ?? "";
+      const evEnd = eventPricing?.event_dates?.end?.slice(0, 10) ?? "";
+      setDateArrivalLocal(result.date_arrival ? result.date_arrival.slice(0, 10) : evStart);
+      setDateDepartureLocal(result.date_departure ? result.date_departure.slice(0, 10) : evEnd);
+      setDiscountBreakfastLocal(String(result.discount_breakfast ?? 0));
+      setDiscountLunchLocal(String(result.discount_lunch ?? 0));
+      setDiscountDinnerLocal(String(result.discount_dinner ?? 0));
       setLoading(false);
     });
   }, [eventPersonId, refreshKey]);
@@ -242,9 +308,21 @@ export function PersonDetailPanel({
         setAmountPaidLocal(String(eventPricing.deposit_amount));
         setData((prev) => prev ? { ...prev, amount_paid: Number(eventPricing.deposit_amount) } : prev);
       } else if (status === "pagado" && resolvedPrice != null) {
-        changes.amount_paid = resolvedPrice;
-        setAmountPaidLocal(String(resolvedPrice));
-        setData((prev) => prev ? { ...prev, amount_paid: resolvedPrice } : prev);
+        // Use amount_owed (price - discounts) for auto-fill
+        const disc = computeDiscount({
+          eventDates: eventPricing?.event_dates,
+          dateArrival: data?.date_arrival ?? null,
+          dateDeparture: data?.date_departure ?? null,
+          dailyRate: resolvedPricing.dailyRate ?? null,
+          discountBreakfast: data?.discount_breakfast ?? 0,
+          discountLunch: data?.discount_lunch ?? 0,
+          discountDinner: data?.discount_dinner ?? 0,
+          mealCosts: eventPricing?.meal_costs,
+        });
+        const amountOwed = Math.max(0, resolvedPrice - disc.total);
+        changes.amount_paid = amountOwed;
+        setAmountPaidLocal(String(amountOwed));
+        setData((prev) => prev ? { ...prev, amount_paid: amountOwed } : prev);
       } else if (status === "inscrito" || status === "confirmado_sin_pago") {
         changes.amount_paid = null;
         setAmountPaidLocal("");
@@ -360,6 +438,149 @@ export function PersonDetailPanel({
     saveField({ payment_note: newVal });
   }, [data, paymentNoteLocal, saveField]);
 
+  // Helper: compute days between two date strings
+  const daysBetween = useCallback((a: string, b: string) => {
+    return Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / (1000 * 60 * 60 * 24)));
+  }, []);
+
+  // Auto-adjust meal discounts when stay changes by delta days
+  const adjustMealDiscounts = useCallback((oldDays: number, newDays: number) => {
+    if (!data || oldDays === newDays) return;
+    const mc = eventPricing?.meal_costs;
+    const delta = oldDays - newDays; // positive = stay shortened
+    const updates: Record<string, number> = {};
+
+    if (mc?.breakfast != null) {
+      const v = Math.min(Math.max(0, data.discount_breakfast + delta), newDays);
+      updates.discount_breakfast = v;
+      setDiscountBreakfastLocal(String(v));
+    }
+    if (mc?.lunch != null) {
+      const v = Math.min(Math.max(0, data.discount_lunch + delta), newDays);
+      updates.discount_lunch = v;
+      setDiscountLunchLocal(String(v));
+    }
+    if (mc?.dinner != null) {
+      const v = Math.min(Math.max(0, data.discount_dinner + delta), newDays);
+      updates.discount_dinner = v;
+      setDiscountDinnerLocal(String(v));
+    }
+
+    if (Object.keys(updates).length > 0) {
+      setData((prev) => prev ? { ...prev, ...updates } : prev);
+      saveField(updates);
+    }
+  }, [data, eventPricing, saveField]);
+
+  const handleDateArrivalBlur = useCallback(() => {
+    if (!data) return;
+    const evStart = eventPricing?.event_dates?.start?.slice(0, 10) ?? "";
+    const evEnd = eventPricing?.event_dates?.end?.slice(0, 10) ?? "";
+    // If empty or matches event start → treat as default (null in DB)
+    let displayVal = dateArrivalLocal || evStart;
+    let dbVal: string | null = displayVal === evStart ? null : displayVal;
+
+    // Enforce: departure must be >= arrival + 1 day
+    let effectiveDep = dateDepartureLocal || evEnd;
+    if (displayVal && effectiveDep) {
+      const arrDate = new Date(displayVal);
+      const depDate = new Date(effectiveDep);
+      if (depDate.getTime() - arrDate.getTime() < 1000 * 60 * 60 * 24) {
+        const minDep = new Date(arrDate);
+        minDep.setDate(minDep.getDate() + 1);
+        const minDepStr = minDep.toISOString().slice(0, 10);
+        setDateDepartureLocal(minDepStr);
+        effectiveDep = minDepStr;
+        const depDbVal = minDepStr === evEnd ? null : minDepStr;
+        setData((prev) => prev ? { ...prev, date_departure: depDbVal } : prev);
+        saveField({ date_departure: depDbVal });
+      }
+    }
+
+    // Auto-adjust meal discounts
+    const oldArr = data.date_arrival?.slice(0, 10) || evStart;
+    const oldDep = data.date_departure?.slice(0, 10) || evEnd;
+    const oldDays = daysBetween(oldArr, oldDep);
+    const newDays = daysBetween(displayVal, effectiveDep);
+    adjustMealDiscounts(oldDays, newDays);
+
+    setDateArrivalLocal(displayVal);
+    const current = data.date_arrival ? data.date_arrival.slice(0, 10) : null;
+    if (dbVal === current) return;
+    setData((prev) => prev ? { ...prev, date_arrival: dbVal } : prev);
+    saveField({ date_arrival: dbVal });
+  }, [data, dateArrivalLocal, dateDepartureLocal, eventPricing, saveField, daysBetween, adjustMealDiscounts]);
+
+  const handleDateDepartureBlur = useCallback(() => {
+    if (!data) return;
+    const evStart = eventPricing?.event_dates?.start?.slice(0, 10) ?? "";
+    const evEnd = eventPricing?.event_dates?.end?.slice(0, 10) ?? "";
+    const effectiveArr = dateArrivalLocal || evStart;
+    let displayVal = dateDepartureLocal || evEnd;
+
+    // Enforce: departure must be >= arrival + 1 day (min 1 night)
+    if (displayVal && effectiveArr) {
+      const arrDate = new Date(effectiveArr);
+      const depDate = new Date(displayVal);
+      if (depDate.getTime() - arrDate.getTime() < 1000 * 60 * 60 * 24) {
+        const minDep = new Date(arrDate);
+        minDep.setDate(minDep.getDate() + 1);
+        displayVal = minDep.toISOString().slice(0, 10);
+      }
+    }
+
+    // Auto-adjust meal discounts
+    const oldArr = data.date_arrival?.slice(0, 10) || evStart;
+    const oldDep = data.date_departure?.slice(0, 10) || evEnd;
+    const oldDays = daysBetween(oldArr, oldDep);
+    const newDays = daysBetween(effectiveArr, displayVal);
+    adjustMealDiscounts(oldDays, newDays);
+
+    setDateDepartureLocal(displayVal);
+    // If matches event end → null in DB
+    const dbVal: string | null = displayVal === evEnd ? null : displayVal;
+    const current = data.date_departure ? data.date_departure.slice(0, 10) : null;
+    if (dbVal === current) return;
+    setData((prev) => prev ? { ...prev, date_departure: dbVal } : prev);
+    saveField({ date_departure: dbVal });
+  }, [data, dateDepartureLocal, dateArrivalLocal, eventPricing, saveField, daysBetween, adjustMealDiscounts]);
+
+  const personStayDays = useMemo(() => {
+    const evS = eventPricing?.event_dates?.start?.slice(0, 10) ?? "";
+    const evE = eventPricing?.event_dates?.end?.slice(0, 10) ?? "";
+    const arr = dateArrivalLocal || evS;
+    const dep = dateDepartureLocal || evE;
+    if (!arr || !dep) return 999;
+    return Math.max(0, Math.round((new Date(dep).getTime() - new Date(arr).getTime()) / (1000 * 60 * 60 * 24)));
+  }, [dateArrivalLocal, dateDepartureLocal, eventPricing]);
+
+  const handleDiscountBreakfastBlur = useCallback(() => {
+    if (!data) return;
+    const newVal = Math.min(Math.max(0, parseInt(discountBreakfastLocal) || 0), personStayDays);
+    setDiscountBreakfastLocal(String(newVal));
+    if (newVal === data.discount_breakfast) return;
+    setData((prev) => prev ? { ...prev, discount_breakfast: newVal } : prev);
+    saveField({ discount_breakfast: newVal });
+  }, [data, discountBreakfastLocal, personStayDays, saveField]);
+
+  const handleDiscountLunchBlur = useCallback(() => {
+    if (!data) return;
+    const newVal = Math.min(Math.max(0, parseInt(discountLunchLocal) || 0), personStayDays);
+    setDiscountLunchLocal(String(newVal));
+    if (newVal === data.discount_lunch) return;
+    setData((prev) => prev ? { ...prev, discount_lunch: newVal } : prev);
+    saveField({ discount_lunch: newVal });
+  }, [data, discountLunchLocal, personStayDays, saveField]);
+
+  const handleDiscountDinnerBlur = useCallback(() => {
+    if (!data) return;
+    const newVal = Math.min(Math.max(0, parseInt(discountDinnerLocal) || 0), personStayDays);
+    setDiscountDinnerLocal(String(newVal));
+    if (newVal === data.discount_dinner) return;
+    setData((prev) => prev ? { ...prev, discount_dinner: newVal } : prev);
+    saveField({ discount_dinner: newVal });
+  }, [data, discountDinnerLocal, personStayDays, saveField]);
+
   const handleDiscard = useCallback(async () => {
     await removeEventPerson(eventPersonId, eventId);
     onPersonRemoved(eventPersonId);
@@ -377,11 +598,11 @@ export function PersonDetailPanel({
       try {
         await removeMemberFromGroup(memberId, eventId);
         const updated = await getEventPersonDetail(eventPersonId);
-        setData(updated);
+        setData(normalizeDetail(updated));
       } catch {
         // Revert on error by refetching
         const updated = await getEventPersonDetail(eventPersonId);
-        setData(updated);
+        setData(normalizeDetail(updated));
       }
     },
     [eventPersonId, eventId]
@@ -398,12 +619,12 @@ export function PersonDetailPanel({
       try {
         await toggleInseparable(eventPersonId, partnerId, eventId);
         const updated = await getEventPersonDetail(eventPersonId);
-        setData(updated);
+        setData(normalizeDetail(updated));
         onBoardRefresh?.();
       } catch {
         // Revert on error by refetching
         const updated = await getEventPersonDetail(eventPersonId);
-        setData(updated);
+        setData(normalizeDetail(updated));
       }
     },
     [eventPersonId, eventId, onBoardRefresh]
@@ -557,23 +778,195 @@ export function PersonDetailPanel({
         {hasPricing && (() => {
           const ep = resolvedPrice;
           const paid = data.amount_paid != null ? Number(data.amount_paid) : 0;
-          const paidColor = ep != null && paid >= ep ? "text-success" : paid > 0 ? "text-warning" : "text-gray-400";
           const noRoomYet = eventPricing?.pricing_by_room_type && !data.room;
-          const paySummary = noRoomYet ? "Sin habitación" : ep != null ? `${paid} / ${ep} €` : paid > 0 ? `${paid} €` : "—";
+
+          // Compute discounts
+          const disc = computeDiscount({
+            eventDates: eventPricing?.event_dates,
+            dateArrival: data.date_arrival,
+            dateDeparture: data.date_departure,
+            dailyRate: resolvedPricing.dailyRate ?? null,
+            discountBreakfast: data.discount_breakfast,
+            discountLunch: data.discount_lunch,
+            discountDinner: data.discount_dinner,
+            mealCosts: eventPricing?.meal_costs,
+          });
+          const amountOwed = ep != null ? Math.max(0, ep - disc.total) : null;
+          const pending = amountOwed != null ? Math.max(0, amountOwed - paid) : null;
+          const hasDiscountConfig = (resolvedPricing.dailyRate != null) || (eventPricing?.meal_costs?.breakfast != null) || (eventPricing?.meal_costs?.lunch != null) || (eventPricing?.meal_costs?.dinner != null);
+          const hasActiveDiscount = disc.total > 0;
+
+          const displayPrice = amountOwed ?? ep;
+          const paidColor = displayPrice != null && paid >= displayPrice ? "text-success" : paid > 0 ? "text-warning" : "text-gray-400";
+          const paySummary = noRoomYet ? "Sin habitación" : displayPrice != null ? `${paid} / ${displayPrice} €` : paid > 0 ? `${paid} €` : "—";
+
           return (
             <CollapsibleSection label="Pago" summary={paySummary} open={openSections.has("Pago")} onToggle={() => toggleSection("Pago")}>
               <div className="space-y-2">
+                {/* Price label */}
                 {ep != null && (
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>Precio habitación:</span>
+                    <span className="font-medium text-gray-700">{ep.toFixed(2)} €</span>
+                  </div>
+                )}
+
+                {/* Discount section */}
+                {hasDiscountConfig && (
+                  <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-2 space-y-1.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Descuentos</p>
+
+                    {/* Date arrival/departure — only if event has 2+ nights and daily_rate configured */}
+                    {resolvedPricing.dailyRate != null && eventPricing?.event_dates && (() => {
+                      const evStart = eventPricing.event_dates.start.slice(0, 10);
+                      const evEnd = eventPricing.event_dates.end.slice(0, 10);
+                      const eventNights = Math.round((new Date(evEnd).getTime() - new Date(evStart).getTime()) / (1000 * 60 * 60 * 24));
+                      if (eventNights < 2) return null;
+
+                      // Effective arrival for computing departure min
+                      const effectiveArrival = dateArrivalLocal || evStart;
+                      const arrivalPlusOne = new Date(effectiveArrival);
+                      arrivalPlusOne.setDate(arrivalPlusOne.getDate() + 1);
+                      const depMin = arrivalPlusOne.toISOString().slice(0, 10);
+
+                      // Arrival max = event end - 1 (must leave room for at least 1 night)
+                      const arrMaxDate = new Date(evEnd);
+                      arrMaxDate.setDate(arrMaxDate.getDate() - 1);
+                      const arrMax = arrMaxDate.toISOString().slice(0, 10);
+
+                      return (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-gray-500 w-12">Llegada</span>
+                            <input
+                              type="date"
+                              value={dateArrivalLocal}
+                              placeholder={evStart}
+                              onChange={(e) => setDateArrivalLocal(e.target.value)}
+                              onBlur={handleDateArrivalBlur}
+                              min={evStart}
+                              max={arrMax}
+                              className="flex-1 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-xs outline-none focus:border-primary"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-gray-500 w-12">Salida</span>
+                            <input
+                              type="date"
+                              value={dateDepartureLocal}
+                              placeholder={evEnd}
+                              onChange={(e) => setDateDepartureLocal(e.target.value)}
+                              onBlur={handleDateDepartureBlur}
+                              min={depMin}
+                              max={evEnd}
+                              className="flex-1 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-xs outline-none focus:border-primary"
+                            />
+                          </div>
+                          {disc.daysLess > 0 && (
+                            <p className="text-[10px] text-primary">
+                              {disc.daysLess} día{disc.daysLess > 1 ? "s" : ""} menos × {resolvedPricing.dailyRate}€/día = -{disc.dayDiscount.toFixed(2)}€
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Meal discounts — max = person's stay days (departure - arrival) */}
+                    {(() => {
+                      const evS = eventPricing?.event_dates?.start?.slice(0, 10) ?? "";
+                      const evE = eventPricing?.event_dates?.end?.slice(0, 10) ?? "";
+                      const arr = dateArrivalLocal || evS;
+                      const dep = dateDepartureLocal || evE;
+                      const maxMeals = arr && dep ? Math.max(0, Math.round((new Date(dep).getTime() - new Date(arr).getTime()) / (1000 * 60 * 60 * 24))) : 999;
+
+                      return (
+                        <>
+                          {eventPricing?.meal_costs?.breakfast != null && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-gray-500 flex-1">Desayunos ×{eventPricing.meal_costs.breakfast}€</span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={maxMeals}
+                                value={discountBreakfastLocal}
+                                onChange={(e) => setDiscountBreakfastLocal(e.target.value)}
+                                onBlur={handleDiscountBreakfastBlur}
+                                className="w-12 rounded border border-gray-200 bg-white px-1 py-0.5 text-xs text-center outline-none focus:border-primary"
+                              />
+                              {(parseInt(discountBreakfastLocal) || 0) > 0 && (
+                                <span className="text-[10px] text-primary">-{((parseInt(discountBreakfastLocal) || 0) * eventPricing.meal_costs.breakfast).toFixed(2)}€</span>
+                              )}
+                            </div>
+                          )}
+                          {eventPricing?.meal_costs?.lunch != null && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-gray-500 flex-1">Comidas ×{eventPricing.meal_costs.lunch}€</span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={maxMeals}
+                                value={discountLunchLocal}
+                                onChange={(e) => setDiscountLunchLocal(e.target.value)}
+                                onBlur={handleDiscountLunchBlur}
+                                className="w-12 rounded border border-gray-200 bg-white px-1 py-0.5 text-xs text-center outline-none focus:border-primary"
+                              />
+                              {(parseInt(discountLunchLocal) || 0) > 0 && (
+                                <span className="text-[10px] text-primary">-{((parseInt(discountLunchLocal) || 0) * eventPricing.meal_costs.lunch).toFixed(2)}€</span>
+                              )}
+                            </div>
+                          )}
+                          {eventPricing?.meal_costs?.dinner != null && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-gray-500 flex-1">Cenas ×{eventPricing.meal_costs.dinner}€</span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={maxMeals}
+                                value={discountDinnerLocal}
+                                onChange={(e) => setDiscountDinnerLocal(e.target.value)}
+                                onBlur={handleDiscountDinnerBlur}
+                                className="w-12 rounded border border-gray-200 bg-white px-1 py-0.5 text-xs text-center outline-none focus:border-primary"
+                              />
+                              {(parseInt(discountDinnerLocal) || 0) > 0 && (
+                                <span className="text-[10px] text-primary">-{((parseInt(discountDinnerLocal) || 0) * eventPricing.meal_costs.dinner).toFixed(2)}€</span>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+
+                    {hasActiveDiscount && (
+                      <div className="flex items-center justify-between border-t border-gray-200 pt-1 text-xs">
+                        <span className="text-gray-500">Total descuento:</span>
+                        <span className="font-medium text-primary">-{disc.total.toFixed(2)} €</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Adjusted price */}
+                {hasActiveDiscount && amountOwed != null && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">Precio ajustado:</span>
+                    <span className="font-semibold text-gray-800">{amountOwed.toFixed(2)} €</span>
+                  </div>
+                )}
+
+                {/* Progress bar */}
+                {displayPrice != null && (
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
                       <div
-                        className={cn("h-full rounded-full transition-all", paid >= ep ? "bg-success" : paid > 0 ? "bg-warning" : "bg-gray-200")}
-                        style={{ width: `${Math.min(100, ep > 0 ? (paid / ep) * 100 : 0)}%` }}
+                        className={cn("h-full rounded-full transition-all", paid >= displayPrice ? "bg-success" : paid > 0 ? "bg-warning" : "bg-gray-200")}
+                        style={{ width: `${Math.min(100, displayPrice > 0 ? (paid / displayPrice) * 100 : 0)}%` }}
                       />
                     </div>
-                    <span className={cn("text-xs font-medium whitespace-nowrap", paidColor)}>{paid} / {ep} €</span>
+                    <span className={cn("text-xs font-medium whitespace-nowrap", paidColor)}>{paid} / {displayPrice} €</span>
                   </div>
                 )}
+
+                {/* Amount paid input */}
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-sm text-gray-400">payments</span>
                   <input
@@ -587,6 +980,16 @@ export function PersonDetailPanel({
                     className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
                   />
                 </div>
+
+                {/* Pending display */}
+                {pending != null && pending > 0 && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">Pendiente:</span>
+                    <span className="font-medium text-danger">{pending.toFixed(2)} €</span>
+                  </div>
+                )}
+
+                {/* Payment note */}
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-sm text-gray-400">note</span>
                   <input

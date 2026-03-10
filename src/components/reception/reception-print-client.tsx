@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReceptionPerson, ReceptionRoom, ReceptionPricing } from "@/lib/services/reception.service";
-import { resolvePrice } from "./reception-client";
+import { resolvePrice, resolveDiscount, resolveAmountOwed } from "./reception-client";
 
 type Props = {
   eventId: string;
@@ -27,7 +27,7 @@ function generateCsv(participants: ReceptionPerson[], eventName: string, pricing
     "Rol",
     "Habitación",
     "Estado",
-    ...(hasPricing ? ["Precio hab.", "Reserva", "Pagado", "Pendiente"] : []),
+    ...(hasPricing ? ["Precio hab.", "Descuento", "Precio ajustado", "Reserva", "Pagado", "Pendiente"] : []),
     "Teléfono",
     "Email",
     "Dieta",
@@ -37,8 +37,10 @@ function generateCsv(participants: ReceptionPerson[], eventName: string, pricing
 
   const rows = participants.map((p) => {
     const price = pricing ? resolvePrice(p, pricing) : null;
+    const discount = pricing ? resolveDiscount(p, pricing) : 0;
+    const owed = pricing ? resolveAmountOwed(p, pricing) : null;
     const paid = p.amount_paid ?? 0;
-    const pending = price != null ? Math.max(0, price - paid) : null;
+    const pending = owed != null ? Math.max(0, owed - paid) : null;
 
     return [
       p.person.name_full,
@@ -56,7 +58,9 @@ function generateCsv(participants: ReceptionPerson[], eventName: string, pricing
       ...(hasPricing
         ? [
             price != null ? `${price.toFixed(2)}` : "—",
-            pricing.depositAmount != null ? `${pricing.depositAmount.toFixed(2)}` : "—",
+            discount > 0 ? `${discount.toFixed(2)}` : "0.00",
+            owed != null ? `${owed.toFixed(2)}` : "—",
+            pricing!.depositAmount != null ? `${pricing!.depositAmount.toFixed(2)}` : "—",
             `${paid.toFixed(2)}`,
             pending != null ? `${pending.toFixed(2)}` : "—",
           ]
@@ -209,6 +213,8 @@ export function ReceptionPrintClient({
                 {hasPricing && (
                   <>
                     <th className="pb-1 text-right font-semibold">Precio</th>
+                    <th className="pb-1 text-right font-semibold">Desc.</th>
+                    <th className="pb-1 text-right font-semibold">Ajustado</th>
                     <th className="pb-1 text-right font-semibold">Pagado</th>
                     <th className="pb-1 text-right font-semibold">Pdte.</th>
                   </>
@@ -226,8 +232,10 @@ export function ReceptionPrintClient({
                   .filter(Boolean)
                   .join(", ");
                 const price = resolvePrice(p, pricing);
+                const disc = resolveDiscount(p, pricing);
+                const owed = resolveAmountOwed(p, pricing);
                 const paid = p.amount_paid ?? 0;
-                const pend = price != null ? Math.max(0, price - paid) : null;
+                const pend = owed != null ? Math.max(0, owed - paid) : null;
 
                 return (
                   <tr key={p.id} className="border-b border-gray-100">
@@ -239,6 +247,8 @@ export function ReceptionPrintClient({
                     {hasPricing && (
                       <>
                         <td className="py-1 text-right">{price != null ? `${price.toFixed(2)}€` : "—"}</td>
+                        <td className="py-1 text-right">{disc > 0 ? `-${disc.toFixed(2)}€` : "—"}</td>
+                        <td className="py-1 text-right">{owed != null ? `${owed.toFixed(2)}€` : "—"}</td>
                         <td className="py-1 text-right">{paid > 0 ? `${paid.toFixed(2)}€` : "—"}</td>
                         <td className={`py-1 text-right ${pend && pend > 0 ? "font-medium" : ""}`}>
                           {pend != null ? (pend > 0 ? `${pend.toFixed(2)}€` : "✓") : "—"}

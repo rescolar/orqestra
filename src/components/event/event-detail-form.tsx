@@ -13,6 +13,7 @@ type RoomPricingRow = {
   capacity: number;
   has_private_bathroom: boolean;
   price: number;
+  daily_rate?: number | null;
 };
 
 interface EventDetailFormProps {
@@ -30,6 +31,9 @@ interface EventDetailFormProps {
     deposit_amount: number | string | null;
     pricing_by_room_type?: boolean;
     room_pricings?: RoomPricingRow[];
+    meal_cost_breakfast?: number | string | null;
+    meal_cost_lunch?: number | string | null;
+    meal_cost_dinner?: number | string | null;
   };
 }
 
@@ -50,6 +54,10 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
   const [pricingByRoomType, setPricingByRoomType] = useState(event.pricing_by_room_type ?? false);
   const [roomPricings, setRoomPricings] = useState<RoomPricingRow[]>(event.room_pricings ?? []);
   const [editingPrices, setEditingPrices] = useState<Record<string, string>>({});
+  const [editingDailyRates, setEditingDailyRates] = useState<Record<string, string>>({});
+  const [mealBreakfast, setMealBreakfast] = useState(event.meal_cost_breakfast != null ? String(event.meal_cost_breakfast) : "");
+  const [mealLunch, setMealLunch] = useState(event.meal_cost_lunch != null ? String(event.meal_cost_lunch) : "");
+  const [mealDinner, setMealDinner] = useState(event.meal_cost_dinner != null ? String(event.meal_cost_dinner) : "");
   const [showDateConfirm, setShowDateConfirm] = useState(false);
   const [pendingDates, setPendingDates] = useState<{ start?: string; end?: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -63,7 +71,11 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
   const originalDeposit = event.deposit_amount != null ? String(event.deposit_amount) : "";
   const pricingModeChanged = pricingByRoomType !== (event.pricing_by_room_type ?? false);
   const roomPricingsChanged = JSON.stringify(roomPricings) !== JSON.stringify(event.room_pricings ?? []);
-  const pricingChanged = eventPrice !== originalPrice || depositAmount !== originalDeposit || pricingModeChanged || roomPricingsChanged;
+  const originalMealBreakfast = event.meal_cost_breakfast != null ? String(event.meal_cost_breakfast) : "";
+  const originalMealLunch = event.meal_cost_lunch != null ? String(event.meal_cost_lunch) : "";
+  const originalMealDinner = event.meal_cost_dinner != null ? String(event.meal_cost_dinner) : "";
+  const mealCostsChanged = mealBreakfast !== originalMealBreakfast || mealLunch !== originalMealLunch || mealDinner !== originalMealDinner;
+  const pricingChanged = eventPrice !== originalPrice || depositAmount !== originalDeposit || pricingModeChanged || roomPricingsChanged || mealCostsChanged;
 
   const isDirty =
     name !== event.name ||
@@ -113,6 +125,9 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
           event_price: eventPrice ? parseFloat(eventPrice) : null,
           deposit_amount: depositAmount ? parseFloat(depositAmount) : null,
           pricing_by_room_type: pricingByRoomType,
+          meal_cost_breakfast: mealBreakfast ? parseFloat(mealBreakfast) : null,
+          meal_cost_lunch: mealLunch ? parseFloat(mealLunch) : null,
+          meal_cost_dinner: mealDinner ? parseFloat(mealDinner) : null,
         });
         if (pricingByRoomType && (pricingModeChanged || roomPricingsChanged)) {
           await updateRoomPricings(
@@ -121,6 +136,7 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
               capacity: rp.capacity,
               has_private_bathroom: rp.has_private_bathroom,
               price: rp.price,
+              daily_rate: rp.daily_rate ?? null,
             }))
           );
         }
@@ -277,6 +293,7 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
                         <th className="px-3 py-2 text-left font-medium text-gray-600">Ocupación</th>
                         <th className="px-3 py-2 text-left font-medium text-gray-600">Baño</th>
                         <th className="px-3 py-2 text-right font-medium text-gray-600">Precio €</th>
+                        <th className="px-3 py-2 text-right font-medium text-gray-600">Coste/día €</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -322,6 +339,31 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
                                 className="w-24 rounded border border-gray-200 px-2 py-1 text-right text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                               />
                             </td>
+                            <td className="px-3 py-2 text-right">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min={0}
+                                value={editingDailyRates[key] ?? (rp.daily_rate != null ? String(rp.daily_rate) : "")}
+                                onChange={(e) => {
+                                  setEditingDailyRates((prev) => ({ ...prev, [key]: e.target.value }));
+                                }}
+                                onBlur={() => {
+                                  const raw = editingDailyRates[key];
+                                  const val = raw ? parseFloat(raw) : null;
+                                  setRoomPricings((prev) =>
+                                    prev.map((p, i) => (i === idx ? { ...p, daily_rate: val != null && !isNaN(val) && val >= 0 ? val : null } : p))
+                                  );
+                                  setEditingDailyRates((prev) => {
+                                    const next = { ...prev };
+                                    delete next[key];
+                                    return next;
+                                  });
+                                }}
+                                placeholder="Opc."
+                                className="w-24 rounded border border-gray-200 px-2 py-1 text-right text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
+                            </td>
                           </tr>
                         );
                       })}
@@ -335,6 +377,57 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
               )}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Meal costs */}
+      <div className="rounded-xl bg-white p-6 shadow-sm">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <UtensilsCrossed className="size-4 text-gray-400" />
+            <h3 className="text-sm font-semibold text-gray-700">Tarifas de comida (para descuentos)</h3>
+          </div>
+          <p className="text-xs text-gray-500">
+            Si un participante no asiste a algunas comidas, se le descontará del precio total.
+          </p>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="meal_breakfast" className="text-xs">Desayuno (€)</Label>
+              <Input
+                id="meal_breakfast"
+                type="number"
+                step="0.01"
+                min={0}
+                value={mealBreakfast}
+                onChange={(e) => setMealBreakfast(e.target.value)}
+                placeholder="Opcional"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="meal_lunch" className="text-xs">Comida (€)</Label>
+              <Input
+                id="meal_lunch"
+                type="number"
+                step="0.01"
+                min={0}
+                value={mealLunch}
+                onChange={(e) => setMealLunch(e.target.value)}
+                placeholder="Opcional"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="meal_dinner" className="text-xs">Cena (€)</Label>
+              <Input
+                id="meal_dinner"
+                type="number"
+                step="0.01"
+                min={0}
+                value={mealDinner}
+                onChange={(e) => setMealDinner(e.target.value)}
+                placeholder="Opcional"
+              />
+            </div>
+          </div>
         </div>
       </div>
 

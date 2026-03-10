@@ -22,6 +22,51 @@ export function resolvePrice(
   return pricing.eventPrice;
 }
 
+export function resolveDiscount(
+  person: ReceptionPerson,
+  pricing: ReceptionPricing
+): number {
+  let dayDiscount = 0;
+
+  // Day discount (only for pricing_by_room_type with daily_rate)
+  if (pricing.pricingByRoomType && person.room && pricing.eventDates) {
+    const match = pricing.roomPricings.find(
+      (rp) =>
+        rp.capacity === person.room!.capacity &&
+        rp.has_private_bathroom === person.room!.has_private_bathroom
+    );
+    const dailyRate = match?.daily_rate ?? null;
+    if (dailyRate) {
+      const eventStart = new Date(pricing.eventDates.start);
+      const eventEnd = new Date(pricing.eventDates.end);
+      const arrival = person.date_arrival ? new Date(person.date_arrival) : eventStart;
+      const departure = person.date_departure ? new Date(person.date_departure) : eventEnd;
+      const eventDays = Math.round((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24));
+      const personDays = Math.round((departure.getTime() - arrival.getTime()) / (1000 * 60 * 60 * 24));
+      dayDiscount = Math.max(0, eventDays - personDays) * dailyRate;
+    }
+  }
+
+  // Meal discount
+  const mc = pricing.mealCosts;
+  const mealDiscount =
+    (person.discount_breakfast * (mc?.breakfast ?? 0)) +
+    (person.discount_lunch * (mc?.lunch ?? 0)) +
+    (person.discount_dinner * (mc?.dinner ?? 0));
+
+  return dayDiscount + mealDiscount;
+}
+
+export function resolveAmountOwed(
+  person: ReceptionPerson,
+  pricing: ReceptionPricing
+): number | null {
+  const price = resolvePrice(person, pricing);
+  if (price == null) return null;
+  const discount = resolveDiscount(person, pricing);
+  return Math.max(0, price - discount);
+}
+
 type Props = {
   eventId: string;
   eventName: string;
@@ -42,7 +87,7 @@ function generateCsv(participants: ReceptionPerson[], eventName: string, pricing
     "Rol",
     "Habitación",
     "Estado",
-    ...(hasPricing ? ["Precio hab.", "Reserva", "Pagado", "Pendiente"] : []),
+    ...(hasPricing ? ["Precio hab.", "Descuento", "Precio ajustado", "Reserva", "Pagado", "Pendiente"] : []),
     "Teléfono",
     "Email",
     "Dieta",
@@ -52,8 +97,10 @@ function generateCsv(participants: ReceptionPerson[], eventName: string, pricing
 
   const rows = participants.map((p) => {
     const price = resolvePrice(p, pricing);
+    const discount = resolveDiscount(p, pricing);
+    const owed = resolveAmountOwed(p, pricing);
     const paid = p.amount_paid ?? 0;
-    const pending = price != null ? Math.max(0, price - paid) : null;
+    const pending = owed != null ? Math.max(0, owed - paid) : null;
 
     return [
       p.person.name_full,
@@ -71,6 +118,8 @@ function generateCsv(participants: ReceptionPerson[], eventName: string, pricing
       ...(hasPricing
         ? [
             price != null ? `${price.toFixed(2)}` : "—",
+            discount > 0 ? `${discount.toFixed(2)}` : "0.00",
+            owed != null ? `${owed.toFixed(2)}` : "—",
             pricing.depositAmount != null ? `${pricing.depositAmount.toFixed(2)}` : "—",
             `${paid.toFixed(2)}`,
             pending != null ? `${pending.toFixed(2)}` : "—",
@@ -143,14 +192,14 @@ export function ReceptionClient({
     let noPay = 0;
 
     for (const p of participants) {
-      const price = resolvePrice(p, pricing);
-      if (price != null) totalExpected += price;
+      const owed = resolveAmountOwed(p, pricing);
+      if (owed != null) totalExpected += owed;
       const paid = p.amount_paid ?? 0;
       totalPaid += paid;
 
       if (paid <= 0) {
         noPay++;
-      } else if (price != null && paid >= price) {
+      } else if (owed != null && paid >= owed) {
         fullyPaid++;
       } else if (pricing.depositAmount != null && paid >= pricing.depositAmount) {
         depositPaid++;

@@ -58,7 +58,7 @@ export async function createEvent(formData: FormData) {
 
 export async function createRoomsFromTypes(
   eventId: string,
-  types: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number }[],
+  types: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number; dailyRate?: number }[],
   pricingByRoomType?: boolean
 ) {
   const ctx = await requireAuth();
@@ -84,6 +84,9 @@ export async function updateEventDetails(
     event_price?: number | null;
     deposit_amount?: number | null;
     pricing_by_room_type?: boolean;
+    meal_cost_breakfast?: number | null;
+    meal_cost_lunch?: number | null;
+    meal_cost_dinner?: number | null;
   }
 ) {
   const ctx = await requireAuth();
@@ -98,7 +101,7 @@ export async function getRoomPricings(eventId: string) {
 
 export async function updateRoomPricings(
   eventId: string,
-  pricings: { capacity: number; has_private_bathroom: boolean; price: number }[]
+  pricings: { capacity: number; has_private_bathroom: boolean; price: number; daily_rate?: number | null }[]
 ) {
   const ctx = await requireAuth();
   await EventService.updateRoomPricings(eventId, ctx, pricings);
