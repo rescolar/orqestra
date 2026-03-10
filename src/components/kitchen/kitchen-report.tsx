@@ -71,6 +71,58 @@ export function KitchenReportClient({
     (r) => r.person.allergies_text
   ).length;
 
+  // Per-day meal totals + dietary breakdown by combination
+  const DIETARY_TAGS: { abbrev: string; matches: string[] }[] = [
+    { abbrev: "V", matches: ["vegetarian", "vegetariano", "vegano", "vegan"] },
+    { abbrev: "SG", matches: ["gluten_free", "sin gluten"] },
+    { abbrev: "SL", matches: ["lactose_free", "sin lactosa"] },
+  ];
+
+  function personDietKey(r: KitchenReportRow): string {
+    const tags = DIETARY_TAGS.filter((t) =>
+      r.person.dietary_requirements.some((d) => t.matches.includes(d.toLowerCase()))
+    ).map((t) => t.abbrev);
+    return tags.length > 0 ? tags.join(" + ") : "";
+  }
+
+  function personEatsOnDay(r: KitchenReportRow, dayIdx: number): boolean {
+    const md = r.meal_days.find((m) => m.day_index === dayIdx);
+    return !!md && (md.breakfast || md.lunch || md.dinner);
+  }
+
+  const mealTotals = dayHeaders.map((_, dayIdx) => {
+    let breakfast = 0, lunch = 0, dinner = 0;
+    for (const r of rows) {
+      const md = r.meal_days.find((m) => m.day_index === dayIdx);
+      if (md) {
+        if (md.breakfast) breakfast++;
+        if (md.lunch) lunch++;
+        if (md.dinner) dinner++;
+      }
+    }
+    return { breakfast, lunch, dinner };
+  });
+
+  // Group people by their unique dietary combination
+  const dietaryCombos = (() => {
+    const comboMap = new Map<string, KitchenReportRow[]>();
+    for (const r of rows) {
+      const key = personDietKey(r);
+      if (!key) continue;
+      const list = comboMap.get(key) || [];
+      list.push(r);
+      comboMap.set(key, list);
+    }
+    return Array.from(comboMap.entries())
+      .map(([label, people]) => ({
+        label,
+        perDay: dayHeaders.map((_, dayIdx) =>
+          people.filter((r) => personEatsOnDay(r, dayIdx)).length
+        ),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  })();
+
   function handleMealToggle(
     epId: string,
     dayIndex: number,
@@ -187,20 +239,73 @@ export function KitchenReportClient({
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="mb-6 grid grid-cols-3 gap-4 print:mb-4">
-        <div className="rounded-xl bg-white p-4 shadow-sm">
-          <p className="text-2xl font-bold text-gray-900">{totalPersons}</p>
-          <p className="text-sm text-gray-500">Total personas</p>
-        </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm">
-          <p className="text-2xl font-bold text-amber-600">{withDietary}</p>
-          <p className="text-sm text-gray-500">Con dieta especial</p>
-        </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm">
-          <p className="text-2xl font-bold text-red-600">{withAllergies}</p>
-          <p className="text-sm text-gray-500">Con alergias</p>
-        </div>
+      {/* Per-day meal KPIs */}
+      <div className="mb-6 overflow-x-auto rounded-xl bg-white shadow-sm print:mb-4">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50">
+              <th className="px-4 py-2 text-left font-semibold text-gray-700">
+                <span className="text-xs text-gray-400">{totalPersons} personas</span>
+                {(withDietary > 0 || withAllergies > 0) && (
+                  <span className="ml-2 text-xs text-gray-400">
+                    ({withDietary} dieta, {withAllergies} alergias)
+                  </span>
+                )}
+              </th>
+              {dayHeaders.map((h, i) => (
+                <th key={i} className="px-2 py-2 text-center font-semibold text-gray-700">
+                  <div className="text-xs leading-tight">{h.abbrev}</div>
+                  <div className="text-[10px] leading-tight text-gray-400">{h.dayNum}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-gray-100">
+              <td className="px-4 py-1.5 text-xs font-medium text-gray-600">Desayunos</td>
+              {mealTotals.map((t, i) => (
+                <td key={i} className="px-2 py-1.5 text-center text-sm font-semibold text-gray-900">
+                  {t.breakfast || <span className="text-gray-300">—</span>}
+                </td>
+              ))}
+            </tr>
+            <tr className="border-b border-gray-100">
+              <td className="px-4 py-1.5 text-xs font-medium text-gray-600">Almuerzos</td>
+              {mealTotals.map((t, i) => (
+                <td key={i} className="px-2 py-1.5 text-center text-sm font-semibold text-gray-900">
+                  {t.lunch || <span className="text-gray-300">—</span>}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="px-4 py-1.5 text-xs font-medium text-gray-600">Cenas</td>
+              {mealTotals.map((t, i) => (
+                <td key={i} className="px-2 py-1.5 text-center text-sm font-semibold text-gray-900">
+                  {t.dinner || <span className="text-gray-300">—</span>}
+                </td>
+              ))}
+            </tr>
+            {dietaryCombos.length > 0 && (
+              <tr>
+                <td colSpan={1 + dayHeaders.length} className="px-4 py-0">
+                  <div className="border-t border-gray-200" />
+                </td>
+              </tr>
+            )}
+            {dietaryCombos.map((dc) => (
+              <tr key={dc.label}>
+                <td className="px-4 py-1.5 text-xs font-medium text-amber-700">
+                  {dc.label}
+                </td>
+                {dc.perDay.map((count, i) => (
+                  <td key={i} className="px-2 py-1.5 text-center text-sm font-semibold text-amber-700">
+                    {count || <span className="text-gray-300">—</span>}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {/* Legend */}
@@ -208,7 +313,7 @@ export function KitchenReportClient({
         <span><strong>d</strong> = desayuno</span>
         <span><strong>a</strong> = almuerzo</span>
         <span><strong>c</strong> = cena</span>
-        <span className="ml-2 inline-block h-3 w-6 rounded bg-amber-50 border border-amber-200" /> = descuentos de comida pendientes
+        <span className="ml-2 inline-block h-3 w-6 rounded bg-amber-50 border border-amber-200" /> = necesita atención, puede requerir ajuste
       </div>
 
       {/* Table */}
