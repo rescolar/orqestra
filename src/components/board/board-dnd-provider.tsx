@@ -98,7 +98,9 @@ type BoardDndProviderProps = {
     event_price: number | null;
     deposit_amount: number | null;
     pricing_by_room_type?: boolean;
-    room_pricings?: { capacity: number; has_private_bathroom: boolean; price: number }[];
+    room_pricings?: { capacity: number; has_private_bathroom: boolean; price: number; daily_rate?: number | null }[];
+    meal_costs?: { breakfast: number | null; lunch: number | null; dinner: number | null };
+    event_dates?: { start: string; end: string };
   } | null;
 };
 

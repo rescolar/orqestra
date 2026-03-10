@@ -122,7 +122,7 @@ export const EventService = {
   async createRoomsFromTypes(
     eventId: string,
     ctx: AuthContext,
-    types: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number }[],
+    types: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number; dailyRate?: number }[],
     pricingByRoomType?: boolean
   ) {
     if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
@@ -161,6 +161,7 @@ export const EventService = {
           capacity: t.capacity,
           has_private_bathroom: t.hasPrivateBathroom,
           price: t.price!,
+          ...(t.dailyRate != null && { daily_rate: t.dailyRate }),
         }));
 
       // Deduplicate by capacity+bathroom (in case user added same combo twice)
@@ -194,7 +195,7 @@ export const EventService = {
   async updateRoomPricings(
     eventId: string,
     ctx: AuthContext,
-    pricings: { capacity: number; has_private_bathroom: boolean; price: number }[]
+    pricings: { capacity: number; has_private_bathroom: boolean; price: number; daily_rate?: number | null }[]
   ) {
     if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
 
@@ -202,7 +203,13 @@ export const EventService = {
     await db.roomPricing.deleteMany({ where: { event_id: eventId } });
     if (pricings.length > 0) {
       await db.roomPricing.createMany({
-        data: pricings.map((p) => ({ event_id: eventId, ...p })),
+        data: pricings.map((p) => ({
+          event_id: eventId,
+          capacity: p.capacity,
+          has_private_bathroom: p.has_private_bathroom,
+          price: p.price,
+          ...(p.daily_rate != null && { daily_rate: p.daily_rate }),
+        })),
       });
     }
   },
@@ -232,6 +239,9 @@ export const EventService = {
         event_price: true,
         deposit_amount: true,
         pricing_by_room_type: true,
+        meal_cost_breakfast: true,
+        meal_cost_lunch: true,
+        meal_cost_dinner: true,
         _count: { select: { rooms: true } },
       },
     });
@@ -258,6 +268,9 @@ export const EventService = {
       event_price?: number | null;
       deposit_amount?: number | null;
       pricing_by_room_type?: boolean;
+      meal_cost_breakfast?: number | null;
+      meal_cost_lunch?: number | null;
+      meal_cost_dinner?: number | null;
     }
   ) {
     if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
@@ -274,6 +287,9 @@ export const EventService = {
         ...(data.event_price !== undefined && { event_price: data.event_price }),
         ...(data.deposit_amount !== undefined && { deposit_amount: data.deposit_amount }),
         ...(data.pricing_by_room_type !== undefined && { pricing_by_room_type: data.pricing_by_room_type }),
+        ...(data.meal_cost_breakfast !== undefined && { meal_cost_breakfast: data.meal_cost_breakfast }),
+        ...(data.meal_cost_lunch !== undefined && { meal_cost_lunch: data.meal_cost_lunch }),
+        ...(data.meal_cost_dinner !== undefined && { meal_cost_dinner: data.meal_cost_dinner }),
       },
     });
   },

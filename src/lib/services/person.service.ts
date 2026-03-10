@@ -578,6 +578,11 @@ export const PersonService = {
       requests_managed?: boolean;
       amount_paid?: number | null;
       payment_note?: string | null;
+      date_arrival?: string | null;
+      date_departure?: string | null;
+      discount_breakfast?: number;
+      discount_lunch?: number;
+      discount_dinner?: number;
     }
   ) {
     const ep = await db.eventPerson.findFirst({
@@ -593,6 +598,8 @@ export const PersonService = {
       contact_address,
       dietary_requirements,
       allergies_text,
+      date_arrival,
+      date_departure,
       ...eventPersonData
     } = data;
 
@@ -612,9 +619,17 @@ export const PersonService = {
       });
     }
 
+    const epData: Record<string, unknown> = { ...eventPersonData };
+    if (date_arrival !== undefined) {
+      epData.date_arrival = date_arrival ? new Date(date_arrival) : null;
+    }
+    if (date_departure !== undefined) {
+      epData.date_departure = date_departure ? new Date(date_departure) : null;
+    }
+
     return db.eventPerson.update({
       where: { id: eventPersonId },
-      data: eventPersonData,
+      data: epData,
       include: {
         person: {
           select: {

@@ -24,6 +24,7 @@ type RoomType = {
   hasPrivateBathroom: boolean;
   quantity: number;
   price?: number;
+  dailyRate?: number;
 };
 
 type EditingState = {
@@ -32,6 +33,7 @@ type EditingState = {
   hasPrivateBathroom: boolean;
   quantity: string;
   price: string;
+  dailyRate: string;
 };
 
 export function RoomSetupForm({
@@ -52,6 +54,7 @@ export function RoomSetupForm({
   const [newBathroom, setNewBathroom] = useState(false);
   const [newQuantity, setNewQuantity] = useState("1");
   const [newPrice, setNewPrice] = useState("");
+  const [newDailyRate, setNewDailyRate] = useState("");
 
   // Edit state
   const [editing, setEditing] = useState<EditingState | null>(null);
@@ -73,6 +76,7 @@ export function RoomSetupForm({
         hasPrivateBathroom: newBathroom,
         quantity: newQuantityNum,
         ...(pricingByRoomType && { price: parseFloat(newPrice) }),
+        ...(pricingByRoomType && newDailyRate && { dailyRate: parseFloat(newDailyRate) }),
       },
     ]);
     // Reset
@@ -80,6 +84,7 @@ export function RoomSetupForm({
     setNewBathroom(false);
     setNewQuantity("1");
     setNewPrice("");
+    setNewDailyRate("");
   }
 
   function handleDelete(id: string) {
@@ -98,6 +103,7 @@ export function RoomSetupForm({
       hasPrivateBathroom: t.hasPrivateBathroom,
       quantity: String(t.quantity),
       price: t.price != null ? String(t.price) : "",
+      dailyRate: t.dailyRate != null ? String(t.dailyRate) : "",
     });
   }
 
@@ -116,6 +122,7 @@ export function RoomSetupForm({
               hasPrivateBathroom: editing.hasPrivateBathroom,
               quantity: qty,
               ...(pricingByRoomType && { price: parseFloat(editing.price) }),
+              ...(pricingByRoomType && editing.dailyRate ? { dailyRate: parseFloat(editing.dailyRate) } : { dailyRate: undefined }),
             }
           : t
       )
@@ -134,6 +141,7 @@ export function RoomSetupForm({
           hasPrivateBathroom: t.hasPrivateBathroom,
           quantity: t.quantity,
           ...(pricingByRoomType && t.price != null && { price: t.price }),
+          ...(pricingByRoomType && t.dailyRate != null && { dailyRate: t.dailyRate }),
         })),
         pricingByRoomType
       );
@@ -190,7 +198,7 @@ export function RoomSetupForm({
         </h2>
         <div className={`grid items-center gap-x-4 gap-y-2 ${
           showPriceCol
-            ? "grid-cols-[1fr_auto_1fr_1fr_auto]"
+            ? "grid-cols-[1fr_auto_1fr_1fr_1fr_auto]"
             : "grid-cols-[1fr_auto_1fr_auto]"
         }`}>
           <label className="text-xs font-medium text-gray-600">Capacidad</label>
@@ -198,6 +206,9 @@ export function RoomSetupForm({
           <label className="text-xs font-medium text-gray-600">Cantidad</label>
           {showPriceCol && (
             <label className="text-xs font-medium text-gray-600">Precio €</label>
+          )}
+          {showPriceCol && (
+            <label className="text-xs font-medium text-gray-600">Coste/día €</label>
           )}
           <span />
 
@@ -241,6 +252,18 @@ export function RoomSetupForm({
             />
           )}
 
+          {showPriceCol && (
+            <Input
+              type="number"
+              min={0}
+              step={0.01}
+              value={newDailyRate}
+              onChange={(e) => setNewDailyRate(e.target.value)}
+              placeholder="Opcional"
+              className="bg-white"
+            />
+          )}
+
           <Button onClick={handleAdd} size="sm">
             <Plus className="mr-1 size-4" />
             Añadir
@@ -277,6 +300,9 @@ export function RoomSetupForm({
                 <th className="px-4 py-3 font-medium text-gray-600">Cantidad</th>
                 {showPriceCol && (
                   <th className="px-4 py-3 font-medium text-gray-600">Precio €</th>
+                )}
+                {showPriceCol && (
+                  <th className="px-4 py-3 font-medium text-gray-600">Coste/día €</th>
                 )}
                 <th className="px-4 py-3 font-medium text-gray-600">Plazas totales</th>
                 <th className="hidden px-4 py-3 font-medium text-gray-600 sm:table-cell">
@@ -346,6 +372,21 @@ export function RoomSetupForm({
                             onChange={(e) =>
                               setEditing({ ...editing, price: e.target.value })
                             }
+                            className="w-24"
+                          />
+                        </td>
+                      )}
+                      {showPriceCol && (
+                        <td className="px-4 py-2.5">
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={editing.dailyRate}
+                            onChange={(e) =>
+                              setEditing({ ...editing, dailyRate: e.target.value })
+                            }
+                            placeholder="Opc."
                             className="w-24"
                           />
                         </td>
@@ -438,6 +479,14 @@ export function RoomSetupForm({
                           onClick={() => startEdit(t)}
                         >
                           {t.price != null ? `${t.price} €` : "—"}
+                        </td>
+                      )}
+                      {showPriceCol && (
+                        <td
+                          className="cursor-pointer px-4 py-2.5 text-gray-400"
+                          onClick={() => startEdit(t)}
+                        >
+                          {t.dailyRate != null ? `${t.dailyRate} €` : "—"}
                         </td>
                       )}
                       <td

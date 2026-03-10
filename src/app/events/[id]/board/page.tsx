@@ -46,7 +46,17 @@ export default async function BoardPage({
             capacity: rp.capacity,
             has_private_bathroom: rp.has_private_bathroom,
             price: Number(rp.price),
+            daily_rate: rp.daily_rate ? Number(rp.daily_rate) : null,
           })),
+          meal_costs: {
+            breakfast: event.meal_cost_breakfast ? Number(event.meal_cost_breakfast) : null,
+            lunch: event.meal_cost_lunch ? Number(event.meal_cost_lunch) : null,
+            dinner: event.meal_cost_dinner ? Number(event.meal_cost_dinner) : null,
+          },
+          event_dates: {
+            start: event.date_start.toISOString(),
+            end: event.date_end.toISOString(),
+          },
         }}
       />
     </div>

@@ -84,6 +84,11 @@ export async function updateEventPerson(
     requests_managed?: boolean;
     amount_paid?: number | null;
     payment_note?: string | null;
+    date_arrival?: string | null;
+    date_departure?: string | null;
+    discount_breakfast?: number;
+    discount_lunch?: number;
+    discount_dinner?: number;
   }
 ) {
   const ctx = await requireAuth();

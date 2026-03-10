@@ -11,6 +11,11 @@ export type ReceptionPerson = {
   payment_note: string | null;
   arrives_for_dinner: boolean;
   last_meal_lunch: boolean;
+  date_arrival: Date | null;
+  date_departure: Date | null;
+  discount_breakfast: number;
+  discount_lunch: number;
+  discount_dinner: number;
   requests_text: string | null;
   requests_managed: boolean;
   person: {
@@ -35,7 +40,13 @@ export type ReceptionPricing = {
   eventPrice: number | null;
   depositAmount: number | null;
   pricingByRoomType: boolean;
-  roomPricings: { capacity: number; has_private_bathroom: boolean; price: number }[];
+  roomPricings: { capacity: number; has_private_bathroom: boolean; price: number; daily_rate: number | null }[];
+  mealCosts: {
+    breakfast: number | null;
+    lunch: number | null;
+    dinner: number | null;
+  };
+  eventDates: { start: Date; end: Date };
 };
 
 export type ReceptionRoom = {
@@ -70,6 +81,9 @@ export const ReceptionService = {
         event_price: true,
         deposit_amount: true,
         pricing_by_room_type: true,
+        meal_cost_breakfast: true,
+        meal_cost_lunch: true,
+        meal_cost_dinner: true,
       },
     });
     if (!event) throw new Error("Evento no encontrado");
@@ -89,6 +103,11 @@ export const ReceptionService = {
           payment_note: true,
           arrives_for_dinner: true,
           last_meal_lunch: true,
+          date_arrival: true,
+          date_departure: true,
+          discount_breakfast: true,
+          discount_lunch: true,
+          discount_dinner: true,
           requests_text: true,
           requests_managed: true,
           person: {
@@ -117,7 +136,7 @@ export const ReceptionService = {
       event.pricing_by_room_type
         ? db.roomPricing.findMany({
             where: { event_id: eventId },
-            select: { capacity: true, has_private_bathroom: true, price: true },
+            select: { capacity: true, has_private_bathroom: true, price: true, daily_rate: true },
           })
         : Promise.resolve([]),
     ]);
@@ -136,7 +155,14 @@ export const ReceptionService = {
           capacity: rp.capacity,
           has_private_bathroom: rp.has_private_bathroom,
           price: Number(rp.price),
+          daily_rate: rp.daily_rate ? Number(rp.daily_rate) : null,
         })),
+        mealCosts: {
+          breakfast: event.meal_cost_breakfast ? Number(event.meal_cost_breakfast) : null,
+          lunch: event.meal_cost_lunch ? Number(event.meal_cost_lunch) : null,
+          dinner: event.meal_cost_dinner ? Number(event.meal_cost_dinner) : null,
+        },
+        eventDates: { start: event.date_start, end: event.date_end },
       },
     };
   },
