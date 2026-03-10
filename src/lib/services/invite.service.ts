@@ -168,6 +168,9 @@ export const InviteService = {
       where: {
         user_id: { in: orgUserIds },
         status: "active",
+        event_persons: {
+          some: { person_id: { in: personIds } },
+        },
       },
       include: {
         event_persons: {
