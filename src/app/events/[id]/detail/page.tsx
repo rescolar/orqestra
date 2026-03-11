@@ -28,9 +28,10 @@ export default async function DetailPage({
 
   if (!event) notFound();
 
-  const [collaborators, roomPricings] = await Promise.all([
+  const [collaborators, roomPricings, roomTypes] = await Promise.all([
     event.isOwner ? CollabService.getCollaborators(id) : Promise.resolve([]),
     event.pricing_by_room_type ? EventService.getRoomPricings(id, ctx) : Promise.resolve([]),
+    EventService.getRoomTypes(id, ctx),
   ]);
 
   return (
@@ -68,6 +69,7 @@ export default async function DetailPage({
             meal_cost_breakfast: event.meal_cost_breakfast ? Number(event.meal_cost_breakfast) : null,
             meal_cost_lunch: event.meal_cost_lunch ? Number(event.meal_cost_lunch) : null,
             meal_cost_dinner: event.meal_cost_dinner ? Number(event.meal_cost_dinner) : null,
+            room_types: roomTypes,
           }}
         />
 

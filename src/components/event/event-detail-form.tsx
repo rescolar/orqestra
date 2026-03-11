@@ -6,7 +6,9 @@ import { updateEventDetails, updateRoomPricings } from "@/lib/actions/event";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, DoorOpen, Users, Calendar, ImageIcon, UtensilsCrossed, Bath } from "lucide-react";
+import { ArrowLeft, Building2, DoorOpen, Users, Calendar, ImageIcon, UtensilsCrossed, Bath, Plus } from "lucide-react";
+import { addRoomsToEvent } from "@/lib/actions/event";
+import { SaveAsVenueButton } from "@/components/venue/save-as-venue-button";
 import Link from "next/link";
 
 type RoomPricingRow = {
@@ -34,6 +36,7 @@ interface EventDetailFormProps {
     meal_cost_breakfast?: number | string | null;
     meal_cost_lunch?: number | string | null;
     meal_cost_dinner?: number | string | null;
+    room_types?: { capacity: number; hasPrivateBathroom: boolean; quantity: number }[];
   };
 }
 
@@ -62,6 +65,14 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
   const [pendingDates, setPendingDates] = useState<{ start?: string; end?: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Room types state
+  const [roomTypes, setRoomTypes] = useState(event.room_types ?? []);
+  const [showAddRoom, setShowAddRoom] = useState(false);
+  const [newCapacity, setNewCapacity] = useState("2");
+  const [newBathroom, setNewBathroom] = useState(false);
+  const [newQuantity, setNewQuantity] = useState("1");
+  const [addingRooms, setAddingRooms] = useState(false);
 
   const originalDateStart = toInputDate(event.date_start);
   const originalDateEnd = toInputDate(event.date_end);
@@ -106,6 +117,43 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
     setShowDateConfirm(false);
     setPendingDates(null);
   };
+
+  async function handleAddRooms() {
+    const cap = parseInt(newCapacity) || 0;
+    const qty = parseInt(newQuantity) || 0;
+    if (cap < 1 || qty < 1) return;
+    setAddingRooms(true);
+    try {
+      await addRoomsToEvent(
+        event.id,
+        [{ capacity: cap, hasPrivateBathroom: newBathroom, quantity: qty }],
+        pricingByRoomType
+      );
+      // Update local state
+      const key = `${cap}-${newBathroom}`;
+      setRoomTypes((prev) => {
+        const existing = prev.find(
+          (t) => t.capacity === cap && t.hasPrivateBathroom === newBathroom
+        );
+        if (existing) {
+          return prev.map((t) =>
+            t.capacity === cap && t.hasPrivateBathroom === newBathroom
+              ? { ...t, quantity: t.quantity + qty }
+              : t
+          );
+        }
+        return [...prev, { capacity: cap, hasPrivateBathroom: newBathroom, quantity: qty }];
+      });
+      setNewCapacity("2");
+      setNewBathroom(false);
+      setNewQuantity("1");
+      setShowAddRoom(false);
+    } catch (e) {
+      // ignore
+    } finally {
+      setAddingRooms(false);
+    }
+  }
 
   async function handleSaveAndGo() {
     setError(null);
@@ -184,7 +232,7 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
         </div>
       </div>
 
-      {/* Name + Details */}
+      {/* Name + Description */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <div className="space-y-4">
           <div className="space-y-2">
@@ -207,6 +255,21 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
               className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Centro */}
+      <div className="rounded-xl bg-white p-6 shadow-sm">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Building2 className="size-4 text-gray-400" />
+              <h3 className="text-sm font-semibold text-gray-700">Centro</h3>
+            </div>
+            {roomTypes.length > 0 && (
+              <SaveAsVenueButton eventId={event.id} variant="ghost" />
+            )}
+          </div>
           <div className="space-y-2">
             <Label htmlFor="location">Ubicación</Label>
             <Input
@@ -216,6 +279,112 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
               placeholder="Casa de retiro, dirección..."
             />
           </div>
+
+          {/* Room types */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Habitaciones</Label>
+              <button
+                type="button"
+                onClick={() => setShowAddRoom(!showAddRoom)}
+                className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80"
+              >
+                <Plus className="size-3.5" />
+                Añadir tipo
+              </button>
+            </div>
+            {roomTypes.length > 0 ? (
+              <div className="overflow-hidden rounded-lg border border-gray-200">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">Capacidad</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">Baño</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-600">Cantidad</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-600">Plazas</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {roomTypes.map((t) => (
+                      <tr key={`${t.capacity}-${t.hasPrivateBathroom}`} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-gray-700">{t.capacity}</td>
+                        <td className="px-3 py-2">
+                          {t.hasPrivateBathroom ? (
+                            <Bath className="size-3.5 text-primary" />
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right text-gray-700">{t.quantity}</td>
+                        <td className="px-3 py-2 text-right text-gray-500">{t.capacity * t.quantity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t bg-gray-50 text-xs text-gray-500">
+                      <td colSpan={2} className="px-3 py-2 font-medium">Total</td>
+                      <td className="px-3 py-2 text-right font-medium">
+                        {roomTypes.reduce((s, t) => s + t.quantity, 0)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium">
+                        {roomTypes.reduce((s, t) => s + t.capacity * t.quantity, 0)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">Sin habitaciones configuradas.</p>
+            )}
+
+            {/* Add room inline form */}
+            {showAddRoom && (
+              <div className="flex items-end gap-3 rounded-lg border border-dashed border-gray-300 bg-slate-50 p-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Capacidad</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={newCapacity}
+                    onChange={(e) => setNewCapacity(e.target.value)}
+                    className="w-20 bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Baño</label>
+                  <button
+                    type="button"
+                    onClick={() => setNewBathroom(!newBathroom)}
+                    className={`flex size-10 items-center justify-center rounded-lg border transition-colors ${
+                      newBathroom
+                        ? "border-primary bg-primary text-white"
+                        : "border-gray-300 bg-white text-gray-400 hover:border-gray-400"
+                    }`}
+                  >
+                    <Bath className="size-4" />
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Cantidad</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={newQuantity}
+                    onChange={(e) => setNewQuantity(e.target.value)}
+                    className="w-20 bg-white"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleAddRooms}
+                  disabled={addingRooms}
+                >
+                  {addingRooms ? "Añadiendo..." : "Añadir"}
+                </Button>
+              </div>
+            )}
+          </div>
+
           {/* Pricing mode toggle */}
           <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
             <div>

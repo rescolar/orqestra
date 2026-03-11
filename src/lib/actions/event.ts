@@ -66,6 +66,55 @@ export async function createRoomsFromTypes(
   redirect(`/events/${eventId}/detail`);
 }
 
+export async function createEventWithVenue(formData: FormData, venueId: string) {
+  const ctx = await requireAuth();
+
+  const name = formData.get("name") as string;
+  const dateStart = formData.get("date_start") as string;
+  const dateEnd = formData.get("date_end") as string;
+  const estimatedParticipants = Number(formData.get("estimated_participants"));
+  const eventPriceRaw = formData.get("event_price") as string | null;
+  const depositAmountRaw = formData.get("deposit_amount") as string | null;
+
+  if (!name || !dateStart || !dateEnd || !estimatedParticipants) {
+    throw new Error("Todos los campos son obligatorios");
+  }
+
+  const eventPrice = eventPriceRaw ? parseFloat(eventPriceRaw) : null;
+  const depositAmount = depositAmountRaw ? parseFloat(depositAmountRaw) : null;
+
+  const event = await EventService.createEvent(ctx.id, {
+    name,
+    date_start: new Date(dateStart),
+    date_end: new Date(dateEnd),
+    estimated_participants: estimatedParticipants,
+    event_price: eventPrice && !isNaN(eventPrice) ? eventPrice : null,
+    deposit_amount: depositAmount && !isNaN(depositAmount) ? depositAmount : null,
+  });
+
+  // Copy rooms from venue
+  const { VenueService } = await import("@/lib/services/venue.service");
+  await VenueService.createEventRoomsFromVenue(event.id, venueId, ctx);
+
+  redirect(`/events/${event.id}/detail`);
+}
+
+export async function getRoomTypes(eventId: string) {
+  const ctx = await requireAuth();
+  return EventService.getRoomTypes(eventId, ctx);
+}
+
+export async function addRoomsToEvent(
+  eventId: string,
+  types: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number; dailyRate?: number }[],
+  pricingByRoomType?: boolean
+) {
+  const ctx = await requireAuth();
+  await EventService.addRoomsToEvent(eventId, ctx, types, pricingByRoomType);
+  revalidatePath(`/events/${eventId}/detail`);
+  revalidatePath(`/events/${eventId}/board`);
+}
+
 export async function updateParticipantDiscovery(eventId: string, enabled: boolean) {
   const ctx = await requireAuth();
   await EventService.updateParticipantDiscovery(eventId, ctx, enabled);

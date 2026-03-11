@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createRoomsFromTypes } from "@/lib/actions/event";
+import { saveVenueRoomsFromTypes } from "@/lib/actions/venue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -40,14 +41,25 @@ export function RoomSetupForm({
   eventId,
   estimatedParticipants,
   eventPrice,
+  mode = "event",
+  venueId,
+  initialTypes,
+  initialPricingByRoomType,
 }: {
-  eventId: string;
-  estimatedParticipants: number;
-  eventPrice: number | null;
+  eventId?: string;
+  estimatedParticipants?: number;
+  eventPrice?: number | null;
+  mode?: "event" | "venue";
+  venueId?: string;
+  initialTypes?: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number; dailyRate?: number }[];
+  initialPricingByRoomType?: boolean;
 }) {
-  const [types, setTypes] = useState<RoomType[]>([]);
+  const [types, setTypes] = useState<RoomType[]>(
+    () => initialTypes?.map((t) => ({ ...t, id: crypto.randomUUID() })) ?? []
+  );
   const [submitting, setSubmitting] = useState(false);
-  const [pricingByRoomType, setPricingByRoomType] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [pricingByRoomType, setPricingByRoomType] = useState(initialPricingByRoomType ?? false);
 
   // Add form state (strings to allow empty field while typing)
   const [newCapacity, setNewCapacity] = useState("2");
@@ -134,17 +146,22 @@ export function RoomSetupForm({
     if (types.length === 0) return;
     setSubmitting(true);
     try {
-      await createRoomsFromTypes(
-        eventId,
-        types.map((t) => ({
-          capacity: t.capacity,
-          hasPrivateBathroom: t.hasPrivateBathroom,
-          quantity: t.quantity,
-          ...(pricingByRoomType && t.price != null && { price: t.price }),
-          ...(pricingByRoomType && t.dailyRate != null && { dailyRate: t.dailyRate }),
-        })),
-        pricingByRoomType
-      );
+      const typeData = types.map((t) => ({
+        capacity: t.capacity,
+        hasPrivateBathroom: t.hasPrivateBathroom,
+        quantity: t.quantity,
+        ...(pricingByRoomType && t.price != null && { price: t.price }),
+        ...(pricingByRoomType && t.dailyRate != null && { dailyRate: t.dailyRate }),
+      }));
+
+      if (mode === "venue" && venueId) {
+        await saveVenueRoomsFromTypes(venueId, typeData, pricingByRoomType);
+        setSubmitting(false);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } else if (eventId) {
+        await createRoomsFromTypes(eventId, typeData, pricingByRoomType);
+      }
     } catch (e) {
       // redirect throws — re-throw
       if (e instanceof Error && "digest" in e) throw e;
@@ -184,9 +201,11 @@ export function RoomSetupForm({
           <p className="text-xs text-gray-500">
             {pricingByRoomType
               ? "Cada tipo de habitación tiene su propio precio."
-              : eventPrice
-                ? `Precio fijo: ${eventPrice} € por persona.`
-                : "No se ha definido precio. Puedes añadirlo en Detalles."}
+              : mode === "venue"
+                ? "Activa para definir precios por tipo de habitación en la plantilla."
+                : eventPrice
+                  ? `Precio fijo: ${eventPrice} € por persona.`
+                  : "No se ha definido precio. Puedes añadirlo en Detalles."}
           </p>
         </div>
       </div>
@@ -528,7 +547,7 @@ export function RoomSetupForm({
               <Users className="size-4 text-gray-400" />
               Total plazas: {totalSlots}
             </span>
-            {estimatedParticipants > 0 && (
+            {estimatedParticipants != null && estimatedParticipants > 0 && (
               <span
                 className={`text-xs ${
                   totalSlots >= estimatedParticipants
@@ -549,26 +568,40 @@ export function RoomSetupForm({
         <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
           <DoorOpen className="mx-auto size-10 text-gray-300" />
           <p className="mt-3 text-sm text-gray-400">
-            Añade tipos de habitación para configurar el evento
+            Añade tipos de habitación para configurar {mode === "venue" ? "el centro" : "el evento"}
           </p>
         </div>
       )}
 
       {/* Navigation */}
       <div className="flex items-center justify-between pt-2">
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-        >
-          <ArrowLeft className="size-4" />
-          Atrás
-        </Link>
-        <Button
-          onClick={handleSubmit}
-          disabled={types.length === 0 || submitting}
-        >
-          {submitting ? "Creando habitaciones..." : "Siguiente"}
-        </Button>
+        {mode === "venue" ? (
+          <span />
+        ) : (
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          >
+            <ArrowLeft className="size-4" />
+            Atrás
+          </Link>
+        )}
+        <div className="flex items-center gap-3">
+          {saved && (
+            <span className="flex items-center gap-1 text-xs text-emerald-600">
+              <Check className="size-3.5" />
+              Guardado
+            </span>
+          )}
+          <Button
+            onClick={handleSubmit}
+            disabled={types.length === 0 || submitting}
+          >
+            {submitting
+              ? mode === "venue" ? "Guardando..." : "Creando habitaciones..."
+              : mode === "venue" ? "Guardar habitaciones" : "Siguiente"}
+          </Button>
+        </div>
       </div>
     </div>
   );

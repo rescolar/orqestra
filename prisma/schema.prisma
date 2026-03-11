@@ -38,6 +38,7 @@ model User {
 
   persons        Person[]
   events         Event[]
+  venues         Venue[]
   self_person    Person[] @relation("SelfPerson")
   collaborations EventCollaborator[]
 
@@ -114,8 +115,10 @@ model Event {
   meal_cost_breakfast    Decimal?        @db.Decimal(10, 2)
   meal_cost_lunch        Decimal?        @db.Decimal(10, 2)
   meal_cost_dinner       Decimal?        @db.Decimal(10, 2)
+  venue_id               String?
 
   user                User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  venue               Venue?            @relation(fields: [venue_id], references: [id], onDelete: SetNull)
   event_persons       EventPerson[]
   rooms               Room[]
   groups              Group[]
@@ -401,4 +404,40 @@ model RelationshipInvite {
   event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
 
   @@map("relationship_invites")
+}
+
+// ─── Venue ──────────────────────────────────────────────────────────────────
+
+model Venue {
+  id                   String      @id @default(cuid())
+  user_id              String
+  name                 String
+  location             String?
+  notes                String?
+  pricing_by_room_type Boolean     @default(false)
+
+  user        User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  venue_rooms VenueRoom[]
+  events      Event[]
+
+  @@map("venues")
+}
+
+model VenueRoom {
+  id                   String            @id @default(cuid())
+  venue_id             String
+  internal_number      String
+  display_name         String?
+  icon                 String?
+  capacity             Int
+  has_private_bathroom Boolean           @default(false)
+  gender_restriction   GenderRestriction @default(mixed)
+  description          String?
+  tags                 String[]          @default([])
+  price                Decimal?          @db.Decimal(10, 2)
+  daily_rate           Decimal?          @db.Decimal(10, 2)
+
+  venue Venue @relation(fields: [venue_id], references: [id], onDelete: Cascade)
+
+  @@map("venue_rooms")
 }
