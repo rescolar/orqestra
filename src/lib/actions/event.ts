@@ -30,8 +30,6 @@ export async function createEvent(formData: FormData) {
   const dateStart = formData.get("date_start") as string;
   const dateEnd = formData.get("date_end") as string;
   const estimatedParticipants = Number(formData.get("estimated_participants"));
-  const eventPriceRaw = formData.get("event_price") as string | null;
-  const depositAmountRaw = formData.get("deposit_amount") as string | null;
 
   if (!name || !dateStart || !dateEnd || !estimatedParticipants) {
     throw new Error("Todos los campos son obligatorios");
@@ -41,16 +39,11 @@ export async function createEvent(formData: FormData) {
     throw new Error("El número de participantes debe ser al menos 1");
   }
 
-  const eventPrice = eventPriceRaw ? parseFloat(eventPriceRaw) : null;
-  const depositAmount = depositAmountRaw ? parseFloat(depositAmountRaw) : null;
-
   const event = await EventService.createEvent(ctx.id, {
     name,
     date_start: new Date(dateStart),
     date_end: new Date(dateEnd),
     estimated_participants: estimatedParticipants,
-    event_price: eventPrice && !isNaN(eventPrice) ? eventPrice : null,
-    deposit_amount: depositAmount && !isNaN(depositAmount) ? depositAmount : null,
   });
 
   redirect(`/events/${event.id}/setup`);
@@ -63,7 +56,47 @@ export async function createRoomsFromTypes(
 ) {
   const ctx = await requireAuth();
   await EventService.createRoomsFromTypes(eventId, ctx, types, pricingByRoomType);
-  redirect(`/events/${eventId}/detail`);
+  redirect(`/events/${eventId}/detail?from=wizard`);
+}
+
+export async function createRoomsFromTypesOnly(
+  eventId: string,
+  types: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number; dailyRate?: number }[],
+  pricingByRoomType?: boolean
+) {
+  const ctx = await requireAuth();
+  await EventService.createRoomsFromTypes(eventId, ctx, types, pricingByRoomType);
+}
+
+export async function saveEventSetupFields(
+  eventId: string,
+  data: {
+    location?: string | null;
+    event_price?: number | null;
+    deposit_amount?: number | null;
+    pricing_by_room_type?: boolean;
+    meal_cost_breakfast?: number | null;
+    meal_cost_lunch?: number | null;
+    meal_cost_dinner?: number | null;
+  }
+) {
+  const ctx = await requireAuth();
+  // Fetch current event to preserve existing fields
+  const current = await EventService.getEventForDetail(eventId, ctx);
+  if (!current) throw new Error("Evento no encontrado");
+  await EventService.updateEventDetails(eventId, ctx, {
+    name: current.name,
+    description: current.description,
+    location: data.location ?? null,
+    image_url: current.image_url,
+    event_price: data.event_price,
+    deposit_amount: data.deposit_amount,
+    pricing_by_room_type: data.pricing_by_room_type,
+    meal_cost_breakfast: data.meal_cost_breakfast,
+    meal_cost_lunch: data.meal_cost_lunch,
+    meal_cost_dinner: data.meal_cost_dinner,
+  });
+  revalidatePath(`/events/${eventId}/setup`);
 }
 
 export async function createEventWithVenue(formData: FormData, venueId: string) {
@@ -73,30 +106,23 @@ export async function createEventWithVenue(formData: FormData, venueId: string) 
   const dateStart = formData.get("date_start") as string;
   const dateEnd = formData.get("date_end") as string;
   const estimatedParticipants = Number(formData.get("estimated_participants"));
-  const eventPriceRaw = formData.get("event_price") as string | null;
-  const depositAmountRaw = formData.get("deposit_amount") as string | null;
 
   if (!name || !dateStart || !dateEnd || !estimatedParticipants) {
     throw new Error("Todos los campos son obligatorios");
   }
-
-  const eventPrice = eventPriceRaw ? parseFloat(eventPriceRaw) : null;
-  const depositAmount = depositAmountRaw ? parseFloat(depositAmountRaw) : null;
 
   const event = await EventService.createEvent(ctx.id, {
     name,
     date_start: new Date(dateStart),
     date_end: new Date(dateEnd),
     estimated_participants: estimatedParticipants,
-    event_price: eventPrice && !isNaN(eventPrice) ? eventPrice : null,
-    deposit_amount: depositAmount && !isNaN(depositAmount) ? depositAmount : null,
   });
 
   // Copy rooms from venue
   const { VenueService } = await import("@/lib/services/venue.service");
   await VenueService.createEventRoomsFromVenue(event.id, venueId, ctx);
 
-  redirect(`/events/${event.id}/detail`);
+  redirect(`/events/${event.id}/setup`);
 }
 
 export async function getRoomTypes(eventId: string) {
