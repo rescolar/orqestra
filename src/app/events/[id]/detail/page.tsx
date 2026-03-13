@@ -44,30 +44,33 @@ export default async function DetailPage({
       <div className="mx-auto max-w-3xl px-4 py-10">
         {isWizard && <WizardStepper steps={STEPS} currentStep={2} />}
 
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">{event.name}</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {isWizard ? "Detalles opcionales del evento" : "Editar evento"}
-          </p>
-          {!isWizard && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {[
-                { href: `/events/${id}/kitchen`, label: "Informe cocina" },
-                { href: `/events/${id}/detail#collaborators`, label: "Co-organizadores" },
-                { href: `/events/${id}/schedule`, label: "Programa" },
-                { href: `/events/${id}/reception`, label: "Recepción" },
-              ].map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+        {isWizard && (
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">{event.name}</h1>
+            <p className="mt-1 text-sm text-gray-500">Detalles opcionales del evento</p>
+          </div>
+        )}
+
+        {!isWizard && (
+          <div className="mb-6 flex flex-wrap gap-2">
+            {[
+              { href: `/events/${id}/board`, label: "Tablero", icon: "dashboard" },
+              { href: `/events/${id}/kitchen`, label: "Informe cocina", icon: "restaurant" },
+              { href: `/events/${id}/detail#collaborators`, label: "Co-organizadores", icon: "group" },
+              { href: `/events/${id}/schedule`, label: "Programa", icon: "calendar_month" },
+              { href: `/events/${id}/reception`, label: "Recepción", icon: "how_to_reg" },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary hover:bg-primary/10"
+              >
+                <span className="material-symbols-outlined text-base">{link.icon}</span>
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        )}
 
         <EventDetailForm
           isWizard={isWizard}

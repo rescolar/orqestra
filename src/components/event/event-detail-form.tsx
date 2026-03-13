@@ -157,6 +157,32 @@ export function EventDetailForm({ isWizard, event }: EventDetailFormProps) {
 
   return (
     <div className="space-y-6">
+      {/* Name + Description */}
+      <div className="rounded-xl bg-white p-6 shadow-sm">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Nombre del evento</Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="description">Descripción</Label>
+            <textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe tu evento..."
+              rows={4}
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Image URL + Preview */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <div className="space-y-4">
@@ -186,32 +212,6 @@ export function EventDetailForm({ isWizard, event }: EventDetailFormProps) {
               <ImageIcon className="size-10" />
               <span className="text-sm">Sin imagen</span>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Name + Description */}
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Nombre del evento</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Descripción</Label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe tu evento..."
-              rows={4}
-              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            />
           </div>
         </div>
       </div>
