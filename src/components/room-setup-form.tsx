@@ -213,10 +213,13 @@ export function RoomSetupForm({
     const cap = parseInt(editing.capacity) || 0;
     const qty = parseInt(editing.quantity) || 0;
     if (cap < 1 || qty < 1) return;
-    if (pricingByRoomType && (!editing.price || parseFloat(editing.price) <= 0)) return;
+    // Require price when pricing by room type — but not for existing types in event-edit mode
+    // (existing rooms already have their pricing set via RoomPricing records)
+    const editTypeKey = `${cap}-${editing.hasPrivateBathroom}`;
+    const isExistingInEdit = isEventEdit && editTypeKey in initialMinQuantities;
+    if (pricingByRoomType && !isExistingInEdit && (!editing.price || parseFloat(editing.price) <= 0)) return;
 
     // Enforce minimum quantity in event-edit mode for existing types
-    const editTypeKey = `${cap}-${editing.hasPrivateBathroom}`;
     const minQty = initialMinQuantities[editTypeKey];
     if (isEventEdit && minQty != null && qty < minQty) {
       setEditing({ ...editing, quantity: String(minQty) });
@@ -239,7 +242,7 @@ export function RoomSetupForm({
       capacity: cap,
       hasPrivateBathroom: editing.hasPrivateBathroom,
       quantity: qty,
-      ...(pricingByRoomType && { price: parseFloat(editing.price) }),
+      ...(pricingByRoomType && editing.price ? { price: parseFloat(editing.price) } : {}),
       ...(pricingByRoomType && editing.dailyRate ? { dailyRate: parseFloat(editing.dailyRate) } : { dailyRate: undefined }),
     };
 
@@ -678,7 +681,7 @@ export function RoomSetupForm({
                           className="px-4 py-2.5 cursor-pointer"
                           onClick={() => startEdit(t)}
                         >
-                          {t.price != null ? `${t.price} €` : "—"}
+                          {t.price != null && !isNaN(t.price) ? `${t.price} €` : "—"}
                         </td>
                       )}
                       {showPriceCol && (
