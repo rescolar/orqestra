@@ -66,12 +66,12 @@ export function BoardHeader({
         >
           <span className="material-symbols-outlined text-xl">grid_view</span>
         </Link>
-        <div>
-          <h1 className="text-xl font-bold text-primary">{eventName}</h1>
-          <p className="text-sm text-gray-400">
+        <Link href={`/events/${eventId}/detail`} className="group">
+          <h1 className="text-xl font-bold text-primary group-hover:underline">{eventName}</h1>
+          <p className="text-sm text-gray-400 group-hover:text-gray-500">
             {formatDateRange(dateStart, dateEnd)}
           </p>
-        </div>
+        </Link>
       </div>
 
       <div className="flex items-center gap-2">
