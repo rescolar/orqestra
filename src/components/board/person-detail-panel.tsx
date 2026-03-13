@@ -774,6 +774,19 @@ export function PersonDetailPanel({
           </select>
         </CollapsibleSection>
 
+        {/* Relations — auto-open during drag so droppable is mounted */}
+        <CollapsibleSection label="Relaciones" summary={relationsSummary} open={openSections.has("Relaciones")} onToggle={() => toggleSection("Relaciones")} forceOpen={relationsIsOver || isDragActive}>
+          <RelationsDropZone
+            eventPersonId={data.id}
+            inseparableWithId={data.companion_id}
+            otherMembers={otherMembers}
+            onRemoveMember={handleRemoveMember}
+            onToggleInseparable={handleToggleInseparable}
+            onPersonClick={onPersonClick}
+            onIsOverChange={setRelationsIsOver}
+          />
+        </CollapsibleSection>
+
         {/* Payment — only when event has pricing */}
         {hasPricing && (() => {
           const ep = resolvedPrice;
@@ -1061,19 +1074,6 @@ export function PersonDetailPanel({
               />
             </div>
           </div>
-        </CollapsibleSection>
-
-        {/* Relations — auto-open during drag so droppable is mounted */}
-        <CollapsibleSection label="Relaciones" summary={relationsSummary} open={openSections.has("Relaciones")} onToggle={() => toggleSection("Relaciones")} forceOpen={relationsIsOver || isDragActive}>
-          <RelationsDropZone
-            eventPersonId={data.id}
-            inseparableWithId={data.companion_id}
-            otherMembers={otherMembers}
-            onRemoveMember={handleRemoveMember}
-            onToggleInseparable={handleToggleInseparable}
-            onPersonClick={onPersonClick}
-            onIsOverChange={setRelationsIsOver}
-          />
         </CollapsibleSection>
 
         {/* Dietary */}
