@@ -449,12 +449,6 @@ export function EventDetailForm({ isWizard, event }: EventDetailFormProps) {
           </Link>
         )}
         <div className="flex gap-3">
-          <Link href={`/events/${event.id}/kitchen`}>
-            <Button variant="outline" size="sm">
-              <UtensilsCrossed className="mr-1 size-4" />
-              Informe cocina
-            </Button>
-          </Link>
           {!isDirty && (
             <Link href={`/events/${event.id}/board`}>
               <Button variant="outline">Ir al tablero</Button>

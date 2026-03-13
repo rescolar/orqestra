@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { EventService } from "@/lib/services/event.service";
 import { CollabService } from "@/lib/services/collab.service";
 import { EventDetailForm } from "@/components/event/event-detail-form";
@@ -48,6 +49,24 @@ export default async function DetailPage({
           <p className="mt-1 text-sm text-gray-500">
             {isWizard ? "Detalles opcionales del evento" : "Editar evento"}
           </p>
+          {!isWizard && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                { href: `/events/${id}/kitchen`, label: "Informe cocina" },
+                { href: `/events/${id}/detail#collaborators`, label: "Co-organizadores" },
+                { href: `/events/${id}/schedule`, label: "Programa" },
+                { href: `/events/${id}/reception`, label: "Recepción" },
+              ].map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         <EventDetailForm
@@ -78,7 +97,7 @@ export default async function DetailPage({
           }}
         />
 
-        <div className="mt-8 space-y-6 rounded-2xl border bg-white p-6">
+        <div id="collaborators" className="mt-8 space-y-6 rounded-2xl border bg-white p-6">
           <CollaboratorsSection
             eventId={id}
             collaborators={collaborators}
