@@ -184,6 +184,92 @@ export const EventService = {
     }
   },
 
+  async getRoomTypes(eventId: string, ctx: AuthContext) {
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
+
+    const rooms = await db.room.findMany({
+      where: { event_id: eventId },
+      select: { capacity: true, has_private_bathroom: true },
+      orderBy: [{ capacity: "asc" }, { has_private_bathroom: "asc" }],
+    });
+
+    const typeMap = new Map<string, { capacity: number; hasPrivateBathroom: boolean; quantity: number }>();
+    for (const r of rooms) {
+      const key = `${r.capacity}-${r.has_private_bathroom}`;
+      const existing = typeMap.get(key);
+      if (existing) {
+        existing.quantity += 1;
+      } else {
+        typeMap.set(key, { capacity: r.capacity, hasPrivateBathroom: r.has_private_bathroom, quantity: 1 });
+      }
+    }
+
+    return Array.from(typeMap.values());
+  },
+
+  async addRoomsToEvent(
+    eventId: string,
+    ctx: AuthContext,
+    types: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number; dailyRate?: number }[],
+    pricingByRoomType?: boolean
+  ) {
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
+
+    // Get current max internal_number to continue numbering
+    const existingRooms = await db.room.findMany({
+      where: { event_id: eventId },
+      select: { internal_number: true },
+      orderBy: { internal_number: "desc" },
+      take: 1,
+    });
+
+    let counter = existingRooms.length > 0
+      ? parseInt(existingRooms[0].internal_number) + 1
+      : 1;
+
+    const rooms: {
+      event_id: string;
+      internal_number: string;
+      display_name: string;
+      capacity: number;
+      has_private_bathroom: boolean;
+    }[] = [];
+
+    for (const type of types) {
+      for (let i = 0; i < type.quantity; i++) {
+        const num = String(counter).padStart(2, "0");
+        rooms.push({
+          event_id: eventId,
+          internal_number: num,
+          display_name: `Hab ${num}`,
+          capacity: type.capacity,
+          has_private_bathroom: type.hasPrivateBathroom,
+        });
+        counter++;
+      }
+    }
+
+    await db.room.createMany({ data: rooms });
+
+    // Upsert room pricings if pricing by room type
+    if (pricingByRoomType) {
+      for (const t of types) {
+        if (t.price == null) continue;
+        const key = { event_id: eventId, capacity: t.capacity, has_private_bathroom: t.hasPrivateBathroom };
+        await db.roomPricing.upsert({
+          where: { event_id_capacity_has_private_bathroom: key },
+          update: { price: t.price, ...(t.dailyRate != null && { daily_rate: t.dailyRate }) },
+          create: { ...key, price: t.price, ...(t.dailyRate != null && { daily_rate: t.dailyRate }) },
+        });
+      }
+
+      await db.event.update({
+        where: { id: eventId },
+        data: { pricing_by_room_type: true },
+      });
+    }
+  },
+
   async getRoomPricings(eventId: string, ctx: AuthContext) {
     if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
     return db.roomPricing.findMany({

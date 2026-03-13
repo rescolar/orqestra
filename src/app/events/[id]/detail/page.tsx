@@ -10,42 +10,48 @@ import { WizardStepper } from "@/components/event/wizard-stepper";
 
 const STEPS = [
   { label: "Datos" },
-  { label: "Habitaciones" },
+  { label: "Centro" },
   { label: "Detalles" },
 ];
 
 export default async function DetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const { id } = await params;
+  const { from } = await searchParams;
+  const isWizard = from === "wizard";
   const ctx = { userId: session.user.id, role: session.user.role };
   const event = await EventService.getEventForDetail(id, ctx);
 
   if (!event) notFound();
 
-  const [collaborators, roomPricings] = await Promise.all([
+  const [collaborators, roomPricings, roomTypes] = await Promise.all([
     event.isOwner ? CollabService.getCollaborators(id) : Promise.resolve([]),
     event.pricing_by_room_type ? EventService.getRoomPricings(id, ctx) : Promise.resolve([]),
+    EventService.getRoomTypes(id, ctx),
   ]);
 
   return (
     <div className="min-h-screen bg-surface">
       <div className="mx-auto max-w-3xl px-4 py-10">
-        <WizardStepper steps={STEPS} currentStep={2} />
+        {isWizard && <WizardStepper steps={STEPS} currentStep={2} />}
 
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">{event.name}</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Detalles opcionales del evento
+            {isWizard ? "Detalles opcionales del evento" : "Editar evento"}
           </p>
         </div>
 
         <EventDetailForm
+          isWizard={isWizard}
           event={{
             id: event.id,
             name: event.name,
@@ -68,6 +74,7 @@ export default async function DetailPage({
             meal_cost_breakfast: event.meal_cost_breakfast ? Number(event.meal_cost_breakfast) : null,
             meal_cost_lunch: event.meal_cost_lunch ? Number(event.meal_cost_lunch) : null,
             meal_cost_dinner: event.meal_cost_dinner ? Number(event.meal_cost_dinner) : null,
+            room_types: roomTypes,
           }}
         />
 

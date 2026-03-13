@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { createRoomsFromTypes } from "@/lib/actions/event";
+import { useState, useEffect, useRef } from "react";
+import { createRoomsFromTypes, addRoomsToEvent } from "@/lib/actions/event";
+import { saveVenueRoomsFromTypes } from "@/lib/actions/venue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -40,14 +41,44 @@ export function RoomSetupForm({
   eventId,
   estimatedParticipants,
   eventPrice,
+  mode = "event",
+  venueId,
+  initialTypes,
+  initialPricingByRoomType,
+  onRoomsAdded,
+  onPricingChange,
+  hideNavigation,
+  onTypesChange,
 }: {
-  eventId: string;
-  estimatedParticipants: number;
-  eventPrice: number | null;
+  eventId?: string;
+  estimatedParticipants?: number;
+  eventPrice?: number | null;
+  mode?: "event" | "venue" | "event-edit";
+  venueId?: string;
+  initialTypes?: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number; dailyRate?: number }[];
+  initialPricingByRoomType?: boolean;
+  onRoomsAdded?: () => void;
+  onPricingChange?: (enabled: boolean) => void;
+  hideNavigation?: boolean;
+  onTypesChange?: (types: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number; dailyRate?: number }[], pricingByRoomType: boolean) => void;
 }) {
-  const [types, setTypes] = useState<RoomType[]>([]);
+  const [types, setTypes] = useState<RoomType[]>(
+    () => initialTypes?.map((t) => ({ ...t, id: crypto.randomUUID() })) ?? []
+  );
+
+  // Track initial quantities as minimums for event-edit mode
+  const [initialMinQuantities] = useState<Record<string, number>>(() => {
+    const map: Record<string, number> = {};
+    if (initialTypes) {
+      for (const t of initialTypes) {
+        map[`${t.capacity}-${t.hasPrivateBathroom}`] = t.quantity;
+      }
+    }
+    return map;
+  });
   const [submitting, setSubmitting] = useState(false);
-  const [pricingByRoomType, setPricingByRoomType] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [pricingByRoomType, setPricingByRoomType] = useState(initialPricingByRoomType ?? false);
 
   // Add form state (strings to allow empty field while typing)
   const [newCapacity, setNewCapacity] = useState("2");
@@ -58,6 +89,29 @@ export function RoomSetupForm({
 
   // Edit state
   const [editing, setEditing] = useState<EditingState | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [editDuplicateWarning, setEditDuplicateWarning] = useState<string | null>(null);
+  const [quantityMinWarning, setQuantityMinWarning] = useState(false);
+  const [priceError, setPriceError] = useState(false);
+
+  // Notify parent of types/pricing changes
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    onTypesChange?.(
+      types.map((t) => ({
+        capacity: t.capacity,
+        hasPrivateBathroom: t.hasPrivateBathroom,
+        quantity: t.quantity,
+        ...(t.price != null && { price: t.price }),
+        ...(t.dailyRate != null && { dailyRate: t.dailyRate }),
+      })),
+      pricingByRoomType
+    );
+  }, [types, pricingByRoomType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const newCapacityNum = parseInt(newCapacity) || 0;
   const newQuantityNum = parseInt(newQuantity) || 0;
@@ -65,26 +119,71 @@ export function RoomSetupForm({
   const totalRooms = types.reduce((sum, t) => sum + t.quantity, 0);
   const totalSlots = types.reduce((sum, t) => sum + t.capacity * t.quantity, 0);
 
-  function handleAdd() {
+  async function handleAdd() {
     if (newCapacityNum < 1 || newQuantityNum < 1) return;
-    if (pricingByRoomType && (!newPrice || parseFloat(newPrice) <= 0)) return;
-    setTypes((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        capacity: newCapacityNum,
-        hasPrivateBathroom: newBathroom,
-        quantity: newQuantityNum,
-        ...(pricingByRoomType && { price: parseFloat(newPrice) }),
-        ...(pricingByRoomType && newDailyRate && { dailyRate: parseFloat(newDailyRate) }),
-      },
-    ]);
+
+    // Check duplicates BEFORE price validation so warning always shows
+    const existing = types.find(
+      (t) => t.capacity === newCapacityNum && t.hasPrivateBathroom === newBathroom
+    );
+    if (existing) {
+      setDuplicateWarning("Ya existe este tipo. Edita la cantidad en la tabla.");
+      startEdit(existing);
+      return;
+    }
+
+    if (pricingByRoomType && (!newPrice || parseFloat(newPrice) <= 0)) {
+      setPriceError(true);
+      return;
+    }
+
+    const newType = {
+      capacity: newCapacityNum,
+      hasPrivateBathroom: newBathroom,
+      quantity: newQuantityNum,
+      ...(pricingByRoomType && { price: parseFloat(newPrice) }),
+      ...(pricingByRoomType && newDailyRate && { dailyRate: parseFloat(newDailyRate) }),
+    };
+
+    if (mode === "event-edit" && eventId) {
+      setSubmitting(true);
+      try {
+        await addRoomsToEvent(eventId, [newType], pricingByRoomType);
+        // Merge into existing types
+        setTypes((prev) => {
+          const existing = prev.find(
+            (t) => t.capacity === newType.capacity && t.hasPrivateBathroom === newType.hasPrivateBathroom
+          );
+          if (existing) {
+            return prev.map((t) =>
+              t.capacity === newType.capacity && t.hasPrivateBathroom === newType.hasPrivateBathroom
+                ? { ...t, quantity: t.quantity + newType.quantity }
+                : t
+            );
+          }
+          return [...prev, { ...newType, id: crypto.randomUUID() }];
+        });
+        onRoomsAdded?.();
+      } catch {
+        // ignore
+      } finally {
+        setSubmitting(false);
+      }
+    } else {
+      setTypes((prev) => [
+        ...prev,
+        { ...newType, id: crypto.randomUUID() },
+      ]);
+    }
+
     // Reset
     setNewCapacity("2");
     setNewBathroom(false);
     setNewQuantity("1");
     setNewPrice("");
     setNewDailyRate("");
+    setDuplicateWarning(null);
+    setPriceError(false);
   }
 
   function handleDelete(id: string) {
@@ -97,6 +196,8 @@ export function RoomSetupForm({
     if (editing && editing.id !== t.id) {
       saveEdit();
     }
+    setEditDuplicateWarning(null);
+    setQuantityMinWarning(false);
     setEditing({
       id: t.id,
       capacity: String(t.capacity),
@@ -107,23 +208,67 @@ export function RoomSetupForm({
     });
   }
 
-  function saveEdit() {
+  async function saveEdit() {
     if (!editing) return;
     const cap = parseInt(editing.capacity) || 0;
     const qty = parseInt(editing.quantity) || 0;
     if (cap < 1 || qty < 1) return;
-    if (pricingByRoomType && (!editing.price || parseFloat(editing.price) <= 0)) return;
+    // Require price when pricing by room type — but not for existing types in event-edit mode
+    // (existing rooms already have their pricing set via RoomPricing records)
+    const editTypeKey = `${cap}-${editing.hasPrivateBathroom}`;
+    const isExistingInEdit = isEventEdit && editTypeKey in initialMinQuantities;
+    if (pricingByRoomType && !isExistingInEdit && (!editing.price || parseFloat(editing.price) <= 0)) return;
+
+    // Enforce minimum quantity in event-edit mode for existing types
+    const minQty = initialMinQuantities[editTypeKey];
+    if (isEventEdit && minQty != null && qty < minQty) {
+      setEditing({ ...editing, quantity: String(minQty) });
+      setQuantityMinWarning(true);
+      return;
+    }
+    setQuantityMinWarning(false);
+
+    // Check if another row already has this capacity+bathroom combo
+    const duplicate = types.find(
+      (t) => t.id !== editing.id && t.capacity === cap && t.hasPrivateBathroom === editing.hasPrivateBathroom
+    );
+    if (duplicate) {
+      setEditDuplicateWarning("Ya existe otro tipo con esa capacidad y baño. Cambia los valores o elimina el duplicado.");
+      return;
+    }
+    setEditDuplicateWarning(null);
+
+    const updatedType = {
+      capacity: cap,
+      hasPrivateBathroom: editing.hasPrivateBathroom,
+      quantity: qty,
+      ...(pricingByRoomType && editing.price ? { price: parseFloat(editing.price) } : {}),
+      ...(pricingByRoomType && editing.dailyRate ? { dailyRate: parseFloat(editing.dailyRate) } : { dailyRate: undefined }),
+    };
+
+    // In event-edit mode, if quantity increased for existing type, add the new rooms
+    if (isEventEdit && eventId && minQty != null && qty > minQty) {
+      setSubmitting(true);
+      try {
+        const addCount = qty - minQty;
+        await addRoomsToEvent(eventId, [{
+          ...updatedType,
+          quantity: addCount,
+        }], pricingByRoomType);
+        // Update the initial min to the new quantity
+        initialMinQuantities[editTypeKey] = qty;
+        onRoomsAdded?.();
+      } catch {
+        // ignore
+      } finally {
+        setSubmitting(false);
+      }
+    }
+
     setTypes((prev) =>
       prev.map((t) =>
         t.id === editing.id
-          ? {
-              ...t,
-              capacity: cap,
-              hasPrivateBathroom: editing.hasPrivateBathroom,
-              quantity: qty,
-              ...(pricingByRoomType && { price: parseFloat(editing.price) }),
-              ...(pricingByRoomType && editing.dailyRate ? { dailyRate: parseFloat(editing.dailyRate) } : { dailyRate: undefined }),
-            }
+          ? { ...t, ...updatedType }
           : t
       )
     );
@@ -134,17 +279,22 @@ export function RoomSetupForm({
     if (types.length === 0) return;
     setSubmitting(true);
     try {
-      await createRoomsFromTypes(
-        eventId,
-        types.map((t) => ({
-          capacity: t.capacity,
-          hasPrivateBathroom: t.hasPrivateBathroom,
-          quantity: t.quantity,
-          ...(pricingByRoomType && t.price != null && { price: t.price }),
-          ...(pricingByRoomType && t.dailyRate != null && { dailyRate: t.dailyRate }),
-        })),
-        pricingByRoomType
-      );
+      const typeData = types.map((t) => ({
+        capacity: t.capacity,
+        hasPrivateBathroom: t.hasPrivateBathroom,
+        quantity: t.quantity,
+        ...(pricingByRoomType && t.price != null && { price: t.price }),
+        ...(pricingByRoomType && t.dailyRate != null && { dailyRate: t.dailyRate }),
+      }));
+
+      if (mode === "venue" && venueId) {
+        await saveVenueRoomsFromTypes(venueId, typeData, pricingByRoomType);
+        setSubmitting(false);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } else if (eventId) {
+        await createRoomsFromTypes(eventId, typeData, pricingByRoomType);
+      }
     } catch (e) {
       // redirect throws — re-throw
       if (e instanceof Error && "digest" in e) throw e;
@@ -153,6 +303,7 @@ export function RoomSetupForm({
   }
 
   const showPriceCol = pricingByRoomType;
+  const isEventEdit = mode === "event-edit";
 
   return (
     <div className="space-y-6">
@@ -163,7 +314,9 @@ export function RoomSetupForm({
           role="switch"
           aria-checked={pricingByRoomType}
           onClick={() => {
-            setPricingByRoomType(!pricingByRoomType);
+            const newValue = !pricingByRoomType;
+            setPricingByRoomType(newValue);
+            onPricingChange?.(newValue);
             // Clear prices when toggling off
             if (pricingByRoomType) {
               setTypes((prev) => prev.map((t) => ({ ...t, price: undefined })));
@@ -184,9 +337,13 @@ export function RoomSetupForm({
           <p className="text-xs text-gray-500">
             {pricingByRoomType
               ? "Cada tipo de habitación tiene su propio precio."
-              : eventPrice
-                ? `Precio fijo: ${eventPrice} € por persona.`
-                : "No se ha definido precio. Puedes añadirlo en Detalles."}
+              : mode === "venue"
+                ? "Activa para definir precios por tipo de habitación en la plantilla."
+                : isEventEdit
+                  ? "Precio fijo para todos los participantes."
+                  : eventPrice
+                    ? `Precio fijo: ${eventPrice} € por persona.`
+                    : "No se ha definido precio. Puedes añadirlo en Detalles."}
           </p>
         </div>
       </div>
@@ -216,13 +373,13 @@ export function RoomSetupForm({
             type="number"
             min={1}
             value={newCapacity}
-            onChange={(e) => setNewCapacity(e.target.value)}
+            onChange={(e) => { setNewCapacity(e.target.value); setDuplicateWarning(null); }}
             className="bg-white"
           />
 
           <button
             type="button"
-            onClick={() => setNewBathroom(!newBathroom)}
+            onClick={() => { setNewBathroom(!newBathroom); setDuplicateWarning(null); }}
             className={`flex size-10 items-center justify-center rounded-lg border transition-colors ${
               newBathroom
                 ? "border-primary bg-primary text-white"
@@ -246,9 +403,9 @@ export function RoomSetupForm({
               min={0}
               step={0.01}
               value={newPrice}
-              onChange={(e) => setNewPrice(e.target.value)}
+              onChange={(e) => { setNewPrice(e.target.value); setPriceError(false); }}
               placeholder="0.00"
-              className="bg-white"
+              className={`bg-white ${priceError ? "border-red-400 ring-1 ring-red-400" : ""}`}
             />
           )}
 
@@ -264,11 +421,19 @@ export function RoomSetupForm({
             />
           )}
 
-          <Button onClick={handleAdd} size="sm">
+          <Button onClick={handleAdd} size="sm" disabled={isEventEdit && submitting}>
             <Plus className="mr-1 size-4" />
-            Añadir
+            {isEventEdit && submitting ? "Añadiendo..." : "Añadir"}
           </Button>
         </div>
+
+        {/* Duplicate warning */}
+        {duplicateWarning && (
+          <p className="mt-3 flex items-center gap-1.5 text-xs text-amber-600">
+            <AlertTriangle className="size-3.5 shrink-0" />
+            {duplicateWarning}
+          </p>
+        )}
 
         {/* Inline warnings for unusual values */}
         {(newCapacityNum > 9 || newQuantityNum > 99) && (
@@ -311,7 +476,14 @@ export function RoomSetupForm({
               </tr>
             </thead>
             <tbody>
-              {types.map((t) => (
+              {types.map((t) => {
+                const typeKey = `${t.capacity}-${t.hasPrivateBathroom}`;
+                const isExistingType = typeKey in initialMinQuantities;
+                const minQuantity = initialMinQuantities[typeKey] ?? 1;
+                const canEditStructure = !isEventEdit || !isExistingType;
+                const canDelete = !isEventEdit || !isExistingType;
+
+                return (
                 <tr
                   key={t.id}
                   className={`border-b border-gray-100 last:border-0 ${
@@ -323,44 +495,67 @@ export function RoomSetupForm({
                   {editing?.id === t.id ? (
                     <>
                       <td className="px-4 py-2.5">
-                        <Input
-                          type="number"
-                          min={1}
-                          value={editing.capacity}
-                          onChange={(e) =>
-                            setEditing({ ...editing, capacity: e.target.value })
-                          }
-                          className="w-20"
-                        />
+                        {canEditStructure ? (
+                          <Input
+                            type="number"
+                            min={1}
+                            value={editing.capacity}
+                            onChange={(e) =>
+                              setEditing({ ...editing, capacity: e.target.value })
+                            }
+                            className="w-20"
+                          />
+                        ) : (
+                          <span className="font-medium">{editing.capacity}</span>
+                        )}
                       </td>
                       <td className="px-4 py-2.5">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setEditing({
-                              ...editing,
-                              hasPrivateBathroom: !editing.hasPrivateBathroom,
-                            })
-                          }
-                          className={`flex size-8 items-center justify-center rounded-lg border transition-colors ${
-                            editing.hasPrivateBathroom
-                              ? "border-primary bg-primary text-white"
-                              : "border-gray-300 bg-white text-gray-400"
-                          }`}
-                        >
-                          <Bath className="size-3.5" />
-                        </button>
+                        {canEditStructure ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditing({
+                                ...editing,
+                                hasPrivateBathroom: !editing.hasPrivateBathroom,
+                              })
+                            }
+                            className={`flex size-8 items-center justify-center rounded-lg border transition-colors ${
+                              editing.hasPrivateBathroom
+                                ? "border-primary bg-primary text-white"
+                                : "border-gray-300 bg-white text-gray-400"
+                            }`}
+                          >
+                            <Bath className="size-3.5" />
+                          </button>
+                        ) : editing.hasPrivateBathroom ? (
+                          <Bath className="size-4 text-primary" />
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-2.5">
                         <Input
                           type="number"
-                          min={1}
+                          min={isEventEdit && isExistingType ? minQuantity : 1}
                           value={editing.quantity}
-                          onChange={(e) =>
-                            setEditing({ ...editing, quantity: e.target.value })
-                          }
-                          className="w-20"
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const num = parseInt(val) || 0;
+                            if (isEventEdit && isExistingType && num < minQuantity) {
+                              setEditing({ ...editing, quantity: String(minQuantity) });
+                              setQuantityMinWarning(true);
+                            } else {
+                              setEditing({ ...editing, quantity: val });
+                              setQuantityMinWarning(false);
+                            }
+                          }}
+                          className={`w-20 ${quantityMinWarning ? "border-red-400 ring-1 ring-red-400" : ""}`}
                         />
+                        {quantityMinWarning && (
+                          <p className="mt-1 text-[10px] text-red-600">
+                            Mín. {minQuantity} (ya creadas)
+                          </p>
+                        )}
                       </td>
                       {showPriceCol && (
                         <td className="px-4 py-2.5">
@@ -404,12 +599,14 @@ export function RoomSetupForm({
                             >
                               <Check className="size-4" />
                             </button>
-                            <button
-                              onClick={() => handleDelete(editing.id)}
-                              className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
-                            >
-                              <Trash2 className="size-4" />
-                            </button>
+                            {canDelete && (
+                              <button
+                                onClick={() => handleDelete(editing.id)}
+                                className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                              >
+                                <Trash2 className="size-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => setEditing(null)}
                               className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100"
@@ -418,7 +615,7 @@ export function RoomSetupForm({
                             </button>
                           </div>
                         </div>
-                        {(parseInt(editing.capacity) || 0) > 9 && (
+                        {canEditStructure && (parseInt(editing.capacity) || 0) > 9 && (
                           <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-600">
                             <AlertTriangle className="size-3 shrink-0" />
                             Capacidad alta
@@ -428,6 +625,12 @@ export function RoomSetupForm({
                           <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-600">
                             <AlertTriangle className="size-3 shrink-0" />
                             +99 habitaciones
+                          </p>
+                        )}
+                        {editDuplicateWarning && (
+                          <p className="mt-1 flex items-center gap-1 text-[10px] text-red-600">
+                            <AlertTriangle className="size-3 shrink-0" />
+                            {editDuplicateWarning}
                           </p>
                         )}
                       </td>
@@ -452,13 +655,13 @@ export function RoomSetupForm({
                   ) : (
                     <>
                       <td
-                        className="cursor-pointer px-4 py-2.5 font-medium"
+                        className="px-4 py-2.5 font-medium cursor-pointer"
                         onClick={() => startEdit(t)}
                       >
                         {t.capacity}
                       </td>
                       <td
-                        className="cursor-pointer px-4 py-2.5"
+                        className="px-4 py-2.5 cursor-pointer"
                         onClick={() => startEdit(t)}
                       >
                         {t.hasPrivateBathroom ? (
@@ -468,29 +671,29 @@ export function RoomSetupForm({
                         )}
                       </td>
                       <td
-                        className="cursor-pointer px-4 py-2.5"
+                        className="px-4 py-2.5 cursor-pointer"
                         onClick={() => startEdit(t)}
                       >
                         {t.quantity}
                       </td>
                       {showPriceCol && (
                         <td
-                          className="cursor-pointer px-4 py-2.5"
+                          className="px-4 py-2.5 cursor-pointer"
                           onClick={() => startEdit(t)}
                         >
-                          {t.price != null ? `${t.price} €` : "—"}
+                          {t.price != null && !isNaN(t.price) ? `${t.price} €` : "—"}
                         </td>
                       )}
                       {showPriceCol && (
                         <td
-                          className="cursor-pointer px-4 py-2.5 text-gray-400"
+                          className="px-4 py-2.5 text-gray-400 cursor-pointer"
                           onClick={() => startEdit(t)}
                         >
                           {t.dailyRate != null ? `${t.dailyRate} €` : "—"}
                         </td>
                       )}
                       <td
-                        className="cursor-pointer px-4 py-2.5 text-gray-500"
+                        className="px-4 py-2.5 text-gray-500 cursor-pointer"
                         onClick={() => startEdit(t)}
                       >
                         {t.capacity * t.quantity}
@@ -503,18 +706,21 @@ export function RoomSetupForm({
                           >
                             <Pencil className="size-3.5" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(t.id)}
-                            className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDelete(t.id)}
+                              className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </>
                   )}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
 
@@ -528,7 +734,7 @@ export function RoomSetupForm({
               <Users className="size-4 text-gray-400" />
               Total plazas: {totalSlots}
             </span>
-            {estimatedParticipants > 0 && (
+            {estimatedParticipants != null && estimatedParticipants > 0 && (
               <span
                 className={`text-xs ${
                   totalSlots >= estimatedParticipants
@@ -549,27 +755,43 @@ export function RoomSetupForm({
         <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
           <DoorOpen className="mx-auto size-10 text-gray-300" />
           <p className="mt-3 text-sm text-gray-400">
-            Añade tipos de habitación para configurar el evento
+            Añade tipos de habitación para configurar {mode === "venue" ? "el centro" : "el evento"}
           </p>
         </div>
       )}
 
       {/* Navigation */}
-      <div className="flex items-center justify-between pt-2">
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-        >
-          <ArrowLeft className="size-4" />
-          Atrás
-        </Link>
-        <Button
-          onClick={handleSubmit}
-          disabled={types.length === 0 || submitting}
-        >
-          {submitting ? "Creando habitaciones..." : "Siguiente"}
-        </Button>
-      </div>
+      {!isEventEdit && !hideNavigation && (
+        <div className="flex items-center justify-between pt-2">
+          {mode === "venue" ? (
+            <span />
+          ) : (
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+            >
+              <ArrowLeft className="size-4" />
+              Atrás
+            </Link>
+          )}
+          <div className="flex items-center gap-3">
+            {saved && (
+              <span className="flex items-center gap-1 text-xs text-emerald-600">
+                <Check className="size-3.5" />
+                Guardado
+              </span>
+            )}
+            <Button
+              onClick={handleSubmit}
+              disabled={types.length === 0 || submitting}
+            >
+              {submitting
+                ? mode === "venue" ? "Guardando..." : "Creando habitaciones..."
+                : mode === "venue" ? "Guardar habitaciones" : "Siguiente"}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

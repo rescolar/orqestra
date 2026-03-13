@@ -6,7 +6,9 @@ import { updateEventDetails, updateRoomPricings } from "@/lib/actions/event";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, DoorOpen, Users, Calendar, ImageIcon, UtensilsCrossed, Bath } from "lucide-react";
+import { ArrowLeft, Building2, DoorOpen, Users, Calendar, ImageIcon, UtensilsCrossed, Bath } from "lucide-react";
+import { SaveAsVenueButton } from "@/components/venue/save-as-venue-button";
+import { RoomSetupForm } from "@/components/room-setup-form";
 import Link from "next/link";
 
 type RoomPricingRow = {
@@ -17,6 +19,7 @@ type RoomPricingRow = {
 };
 
 interface EventDetailFormProps {
+  isWizard: boolean;
   event: {
     id: string;
     name: string;
@@ -34,6 +37,7 @@ interface EventDetailFormProps {
     meal_cost_breakfast?: number | string | null;
     meal_cost_lunch?: number | string | null;
     meal_cost_dinner?: number | string | null;
+    room_types?: { capacity: number; hasPrivateBathroom: boolean; quantity: number }[];
   };
 }
 
@@ -41,7 +45,7 @@ function toInputDate(iso: string) {
   return iso.slice(0, 10);
 }
 
-export function EventDetailForm({ event }: EventDetailFormProps) {
+export function EventDetailForm({ isWizard, event }: EventDetailFormProps) {
   const router = useRouter();
   const [name, setName] = useState(event.name);
   const [description, setDescription] = useState(event.description ?? "");
@@ -62,6 +66,8 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
   const [pendingDates, setPendingDates] = useState<{ start?: string; end?: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const roomTypes = event.room_types ?? [];
 
   const originalDateStart = toInputDate(event.date_start);
   const originalDateEnd = toInputDate(event.date_end);
@@ -184,7 +190,7 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
         </div>
       </div>
 
-      {/* Name + Details */}
+      {/* Name + Description */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <div className="space-y-4">
           <div className="space-y-2">
@@ -207,229 +213,144 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
               className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="location">Ubicación</Label>
-            <Input
-              id="location"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Casa de retiro, dirección..."
-            />
-          </div>
-          {/* Pricing mode toggle */}
-          <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
-            <div>
-              <p className="text-sm font-medium text-gray-700">Precio por tipo de habitación</p>
-              <p className="text-xs text-gray-500">
-                {pricingByRoomType
-                  ? "Cada tipo de habitación tiene su precio"
-                  : "Precio fijo para todos los participantes"}
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={pricingByRoomType}
-              onClick={() => setPricingByRoomType(!pricingByRoomType)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                pricingByRoomType ? "bg-primary" : "bg-gray-200"
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block size-5 rounded-full bg-white shadow ring-0 transition-transform ${
-                  pricingByRoomType ? "translate-x-5" : "translate-x-0"
-                }`}
-              />
-            </button>
-          </div>
+        </div>
+      </div>
 
-          {!pricingByRoomType ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="event_price">Precio por persona (€)</Label>
-                <Input
-                  id="event_price"
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  value={eventPrice}
-                  onChange={(e) => setEventPrice(e.target.value)}
-                  placeholder="Opcional"
-                />
+      {/* Centro + Habitaciones — only in edit mode */}
+      {!isWizard && (
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="size-4 text-gray-400" />
+                <h3 className="text-sm font-semibold text-gray-700">Centro y habitaciones</h3>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="deposit_amount">Reserva (€)</Label>
-                <Input
-                  id="deposit_amount"
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  value={depositAmount}
-                  onChange={(e) => setDepositAmount(e.target.value)}
-                  placeholder="Opcional"
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="deposit_amount">Reserva (€)</Label>
-                <Input
-                  id="deposit_amount"
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  value={depositAmount}
-                  onChange={(e) => setDepositAmount(e.target.value)}
-                  placeholder="Opcional"
-                  className="max-w-[200px]"
-                />
-              </div>
-              {roomPricings.length > 0 ? (
-                <div className="overflow-hidden rounded-lg border border-gray-200">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Ocupación</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Baño</th>
-                        <th className="px-3 py-2 text-right font-medium text-gray-600">Precio €</th>
-                        <th className="px-3 py-2 text-right font-medium text-gray-600">Coste/día €</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {roomPricings.map((rp, idx) => {
-                        const key = `${rp.capacity}-${rp.has_private_bathroom}`;
-                        const editValue = editingPrices[key];
-                        return (
-                          <tr key={key} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 text-gray-700">
-                              {rp.capacity} {rp.capacity === 1 ? "persona" : "personas"}
-                            </td>
-                            <td className="px-3 py-2">
-                              {rp.has_private_bathroom ? (
-                                <span className="inline-flex items-center gap-1 text-primary">
-                                  <Bath className="size-3.5" /> Privado
-                                </span>
-                              ) : (
-                                <span className="text-gray-400">Compartido</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <input
-                                type="number"
-                                step="0.01"
-                                min={0}
-                                value={editValue ?? String(rp.price)}
-                                onChange={(e) => {
-                                  setEditingPrices((prev) => ({ ...prev, [key]: e.target.value }));
-                                }}
-                                onBlur={() => {
-                                  const val = parseFloat(editingPrices[key] ?? "");
-                                  if (!isNaN(val) && val >= 0) {
-                                    setRoomPricings((prev) =>
-                                      prev.map((p, i) => (i === idx ? { ...p, price: val } : p))
-                                    );
-                                  }
-                                  setEditingPrices((prev) => {
-                                    const next = { ...prev };
-                                    delete next[key];
-                                    return next;
-                                  });
-                                }}
-                                className="w-24 rounded border border-gray-200 px-2 py-1 text-right text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                              />
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <input
-                                type="number"
-                                step="0.01"
-                                min={0}
-                                value={editingDailyRates[key] ?? (rp.daily_rate != null ? String(rp.daily_rate) : "")}
-                                onChange={(e) => {
-                                  setEditingDailyRates((prev) => ({ ...prev, [key]: e.target.value }));
-                                }}
-                                onBlur={() => {
-                                  const raw = editingDailyRates[key];
-                                  const val = raw ? parseFloat(raw) : null;
-                                  setRoomPricings((prev) =>
-                                    prev.map((p, i) => (i === idx ? { ...p, daily_rate: val != null && !isNaN(val) && val >= 0 ? val : null } : p))
-                                  );
-                                  setEditingDailyRates((prev) => {
-                                    const next = { ...prev };
-                                    delete next[key];
-                                    return next;
-                                  });
-                                }}
-                                placeholder="Opc."
-                                className="w-24 rounded border border-gray-200 px-2 py-1 text-right text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400">
-                  No hay tipos de habitación definidos. Configúralos en el paso de habitaciones.
-                </p>
+              {roomTypes.length > 0 && (
+                <SaveAsVenueButton eventId={event.id} variant="ghost" />
               )}
             </div>
-          )}
-        </div>
-      </div>
+            <div className="space-y-2">
+              <Label htmlFor="location">Ubicación</Label>
+              <Input
+                id="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Casa de retiro, dirección..."
+              />
+            </div>
 
-      {/* Meal costs */}
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <UtensilsCrossed className="size-4 text-gray-400" />
-            <h3 className="text-sm font-semibold text-gray-700">Tarifas de comida (para descuentos)</h3>
+            {/* Room types — unified component with pricing toggle */}
+            <RoomSetupForm
+              mode="event-edit"
+              eventId={event.id}
+              initialTypes={roomTypes}
+              initialPricingByRoomType={pricingByRoomType}
+              estimatedParticipants={event.estimated_participants}
+              onRoomsAdded={() => router.refresh()}
+              onPricingChange={(enabled) => setPricingByRoomType(enabled)}
+            />
+
+            {/* Pricing fields */}
+            {!pricingByRoomType ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="event_price">Precio por persona (€)</Label>
+                  <Input
+                    id="event_price"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={eventPrice}
+                    onChange={(e) => setEventPrice(e.target.value)}
+                    placeholder="Opcional"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="deposit_amount">Reserva (€)</Label>
+                  <Input
+                    id="deposit_amount"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(e.target.value)}
+                    placeholder="Opcional"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="deposit_amount">Reserva (€)</Label>
+                  <Input
+                    id="deposit_amount"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(e.target.value)}
+                    placeholder="Opcional"
+                    className="max-w-[200px]"
+                  />
+                </div>
+              </div>
+            )}
           </div>
-          <p className="text-xs text-gray-500">
-            Si un participante no asiste a algunas comidas, se le descontará del precio total.
-          </p>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-1">
-              <Label htmlFor="meal_breakfast" className="text-xs">Desayuno (€)</Label>
-              <Input
-                id="meal_breakfast"
-                type="number"
-                step="0.01"
-                min={0}
-                value={mealBreakfast}
-                onChange={(e) => setMealBreakfast(e.target.value)}
-                placeholder="Opcional"
-              />
+        </div>
+      )}
+
+      {/* Meal costs — only in edit mode (wizard has them in step 2) */}
+      {!isWizard && (
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <UtensilsCrossed className="size-4 text-gray-400" />
+              <h3 className="text-sm font-semibold text-gray-700">Tarifas de comida (para descuentos)</h3>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="meal_lunch" className="text-xs">Comida (€)</Label>
-              <Input
-                id="meal_lunch"
-                type="number"
-                step="0.01"
-                min={0}
-                value={mealLunch}
-                onChange={(e) => setMealLunch(e.target.value)}
-                placeholder="Opcional"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="meal_dinner" className="text-xs">Cena (€)</Label>
-              <Input
-                id="meal_dinner"
-                type="number"
-                step="0.01"
-                min={0}
-                value={mealDinner}
-                onChange={(e) => setMealDinner(e.target.value)}
-                placeholder="Opcional"
-              />
+            <p className="text-xs text-gray-500">
+              Si un participante no asiste a algunas comidas, se le descontará del precio total.
+            </p>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="meal_breakfast" className="text-xs">Desayuno (€)</Label>
+                <Input
+                  id="meal_breakfast"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={mealBreakfast}
+                  onChange={(e) => setMealBreakfast(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="meal_lunch" className="text-xs">Comida (€)</Label>
+                <Input
+                  id="meal_lunch"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={mealLunch}
+                  onChange={(e) => setMealLunch(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="meal_dinner" className="text-xs">Cena (€)</Label>
+                <Input
+                  id="meal_dinner"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={mealDinner}
+                  onChange={(e) => setMealDinner(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Summary with editable dates */}
       <div className="rounded-xl bg-slate-50 p-5">
@@ -510,13 +431,23 @@ export function EventDetailForm({ event }: EventDetailFormProps) {
 
       {/* Navigation */}
       <div className="flex items-center justify-between pt-2">
-        <Link
-          href={`/events/${event.id}/setup`}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-        >
-          <ArrowLeft className="size-4" />
-          Atrás
-        </Link>
+        {isWizard ? (
+          <Link
+            href={`/events/${event.id}/setup`}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          >
+            <ArrowLeft className="size-4" />
+            Atrás
+          </Link>
+        ) : (
+          <Link
+            href={`/events/${event.id}/board`}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          >
+            <ArrowLeft className="size-4" />
+            Volver al tablero
+          </Link>
+        )}
         <div className="flex gap-3">
           <Link href={`/events/${event.id}/kitchen`}>
             <Button variant="outline" size="sm">
