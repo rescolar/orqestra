@@ -15,8 +15,10 @@ export default async function SchedulePrintPage({
 
   const { id } = await params;
 
-  const event = await db.event.findFirst({
-    where: { id, user_id: session.user.id },
+  const ctx = { userId: session.user.id, role: session.user.role };
+
+  const event = await db.event.findUnique({
+    where: { id },
     select: {
       id: true,
       name: true,
@@ -28,7 +30,7 @@ export default async function SchedulePrintPage({
   if (!event) notFound();
 
   const [printData, confirmedCount] = await Promise.all([
-    ScheduleService.getSchedulePrintData(id, session.user.id),
+    ScheduleService.getSchedulePrintData(id, ctx),
     db.eventPerson.count({ where: { event_id: id, status: { not: "cancelado" } } }),
   ]);
 

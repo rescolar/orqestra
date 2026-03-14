@@ -64,7 +64,11 @@ export async function unassignPerson(
 
 export async function getEventPersonDetail(eventPersonId: string) {
   const ctx = await requireAuth();
-  return PersonService.getEventPerson(eventPersonId, ctx);
+  const ep = await PersonService.getEventPerson(eventPersonId, ctx);
+  return {
+    ...ep,
+    amount_paid: ep.amount_paid ? Number(ep.amount_paid) : null,
+  };
 }
 
 export async function updateEventPerson(
