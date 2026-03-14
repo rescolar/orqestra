@@ -15,14 +15,14 @@ export default async function SchedulePage({
 
   const { id } = await params;
 
-  const event = await db.event.findFirst({
-    where: { id, user_id: session.user.id },
-    select: { id: true, name: true, date_start: true, date_end: true, schedule_confirmed: true },
+  const event = await db.event.findUnique({
+    where: { id },
+    select: { id: true, name: true, date_start: true, date_end: true, schedule_confirmed: true, user_id: true },
   });
   if (!event) notFound();
 
   const [schedule, totalConfirmedParticipants] = await Promise.all([
-    ScheduleService.getSchedule(id, session.user.id),
+    ScheduleService.getSchedule(id, { userId: session.user.id, role: session.user.role }),
     db.eventPerson.count({ where: { event_id: id, status: { not: "cancelado" } } }),
   ]);
 
