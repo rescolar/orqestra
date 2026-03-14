@@ -96,7 +96,16 @@ export default async function DetailPage({
             meal_cost_breakfast: event.meal_cost_breakfast ? Number(event.meal_cost_breakfast) : null,
             meal_cost_lunch: event.meal_cost_lunch ? Number(event.meal_cost_lunch) : null,
             meal_cost_dinner: event.meal_cost_dinner ? Number(event.meal_cost_dinner) : null,
-            room_types: roomTypes,
+            room_types: roomTypes.map((rt) => {
+              const pricing = roomPricings.find(
+                (rp) => rp.capacity === rt.capacity && rp.has_private_bathroom === rt.hasPrivateBathroom
+              );
+              return {
+                ...rt,
+                price: pricing ? Number(pricing.price) : undefined,
+                dailyRate: pricing?.daily_rate ? Number(pricing.daily_rate) : undefined,
+              };
+            }),
           }}
         />
 

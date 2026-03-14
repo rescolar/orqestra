@@ -38,7 +38,7 @@ interface EventDetailFormProps {
     meal_cost_breakfast?: number | string | null;
     meal_cost_lunch?: number | string | null;
     meal_cost_dinner?: number | string | null;
-    room_types?: { capacity: number; hasPrivateBathroom: boolean; quantity: number }[];
+    room_types?: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number; dailyRate?: number }[];
   };
 }
 
