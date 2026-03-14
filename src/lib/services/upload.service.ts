@@ -3,7 +3,7 @@ import { getSupabase } from "@/lib/supabase";
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
-type UploadTarget = "avatars" | "logos";
+type UploadTarget = "avatars" | "logos" | "events";
 
 export class UploadService {
   static validateFile(file: File) {

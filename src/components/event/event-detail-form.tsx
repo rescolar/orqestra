@@ -6,9 +6,10 @@ import { updateEventDetails, updateRoomPricings } from "@/lib/actions/event";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Building2, DoorOpen, Users, Calendar, ImageIcon, UtensilsCrossed, Bath } from "lucide-react";
+import { ArrowLeft, Building2, DoorOpen, Users, Calendar, UtensilsCrossed, Bath } from "lucide-react";
 import { SaveAsVenueButton } from "@/components/venue/save-as-venue-button";
 import { RoomSetupForm } from "@/components/room-setup-form";
+import { ImageUpload } from "@/components/shared/image-upload";
 import Link from "next/link";
 
 type RoomPricingRow = {
@@ -183,36 +184,18 @@ export function EventDetailForm({ isWizard, event }: EventDetailFormProps) {
         </div>
       </div>
 
-      {/* Image URL + Preview */}
+      {/* Event image */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="image_url">Imagen del evento (URL)</Label>
-            <Input
-              id="image_url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://ejemplo.com/imagen.jpg"
-            />
-          </div>
-          <div className="flex h-48 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-            {imageUrl.trim() ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={imageUrl.trim()}
-                alt="Vista previa"
-                className="h-full w-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
-                }}
-              />
-            ) : null}
-            <div className={`flex flex-col items-center gap-2 text-gray-400 ${imageUrl.trim() ? "hidden" : ""}`}>
-              <ImageIcon className="size-10" />
-              <span className="text-sm">Sin imagen</span>
-            </div>
-          </div>
+        <div className="space-y-2">
+          <Label>Imagen del evento</Label>
+          <ImageUpload
+            currentUrl={imageUrl || null}
+            onUploaded={(url) => setImageUrl(url)}
+            uploadType="event"
+            entityId={event.id}
+            size="banner"
+            shape="square"
+          />
         </div>
       </div>
 

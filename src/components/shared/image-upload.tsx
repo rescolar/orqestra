@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils";
 type ImageUploadProps = {
   currentUrl?: string | null;
   onUploaded: (url: string) => void;
-  uploadType: "avatar" | "logo";
+  uploadType: "avatar" | "logo" | "event";
   entityId: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "banner";
   shape?: "circle" | "square";
 };
 
@@ -17,12 +17,14 @@ const SIZE_MAP = {
   sm: "h-12 w-12",
   md: "h-20 w-20",
   lg: "h-28 w-28",
+  banner: "h-48 w-full",
 };
 
 const ICON_SIZE_MAP = {
   sm: "text-lg",
   md: "text-2xl",
   lg: "text-3xl",
+  banner: "text-3xl",
 };
 
 export function ImageUpload({
@@ -111,7 +113,7 @@ export function ImageUpload({
             alt="Avatar"
             fill
             className="object-cover"
-            sizes={size === "sm" ? "48px" : size === "md" ? "80px" : "112px"}
+            sizes={size === "banner" ? "640px" : size === "sm" ? "48px" : size === "md" ? "80px" : "112px"}
           />
         ) : (
           <span

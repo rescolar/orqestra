@@ -61,6 +61,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ url });
     }
 
+    if (type === "event") {
+      // Verify the event belongs to this user
+      const event = await db.event.findFirst({
+        where: { id: entityId, user_id: session.user.id },
+      });
+      if (!event) {
+        return NextResponse.json({ error: "Evento no encontrado" }, { status: 404 });
+      }
+
+      const url = await UploadService.upload("events", entityId, file);
+      await db.event.update({
+        where: { id: entityId },
+        data: { image_url: url },
+      });
+
+      return NextResponse.json({ url });
+    }
+
     return NextResponse.json({ error: "Tipo no válido" }, { status: 400 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";
