@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, useCallback } from "react";
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 type ImageUploadProps = {
@@ -108,12 +107,11 @@ export function ImageUpload({
         )}
       >
         {displayUrl ? (
-          <Image
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             src={displayUrl}
-            alt="Avatar"
-            fill
-            className="object-cover"
-            sizes={size === "banner" ? "640px" : size === "sm" ? "48px" : size === "md" ? "80px" : "112px"}
+            alt="Imagen"
+            className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
           <span
