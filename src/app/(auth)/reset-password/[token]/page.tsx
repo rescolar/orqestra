@@ -35,7 +35,7 @@ export default function ResetPasswordPage() {
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-bold text-primary">
-          Orqestra
+          Ordenaia
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Nueva contraseña

@@ -22,7 +22,7 @@ export default async function ParticipantLayout({
       <header className="bg-primary text-white">
         <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
           <Link href="/my-events" className="text-lg font-bold tracking-tight">
-            Orqestra
+            Ordenaia
           </Link>
           <div className="flex items-center gap-3">
             {showDashboard && (

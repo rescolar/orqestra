@@ -101,7 +101,7 @@ function BrandHeader({ organizer }: { organizer: OrganizerBranding }) {
         className="text-2xl font-bold"
         style={{ color: organizer.brand_text_color || undefined }}
       >
-        {organizer.brand_name || "Orqestra"}
+        {organizer.brand_name || "Ordenaia"}
       </CardTitle>
     </>
   );

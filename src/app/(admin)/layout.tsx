@@ -17,7 +17,7 @@ export default async function AdminLayout({
       <header className="bg-gray-900 text-white">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-6">
-            <span className="text-lg font-bold tracking-tight">Orqestra Admin</span>
+            <span className="text-lg font-bold tracking-tight">Ordenaia Admin</span>
             <AdminNavLinks />
           </div>
           <div className="flex items-center gap-4">

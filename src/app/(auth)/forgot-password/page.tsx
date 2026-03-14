@@ -42,7 +42,7 @@ function ForgotPasswordForm() {
           className="text-2xl font-bold text-primary"
           style={{ color: brandColor || undefined }}
         >
-          {brandName || "Orqestra"}
+          {brandName || "Ordenaia"}
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Recuperar contraseña

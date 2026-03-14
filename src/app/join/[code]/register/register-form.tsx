@@ -46,7 +46,7 @@ export function RegisterForm({
           className="text-2xl font-bold"
           style={{ color: branding.brand_text_color || undefined }}
         >
-          {branding.brand_name || "Orqestra"}
+          {branding.brand_name || "Ordenaia"}
         </CardTitle>
         <p className="text-sm text-muted-foreground">Crea tu cuenta</p>
       </CardHeader>

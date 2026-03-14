@@ -21,7 +21,7 @@ export default async function JoinAdminPage({
         <div className="w-full max-w-sm space-y-6 text-center">
           <h1 className="text-2xl font-bold text-gray-900">Invitación de administrador</h1>
           <p className="text-muted-foreground">
-            Has sido invitado como administrador de Orqestra.
+            Has sido invitado como administrador de Ordenaia.
           </p>
           <Link
             href={`/login?callbackUrl=/join-admin/${token}`}
@@ -43,7 +43,7 @@ export default async function JoinAdminPage({
       <div className="w-full max-w-sm space-y-6 text-center">
         <h1 className="text-2xl font-bold text-gray-900">Invitación de administrador</h1>
         <p className="text-muted-foreground">
-          ¿Deseas convertirte en administrador de Orqestra?
+          ¿Deseas convertirte en administrador de Ordenaia?
         </p>
         <JoinAdminClient token={token} />
       </div>

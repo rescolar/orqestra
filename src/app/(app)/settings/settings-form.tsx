@@ -179,7 +179,7 @@ export function SettingsForm({
                 className="text-2xl font-bold"
                 style={{ color: state.brand_text_color || undefined }}
               >
-                {state.brand_name || "Orqestra"}
+                {state.brand_name || "Ordenaia"}
               </CardTitle>
               <p className="mt-2 text-sm text-muted-foreground">
                 {state.brand_welcome_msg || "Te han invitado a unirte"}
