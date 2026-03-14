@@ -38,8 +38,9 @@ export function ImageUpload({
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imgBroken, setImgBroken] = useState(false);
 
-  const displayUrl = preview || currentUrl;
+  const displayUrl = imgBroken ? null : (preview || currentUrl);
 
   const handleClick = useCallback(() => {
     inputRef.current?.click();
@@ -112,6 +113,7 @@ export function ImageUpload({
             src={displayUrl}
             alt="Imagen"
             className="absolute inset-0 h-full w-full object-cover"
+            onError={() => setImgBroken(true)}
           />
         ) : (
           <span
