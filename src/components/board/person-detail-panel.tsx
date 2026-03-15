@@ -321,6 +321,8 @@ export function PersonDetailPanel({
           dateArrival: data?.date_arrival ?? null,
           dateDeparture: data?.date_departure ?? null,
           dailyRate: resolvedPricing.dailyRate ?? null,
+          facilitationCostDay: eventPricing?.pricing_mode === "breakdown" ? eventPricing?.facilitation_cost_day : null,
+          managementCostDay: eventPricing?.pricing_mode === "breakdown" ? eventPricing?.management_cost_day : null,
           discountBreakfast: data?.discount_breakfast ?? 0,
           discountLunch: data?.discount_lunch ?? 0,
           discountDinner: data?.discount_dinner ?? 0,
@@ -806,6 +808,8 @@ export function PersonDetailPanel({
             dateArrival: data.date_arrival,
             dateDeparture: data.date_departure,
             dailyRate: resolvedPricing.dailyRate ?? null,
+            facilitationCostDay: eventPricing?.pricing_mode === "breakdown" ? eventPricing?.facilitation_cost_day : null,
+            managementCostDay: eventPricing?.pricing_mode === "breakdown" ? eventPricing?.management_cost_day : null,
             discountBreakfast: data.discount_breakfast,
             discountLunch: data.discount_lunch,
             discountDinner: data.discount_dinner,
@@ -884,7 +888,7 @@ export function PersonDetailPanel({
                           </div>
                           {disc.daysLess > 0 && (
                             <p className="text-[10px] text-primary">
-                              {disc.daysLess} día{disc.daysLess > 1 ? "s" : ""} menos × {resolvedPricing.dailyRate}€/día = -{disc.dayDiscount.toFixed(2)}€
+                              {disc.daysLess} día{disc.daysLess > 1 ? "s" : ""} menos × {(disc.dayDiscount / disc.daysLess).toFixed(2)}€/día = -{disc.dayDiscount.toFixed(2)}€
                             </p>
                           )}
                         </div>
