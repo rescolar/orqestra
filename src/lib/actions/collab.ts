@@ -41,5 +41,5 @@ export async function removeCollaborator(eventId: string, userId: string) {
     userId: user.id,
     role: user.role,
   });
-  revalidatePath(`/events/${eventId}/detail`);
+  revalidatePath(`/events/${eventId}/collaborators`);
 }

@@ -270,6 +270,51 @@ export const EventService = {
     }
   },
 
+  async addRoomsByType(
+    eventId: string,
+    roomTypeId: string,
+    quantity: number,
+    ctx: AuthContext
+  ) {
+    if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
+
+    const roomType = await db.roomType.findUnique({ where: { id: roomTypeId } });
+    if (!roomType) throw new Error("Tipo de habitación no encontrado");
+
+    // Get current max internal_number to continue numbering
+    const lastRoom = await db.room.findFirst({
+      where: { event_id: eventId },
+      orderBy: { internal_number: "desc" },
+      select: { internal_number: true },
+    });
+
+    let counter = lastRoom ? parseInt(lastRoom.internal_number) + 1 : 1;
+
+    const rooms: {
+      event_id: string;
+      internal_number: string;
+      display_name: string;
+      capacity: number;
+      has_private_bathroom: boolean;
+      room_type_id: string;
+    }[] = [];
+
+    for (let i = 0; i < quantity; i++) {
+      const num = String(counter).padStart(2, "0");
+      rooms.push({
+        event_id: eventId,
+        internal_number: num,
+        display_name: `${roomType.name} ${num}`,
+        capacity: roomType.capacity,
+        has_private_bathroom: roomType.has_private_bathroom,
+        room_type_id: roomType.id,
+      });
+      counter++;
+    }
+
+    await db.room.createMany({ data: rooms });
+  },
+
   async getRoomPricings(eventId: string, ctx: AuthContext) {
     if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
     return db.roomPricing.findMany({
@@ -325,9 +370,14 @@ export const EventService = {
         event_price: true,
         deposit_amount: true,
         pricing_by_room_type: true,
+        pricing_mode: true,
+        facilitation_cost_day: true,
+        facilitation_cost_half_day: true,
+        management_cost_day: true,
         meal_cost_breakfast: true,
         meal_cost_lunch: true,
         meal_cost_dinner: true,
+        venue_id: true,
         _count: { select: { rooms: true } },
       },
     });
@@ -354,6 +404,10 @@ export const EventService = {
       event_price?: number | null;
       deposit_amount?: number | null;
       pricing_by_room_type?: boolean;
+      pricing_mode?: string;
+      facilitation_cost_day?: number | null;
+      facilitation_cost_half_day?: number | null;
+      management_cost_day?: number | null;
       meal_cost_breakfast?: number | null;
       meal_cost_lunch?: number | null;
       meal_cost_dinner?: number | null;
@@ -373,6 +427,10 @@ export const EventService = {
         ...(data.event_price !== undefined && { event_price: data.event_price }),
         ...(data.deposit_amount !== undefined && { deposit_amount: data.deposit_amount }),
         ...(data.pricing_by_room_type !== undefined && { pricing_by_room_type: data.pricing_by_room_type }),
+        ...(data.pricing_mode !== undefined && { pricing_mode: data.pricing_mode }),
+        ...(data.facilitation_cost_day !== undefined && { facilitation_cost_day: data.facilitation_cost_day }),
+        ...(data.facilitation_cost_half_day !== undefined && { facilitation_cost_half_day: data.facilitation_cost_half_day }),
+        ...(data.management_cost_day !== undefined && { management_cost_day: data.management_cost_day }),
         ...(data.meal_cost_breakfast !== undefined && { meal_cost_breakfast: data.meal_cost_breakfast }),
         ...(data.meal_cost_lunch !== undefined && { meal_cost_lunch: data.meal_cost_lunch }),
         ...(data.meal_cost_dinner !== undefined && { meal_cost_dinner: data.meal_cost_dinner }),

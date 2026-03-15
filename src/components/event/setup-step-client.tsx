@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import {
   ArrowLeft,
   Building2,
+  Settings,
   UtensilsCrossed,
   Plus,
   Trash2,
@@ -239,23 +240,12 @@ export function SetupStepClient({
 
   return (
     <div className="space-y-6">
-      {/* ─── Section 1: Gastos del Evento ──────────────────────────────── */}
+      {/* ─── Card: Gestión ─────────────────────────────────────────────── */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <Building2 className="size-4 text-gray-400" />
-            <h3 className="text-sm font-semibold text-gray-700">Gastos del Evento</h3>
-          </div>
-
-          {/* Location */}
-          <div className="space-y-2">
-            <Label htmlFor="location">Ubicación</Label>
-            <Input
-              id="location"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Casa de retiro, dirección..."
-            />
+            <Settings className="size-4 text-gray-400" />
+            <h3 className="text-sm font-semibold text-gray-700">Gestión</h3>
           </div>
 
           {/* Pricing mode */}
@@ -334,7 +324,7 @@ export function SetupStepClient({
             </div>
           )}
 
-          {/* Deposit + Meals in a row */}
+          {/* Deposit */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="deposit_amount">Reserva (€)</Label>
@@ -349,9 +339,138 @@ export function SetupStepClient({
               />
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ─── Card: Centro ──────────────────────────────────────────────── */}
+      <div className="rounded-xl bg-white p-6 shadow-sm">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Building2 className="size-4 text-gray-400" />
+            <h3 className="text-sm font-semibold text-gray-700">Centro</h3>
+          </div>
+
+          {/* Location */}
+          <div className="space-y-2">
+            <Label htmlFor="location">Ubicación</Label>
+            <Input
+              id="location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Casa de retiro, dirección..."
+            />
+          </div>
+
+          {/* ─── Tipos de Habitación ──────────────────────────────────── */}
+          <div className="space-y-4 border-t border-gray-100 pt-4">
+            <div className="flex items-center gap-2">
+              <BedDouble className="size-4 text-gray-400" />
+              <h4 className="text-sm font-semibold text-gray-700">Tipos de Habitación</h4>
+              {nights > 0 && (
+                <span className="ml-auto rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600">
+                  {nights} {nights === 1 ? "noche" : "noches"}
+                </span>
+              )}
+            </div>
+
+            {roomTypes.length === 0 && !showAddForm && (
+              <div className="rounded-xl border-2 border-dashed border-gray-200 py-6 text-center">
+                <p className="text-sm text-gray-400">No hay tipos de habitación</p>
+                <p className="mt-1 text-xs text-gray-400">
+                  Añade tipos para definir las opciones de alojamiento
+                </p>
+              </div>
+            )}
+
+            {roomTypes.map((rt) => (
+              <RoomTypeCard
+                key={rt.tempId}
+                roomType={rt}
+                expanded={expandedId === rt.tempId}
+                onToggle={() => setExpandedId(expandedId === rt.tempId ? null : rt.tempId)}
+                onUpdate={(updates) => updateRoomType(rt.tempId, updates)}
+                onDelete={() => deleteRoomType(rt.tempId)}
+                previewTotal={previewTotal}
+                pricingMode={pricingMode}
+                nights={nights}
+              />
+            ))}
+
+            {showAddForm ? (
+              <AddRoomTypeForm
+                onAdd={addRoomType}
+                onCancel={() => setShowAddForm(false)}
+              />
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAddForm(true)}
+                className="w-full border-dashed"
+              >
+                <Plus className="mr-1.5 size-4" />
+                Añadir tipo de habitación
+              </Button>
+            )}
+          </div>
+
+          {/* ─── Habitaciones + resumen ───────────────────────────────── */}
+          {roomTypes.length > 0 && (
+            <div className="space-y-4 border-t border-gray-100 pt-4">
+              <div className="flex items-center gap-2">
+                <Hash className="size-4 text-gray-400" />
+                <h4 className="text-sm font-semibold text-gray-700">Habitaciones</h4>
+              </div>
+
+              <div className="space-y-3">
+                {roomTypes.map((rt) => (
+                  <div key={rt.tempId} className="flex items-center gap-3">
+                    <div className="flex flex-1 items-center gap-2">
+                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                        {rt.name || "Sin nombre"}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        ({rt.capacity} plazas)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-gray-500">Cantidad:</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={quantities[rt.tempId] ?? 0}
+                        onChange={(e) =>
+                          setQuantities((prev) => ({
+                            ...prev,
+                            [rt.tempId]: Math.max(0, parseInt(e.target.value) || 0),
+                          }))
+                        }
+                        className="h-8 w-20 text-center text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Summary */}
+              <div className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-2.5">
+                <div className="flex gap-6 text-sm">
+                  <span className="text-gray-600">
+                    <span className="font-medium text-gray-900">{totalRooms}</span> habitaciones
+                  </span>
+                  <span className="text-gray-600">
+                    <span className="font-medium text-gray-900">{totalCapacity}</span> plazas
+                  </span>
+                </div>
+                <span className="text-xs text-gray-500">
+                  Estimados: {event.estimated_participants} participantes
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Meal costs */}
-          <div className="space-y-2">
+          <div className="space-y-2 border-t border-gray-100 pt-4">
             <div className="flex items-center gap-2">
               <UtensilsCrossed className="size-3.5 text-gray-400" />
               <Label className="text-xs font-medium text-gray-600">Tarifas de comida (para descuentos)</Label>
@@ -397,118 +516,6 @@ export function SetupStepClient({
           </div>
         </div>
       </div>
-
-      {/* ─── Section 2: Tipos de Habitación ────────────────────────────── */}
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <BedDouble className="size-4 text-gray-400" />
-            <h3 className="text-sm font-semibold text-gray-700">Tipos de Habitación</h3>
-            {nights > 0 && (
-              <span className="ml-auto rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-600">
-                {nights} {nights === 1 ? "noche" : "noches"}
-              </span>
-            )}
-          </div>
-
-          {roomTypes.length === 0 && !showAddForm && (
-            <div className="rounded-xl border-2 border-dashed border-gray-200 py-6 text-center">
-              <p className="text-sm text-gray-400">No hay tipos de habitación</p>
-              <p className="mt-1 text-xs text-gray-400">
-                Añade tipos para definir las opciones de alojamiento
-              </p>
-            </div>
-          )}
-
-          {roomTypes.map((rt) => (
-            <RoomTypeCard
-              key={rt.tempId}
-              roomType={rt}
-              expanded={expandedId === rt.tempId}
-              onToggle={() => setExpandedId(expandedId === rt.tempId ? null : rt.tempId)}
-              onUpdate={(updates) => updateRoomType(rt.tempId, updates)}
-              onDelete={() => deleteRoomType(rt.tempId)}
-              previewTotal={previewTotal}
-              pricingMode={pricingMode}
-              nights={nights}
-            />
-          ))}
-
-          {showAddForm ? (
-            <AddRoomTypeForm
-              onAdd={addRoomType}
-              onCancel={() => setShowAddForm(false)}
-            />
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAddForm(true)}
-              className="w-full border-dashed"
-            >
-              <Plus className="mr-1.5 size-4" />
-              Añadir tipo de habitación
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* ─── Section 3: Habitaciones ───────────────────────────────────── */}
-      {roomTypes.length > 0 && (
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Hash className="size-4 text-gray-400" />
-              <h3 className="text-sm font-semibold text-gray-700">Habitaciones</h3>
-            </div>
-
-            <div className="space-y-3">
-              {roomTypes.map((rt) => (
-                <div key={rt.tempId} className="flex items-center gap-3">
-                  <div className="flex flex-1 items-center gap-2">
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
-                      {rt.name || "Sin nombre"}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      ({rt.capacity} plazas)
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs text-gray-500">Cantidad:</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={quantities[rt.tempId] ?? 0}
-                      onChange={(e) =>
-                        setQuantities((prev) => ({
-                          ...prev,
-                          [rt.tempId]: Math.max(0, parseInt(e.target.value) || 0),
-                        }))
-                      }
-                      className="h-8 w-20 text-center text-sm"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Summary */}
-            <div className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-2.5">
-              <div className="flex gap-6 text-sm">
-                <span className="text-gray-600">
-                  <span className="font-medium text-gray-900">{totalRooms}</span> habitaciones
-                </span>
-                <span className="text-gray-600">
-                  <span className="font-medium text-gray-900">{totalCapacity}</span> plazas
-                </span>
-              </div>
-              <span className="text-xs text-gray-500">
-                Estimados: {event.estimated_participants} participantes
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 

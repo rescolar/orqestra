@@ -75,6 +75,10 @@ export async function saveEventSetupFields(
     event_price?: number | null;
     deposit_amount?: number | null;
     pricing_by_room_type?: boolean;
+    pricing_mode?: string;
+    facilitation_cost_day?: number | null;
+    facilitation_cost_half_day?: number | null;
+    management_cost_day?: number | null;
     meal_cost_breakfast?: number | null;
     meal_cost_lunch?: number | null;
     meal_cost_dinner?: number | null;
@@ -92,6 +96,10 @@ export async function saveEventSetupFields(
     event_price: data.event_price,
     deposit_amount: data.deposit_amount,
     pricing_by_room_type: data.pricing_by_room_type,
+    pricing_mode: data.pricing_mode,
+    facilitation_cost_day: data.facilitation_cost_day,
+    facilitation_cost_half_day: data.facilitation_cost_half_day,
+    management_cost_day: data.management_cost_day,
     meal_cost_breakfast: data.meal_cost_breakfast,
     meal_cost_lunch: data.meal_cost_lunch,
     meal_cost_dinner: data.meal_cost_dinner,
@@ -118,11 +126,32 @@ export async function createEventWithVenue(formData: FormData, venueId: string) 
     estimated_participants: estimatedParticipants,
   });
 
-  // Copy rooms from venue
+  // Copy rooms from venue — get all room types and create 1 room per type
   const { VenueService } = await import("@/lib/services/venue.service");
-  await VenueService.createEventRoomsFromVenue(event.id, venueId, ctx);
+  const venue = await VenueService.getVenue(venueId, ctx);
+  const quantities = venue.room_types.map((rt) => ({ roomTypeId: rt.id, quantity: 1 }));
+  await VenueService.createEventRoomsFromVenue(event.id, venueId, ctx, quantities);
 
   redirect(`/events/${event.id}/setup`);
+}
+
+export async function createEventWithRoomTypes(
+  eventId: string,
+  roomTypes: {
+    name: string;
+    description?: string | null;
+    capacity: number;
+    has_private_bathroom: boolean;
+    base_price?: number | null;
+    occupancy_pricings?: { occupancy: number; price: number }[];
+  }[],
+  quantities: number[]
+) {
+  const ctx = await requireAuth();
+  const { VenueService } = await import("@/lib/services/venue.service");
+  await VenueService.createVenueWithRoomTypesAndRooms(eventId, ctx, roomTypes, quantities);
+  revalidatePath(`/events/${eventId}/setup`);
+  revalidatePath(`/events/${eventId}/board`);
 }
 
 export async function getRoomTypes(eventId: string) {
@@ -137,6 +166,13 @@ export async function addRoomsToEvent(
 ) {
   const ctx = await requireAuth();
   await EventService.addRoomsToEvent(eventId, ctx, types, pricingByRoomType);
+  revalidatePath(`/events/${eventId}/detail`);
+  revalidatePath(`/events/${eventId}/board`);
+}
+
+export async function addRoomsByType(eventId: string, roomTypeId: string, quantity: number) {
+  const ctx = await requireAuth();
+  await EventService.addRoomsByType(eventId, roomTypeId, quantity, ctx);
   revalidatePath(`/events/${eventId}/detail`);
   revalidatePath(`/events/${eventId}/board`);
 }
@@ -159,6 +195,10 @@ export async function updateEventDetails(
     event_price?: number | null;
     deposit_amount?: number | null;
     pricing_by_room_type?: boolean;
+    pricing_mode?: string;
+    facilitation_cost_day?: number | null;
+    facilitation_cost_half_day?: number | null;
+    management_cost_day?: number | null;
     meal_cost_breakfast?: number | null;
     meal_cost_lunch?: number | null;
     meal_cost_dinner?: number | null;
