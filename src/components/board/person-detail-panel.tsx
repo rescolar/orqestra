@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { computeDiscount, computeNights, computeTotalEventPrice } from "@/lib/pricing";
 import {
   getEventPersonDetail,
   updateEventPerson,
@@ -47,6 +48,8 @@ type EventPersonDetail = {
     internal_number: string;
     capacity: number;
     has_private_bathroom: boolean;
+    room_type_id: string | null;
+    _count: { event_persons: number };
   } | null;
   person: {
     id: string;
@@ -99,7 +102,11 @@ type PersonDetailPanelProps = {
     event_price: number | null;
     deposit_amount: number | null;
     pricing_by_room_type?: boolean;
+    pricing_mode?: string;
+    facilitation_cost_day?: number | null;
+    management_cost_day?: number | null;
     room_pricings?: { capacity: number; has_private_bathroom: boolean; price: number; daily_rate?: number | null }[];
+    occupancy_pricings?: Record<string, { occupancy: number; price: number }[]>;
     meal_costs?: { breakfast: number | null; lunch: number | null; dinner: number | null };
     event_dates?: { start: string; end: string };
   } | null;
@@ -110,38 +117,7 @@ type PersonDetailPanelProps = {
   onBoardRefresh?: () => void;
 };
 
-function computeDiscount(opts: {
-  eventDates?: { start: string; end: string };
-  dateArrival: string | null;
-  dateDeparture: string | null;
-  dailyRate: number | null;
-  discountBreakfast: number;
-  discountLunch: number;
-  discountDinner: number;
-  mealCosts?: { breakfast: number | null; lunch: number | null; dinner: number | null };
-}) {
-  let dayDiscount = 0;
-  let daysLess = 0;
-
-  if (opts.eventDates && opts.dailyRate) {
-    const eventStart = new Date(opts.eventDates.start);
-    const eventEnd = new Date(opts.eventDates.end);
-    const arrival = opts.dateArrival ? new Date(opts.dateArrival) : eventStart;
-    const departure = opts.dateDeparture ? new Date(opts.dateDeparture) : eventEnd;
-    const eventDays = Math.round((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24));
-    const personDays = Math.round((departure.getTime() - arrival.getTime()) / (1000 * 60 * 60 * 24));
-    daysLess = Math.max(0, eventDays - personDays);
-    dayDiscount = daysLess * opts.dailyRate;
-  }
-
-  const mc = opts.mealCosts;
-  const mealDiscount =
-    (opts.discountBreakfast * (mc?.breakfast ?? 0)) +
-    (opts.discountLunch * (mc?.lunch ?? 0)) +
-    (opts.discountDinner * (mc?.dinner ?? 0));
-
-  return { dayDiscount, daysLess, mealDiscount, total: dayDiscount + mealDiscount };
-}
+// computeDiscount imported from shared pricing module
 
 const ROLE_OPTIONS = [
   { value: "participant", label: "Participante" },
@@ -245,11 +221,42 @@ export function PersonDetailPanel({
   // Resolve effective price and daily_rate for this person based on their room
   const resolvedPricing = (() => {
     if (!eventPricing) return { price: null, dailyRate: null };
-    if (eventPricing.pricing_by_room_type && eventPricing.room_pricings && data?.room) {
-      const rp = eventPricing.room_pricings.find(
-        (p) => p.capacity === data.room!.capacity && p.has_private_bathroom === data.room!.has_private_bathroom
-      );
-      return { price: rp?.price ?? null, dailyRate: rp?.daily_rate ?? null };
+    if (eventPricing.pricing_by_room_type && data?.room) {
+      // Try occupancy-based pricing first (via room_type_id)
+      const roomTypeId = data.room.room_type_id;
+      const currentOccupancy = data.room._count?.event_persons ?? 0;
+      if (roomTypeId && eventPricing.occupancy_pricings?.[roomTypeId]) {
+        const occPricings = eventPricing.occupancy_pricings[roomTypeId];
+        const match = occPricings.find((op) => op.occupancy === currentOccupancy);
+        if (match) {
+          // For occupancy pricing, compute total event price (accommodation × nights + facilitation + management)
+          const nights = eventPricing.event_dates
+            ? computeNights(eventPricing.event_dates.start, eventPricing.event_dates.end)
+            : 0;
+          const total = computeTotalEventPrice({
+            accommodationPerNight: match.price,
+            nights,
+            days: nights,
+            pricingMode: eventPricing.pricing_mode ?? "direct",
+            facilitationCostDay: eventPricing.facilitation_cost_day,
+            managementCostDay: eventPricing.management_cost_day,
+          });
+          return { price: total, dailyRate: match.price };
+        }
+      }
+
+      // Fallback to legacy RoomPricing (capacity + bathroom match)
+      if (eventPricing.room_pricings) {
+        const rp = eventPricing.room_pricings.find(
+          (p) => p.capacity === data.room!.capacity && p.has_private_bathroom === data.room!.has_private_bathroom
+        );
+        if (rp) {
+          return { price: rp.price, dailyRate: rp.daily_rate ?? null };
+        }
+      }
+
+      // Fallback: try room type base_price from legacy room_pricings
+      return { price: null, dailyRate: null };
     }
     return { price: eventPricing.event_price, dailyRate: null };
   })();
@@ -819,7 +826,7 @@ export function PersonDetailPanel({
                 {/* Price label */}
                 {ep != null && (
                   <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>Precio habitación:</span>
+                    <span>Precio total alojamiento:</span>
                     <span className="font-medium text-gray-700">{ep.toFixed(2)} €</span>
                   </div>
                 )}

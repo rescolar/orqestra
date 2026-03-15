@@ -29,12 +29,18 @@ type RoomDetail = {
   locked: boolean;
   locked_reason: string | null;
   description: string | null;
+  room_type_id: string | null;
   event_persons: AssignedPerson[];
 };
 
 type RoomDetailPanelProps = {
   roomId: string;
   eventId: string;
+  eventPricing?: {
+    pricing_by_room_type?: boolean;
+    room_pricings?: { capacity: number; has_private_bathroom: boolean; price: number }[];
+    occupancy_pricings?: Record<string, { occupancy: number; price: number }[]>;
+  } | null;
   onClose: () => void;
   onRoomUpdated: () => void;
   onPersonClick?: (id: string) => void;
@@ -77,7 +83,7 @@ const GENDER_OPTIONS = [
 
 const STORAGE_KEY_PREFIX = "orqestra:room-sections:";
 
-const ALL_ROOM_SECTIONS = ["Capacidad", "Configuracion", "Personas asignadas", "Descripcion"];
+const ALL_ROOM_SECTIONS = ["Capacidad", "Precios", "Configuracion", "Personas asignadas", "Descripcion"];
 
 function readOpenSections(eventId: string): Set<string> {
   try {
@@ -97,9 +103,14 @@ function writeOpenSections(eventId: string, sections: Set<string>) {
   } catch {}
 }
 
+function occupancyLabel(n: number) {
+  return n === 1 ? "Individual" : n === 2 ? "Doble" : n === 3 ? "Triple" : `${n} pers.`;
+}
+
 export function RoomDetailPanel({
   roomId,
   eventId,
+  eventPricing,
   onClose,
   onRoomUpdated,
   onPersonClick,
@@ -328,19 +339,84 @@ export function RoomDetailPanel({
           onToggle={() => toggleSection("Capacidad")}
         >
           <div className="flex items-center gap-3">
-            <input
-              type="number"
-              min={1}
-              value={capacityLocal}
-              onChange={(e) => setCapacityLocal(e.target.value)}
-              onBlur={handleCapacityBlur}
-              className="w-20 rounded-lg border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-primary"
-            />
+            {data.room_type_id ? (
+              <span className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5 text-sm text-gray-600">{data.capacity}</span>
+            ) : (
+              <input
+                type="number"
+                min={1}
+                value={capacityLocal}
+                onChange={(e) => setCapacityLocal(e.target.value)}
+                onBlur={handleCapacityBlur}
+                className="w-20 rounded-lg border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-primary"
+              />
+            )}
             <span className="text-xs text-gray-400">
               {assignedCount} de {data.capacity} ocupados
             </span>
           </div>
+          {data.room_type_id && (
+            <p className="mt-1 text-[10px] text-gray-400">Capacidad fijada por tipo de habitación</p>
+          )}
         </CollapsibleSection>
+
+        {/* Pricing per night */}
+        {(() => {
+          const roomTypeId = data.room_type_id;
+          const occPricings = roomTypeId ? eventPricing?.occupancy_pricings?.[roomTypeId] : null;
+          const legacyPricing = eventPricing?.pricing_by_room_type && eventPricing?.room_pricings
+            ? eventPricing.room_pricings.find(
+                (p) => p.capacity === data.capacity && p.has_private_bathroom === data.has_private_bathroom
+              )
+            : null;
+
+          if (!occPricings && !legacyPricing) return null;
+
+          const currentOccupancy = data.event_persons.length;
+          const priceSummary = occPricings
+            ? `${occPricings.length} tarifas`
+            : legacyPricing
+              ? `${legacyPricing.price}€/pers/noche`
+              : "";
+
+          return (
+            <CollapsibleSection
+              label="Precios"
+              summary={priceSummary}
+              open={openSections.has("Precios")}
+              onToggle={() => toggleSection("Precios")}
+            >
+              <div className="space-y-1.5">
+                {occPricings ? (
+                  occPricings.map((op) => (
+                    <div
+                      key={op.occupancy}
+                      className={cn(
+                        "flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs",
+                        op.occupancy === currentOccupancy
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-gray-600"
+                      )}
+                    >
+                      <span>{occupancyLabel(op.occupancy)}</span>
+                      <span>{op.price}€/pers/noche</span>
+                    </div>
+                  ))
+                ) : legacyPricing ? (
+                  <div className="flex items-center justify-between text-xs text-gray-600">
+                    <span>Precio base (por persona)</span>
+                    <span>{legacyPricing.price}€/pers/noche</span>
+                  </div>
+                ) : null}
+                {occPricings && currentOccupancy > 0 && (
+                  <p className="pt-1 text-[10px] text-gray-400">
+                    Ocupación actual: {currentOccupancy} — {occupancyLabel(currentOccupancy)}
+                  </p>
+                )}
+              </div>
+            </CollapsibleSection>
+          );
+        })()}
 
         {/* Toggles: bathroom, gender, locked */}
         <CollapsibleSection
@@ -359,10 +435,14 @@ export function RoomDetailPanel({
             {/* Bathroom */}
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Baño privado</span>
-              <ToggleSwitch
-                checked={data.has_private_bathroom}
-                onChange={handleBathroomToggle}
-              />
+              {data.room_type_id ? (
+                <span className="text-xs text-gray-500">{data.has_private_bathroom ? "Sí" : "No"}</span>
+              ) : (
+                <ToggleSwitch
+                  checked={data.has_private_bathroom}
+                  onChange={handleBathroomToggle}
+                />
+              )}
             </div>
 
             {/* Gender restriction */}
