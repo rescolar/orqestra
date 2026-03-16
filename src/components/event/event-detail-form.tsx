@@ -6,7 +6,7 @@ import { updateEventDetails, updateRoomPricings, addRoomsByType } from "@/lib/ac
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Building2, Settings, Calendar, UtensilsCrossed, BedDouble, Bath, Hash, Plus, Calculator } from "lucide-react";
+import { ArrowLeft, Building2, Settings, Calendar, UtensilsCrossed, BedDouble, Bath, Hash, Plus, Calculator, Home } from "lucide-react";
 import { SaveAsVenueButton } from "@/components/venue/save-as-venue-button";
 import { RoomTypeEditor } from "@/components/venue/room-type-editor";
 import { ImageUpload } from "@/components/shared/image-upload";
@@ -668,13 +668,22 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
             Atrás
           </Link>
         ) : (
-          <Link
-            href={`/events/${event.id}/board`}
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-          >
-            <ArrowLeft className="size-4" />
-            Volver al tablero
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href={`/events/${event.id}/board`}
+              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+            >
+              <ArrowLeft className="size-4" />
+              Volver al tablero
+            </Link>
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+            >
+              <Home className="size-4" />
+              Dashboard
+            </Link>
+          </div>
         )}
         <div className="flex gap-3">
           {!isDirty && (
