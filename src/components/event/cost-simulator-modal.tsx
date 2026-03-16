@@ -24,6 +24,7 @@ interface CostSimulatorModalProps {
   nights: number;
   days: number;
   estimatedParticipants: number;
+  facilitationCostDay: number | null;
   onApply: (managementCostDay: number) => void;
 }
 
@@ -41,6 +42,7 @@ export function CostSimulatorModal({
   nights,
   days,
   estimatedParticipants,
+  facilitationCostDay,
   onApply,
 }: CostSimulatorModalProps) {
   const [participants, setParticipants] = useState(String(estimatedParticipants));
@@ -54,23 +56,38 @@ export function CostSimulatorModal({
   const parsedFees = parseFloat(totalFees) || 0;
   const parsedExtra = parseFloat(extraCosts) || 0;
 
+  const hasFacilitationSet = facilitationCostDay != null && facilitationCostDay > 0;
+
   const selectedRoomType = selectedRoomTypeIdx !== "" ? roomTypes[parseInt(selectedRoomTypeIdx)] : null;
   const roomTypePrice = selectedRoomType ? getRoomTypePrice(selectedRoomType) : null;
 
   const breakdown = useMemo(() => {
     const accommodationFacilitators = (roomTypePrice ?? 0) * nights * parsedFacilitators;
-    const totalToDistribute = parsedFees + accommodationFacilitators + parsedExtra;
+
+    // Facilitation cost: auto-computed from facilitationCostDay if set, manual otherwise
+    const facilitationTotal = hasFacilitationSet
+      ? facilitationCostDay! * days * parsedParticipants
+      : parsedFees;
+
+    // What management needs to cover:
+    // If facilitation/day is set → already charged to participants, only accommodation + extras
+    // If not set → everything goes to management
+    const totalForManagement = hasFacilitationSet
+      ? accommodationFacilitators + parsedExtra
+      : facilitationTotal + accommodationFacilitators + parsedExtra;
+
     const managementPerPersonDay =
       parsedParticipants > 0 && days > 0
-        ? totalToDistribute / (parsedParticipants * days)
+        ? totalForManagement / (parsedParticipants * days)
         : 0;
 
     return {
+      facilitationTotal,
       accommodationFacilitators,
-      totalToDistribute,
+      totalForManagement,
       managementPerPersonDay,
     };
-  }, [roomTypePrice, nights, parsedFacilitators, parsedFees, parsedExtra, parsedParticipants, days]);
+  }, [roomTypePrice, nights, parsedFacilitators, parsedFees, parsedExtra, parsedParticipants, days, hasFacilitationSet, facilitationCostDay]);
 
   const canApply = parsedParticipants > 0 && days > 0;
 
@@ -81,7 +98,7 @@ export function CostSimulatorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="bg-white sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Simulador de costes de gestión</DialogTitle>
         </DialogHeader>
@@ -132,18 +149,21 @@ export function CostSimulatorModal({
               </select>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">Honorarios totales de facilitación (€)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min={0}
-                value={totalFees}
-                onChange={(e) => setTotalFees(e.target.value)}
-                placeholder="Importe total del evento"
-                className="text-sm"
-              />
-            </div>
+            {/* Manual fees input: only when facilitation/day is NOT set */}
+            {!hasFacilitationSet && (
+              <div className="space-y-1">
+                <Label className="text-xs">Honorarios totales de facilitación (€)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={totalFees}
+                  onChange={(e) => setTotalFees(e.target.value)}
+                  placeholder="Importe total del evento"
+                  className="text-sm"
+                />
+              </div>
+            )}
 
             <div className="space-y-1">
               <Label className="text-xs">Gastos extra del centro (€)</Label>
@@ -163,21 +183,29 @@ export function CostSimulatorModal({
           <div className="space-y-2 rounded-lg bg-gray-50 p-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Desglose</p>
             <div className="space-y-1 text-xs text-gray-600">
+              {/* Facilitation line */}
+              <div className="flex justify-between">
+                <span>
+                  Facilitación ({facilitationCostDay ?? "?"}€ × {parsedParticipants} pers. × {days}d)
+                  {hasFacilitationSet && (
+                    <span className="ml-1 text-emerald-600">✓ ya incluido</span>
+                  )}
+                </span>
+                <span className={`font-medium ${hasFacilitationSet ? "text-gray-400 line-through" : "text-gray-700"}`}>
+                  {breakdown.facilitationTotal.toFixed(2)}€
+                </span>
+              </div>
               <div className="flex justify-between">
                 <span>Alojamiento facilitadores ({parsedFacilitators} × {roomTypePrice ?? 0}€ × {nights}n)</span>
                 <span className="font-medium text-gray-700">{breakdown.accommodationFacilitators.toFixed(2)}€</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Honorarios facilitación</span>
-                <span className="font-medium text-gray-700">{parsedFees.toFixed(2)}€</span>
               </div>
               <div className="flex justify-between">
                 <span>Gastos extra centro</span>
                 <span className="font-medium text-gray-700">{parsedExtra.toFixed(2)}€</span>
               </div>
               <div className="flex justify-between border-t border-gray-200 pt-1">
-                <span className="font-medium text-gray-700">Total a repartir</span>
-                <span className="font-medium text-gray-700">{breakdown.totalToDistribute.toFixed(2)}€</span>
+                <span className="font-medium text-gray-700">Total a repartir en gestión</span>
+                <span className="font-medium text-gray-700">{breakdown.totalForManagement.toFixed(2)}€</span>
               </div>
               <div className="mt-0.5 text-[10px] text-gray-400">
                 ÷ {parsedParticipants} participantes × {days} días

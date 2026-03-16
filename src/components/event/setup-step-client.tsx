@@ -550,6 +550,7 @@ export function SetupStepClient({
         nights={nights}
         days={days}
         estimatedParticipants={event.estimated_participants}
+        facilitationCostDay={facilitationDay ? parseFloat(facilitationDay) : null}
         onApply={(value) => setManagementDay(value.toFixed(2))}
       />
 
