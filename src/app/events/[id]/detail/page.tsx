@@ -135,7 +135,6 @@ export default async function DetailPage({
             pricing_by_room_type: event.pricing_by_room_type,
             pricing_mode: event.pricing_mode,
             facilitation_cost_day: event.facilitation_cost_day ? Number(event.facilitation_cost_day) : null,
-            facilitation_cost_half_day: event.facilitation_cost_half_day ? Number(event.facilitation_cost_half_day) : null,
             management_cost_day: event.management_cost_day ? Number(event.management_cost_day) : null,
             room_pricings: roomPricings.map((rp) => ({
               capacity: rp.capacity,

@@ -77,7 +77,7 @@ export async function saveEventSetupFields(
     pricing_by_room_type?: boolean;
     pricing_mode?: string;
     facilitation_cost_day?: number | null;
-    facilitation_cost_half_day?: number | null;
+
     management_cost_day?: number | null;
     meal_cost_breakfast?: number | null;
     meal_cost_lunch?: number | null;
@@ -98,7 +98,7 @@ export async function saveEventSetupFields(
     pricing_by_room_type: data.pricing_by_room_type,
     pricing_mode: data.pricing_mode,
     facilitation_cost_day: data.facilitation_cost_day,
-    facilitation_cost_half_day: data.facilitation_cost_half_day,
+
     management_cost_day: data.management_cost_day,
     meal_cost_breakfast: data.meal_cost_breakfast,
     meal_cost_lunch: data.meal_cost_lunch,
@@ -197,11 +197,13 @@ export async function updateEventDetails(
     pricing_by_room_type?: boolean;
     pricing_mode?: string;
     facilitation_cost_day?: number | null;
-    facilitation_cost_half_day?: number | null;
+
     management_cost_day?: number | null;
     meal_cost_breakfast?: number | null;
     meal_cost_lunch?: number | null;
     meal_cost_dinner?: number | null;
+    show_accommodation?: boolean;
+    show_availability?: boolean;
   }
 ) {
   const ctx = await requireAuth();

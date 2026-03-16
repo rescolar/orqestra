@@ -54,7 +54,6 @@ interface SetupStepClientProps {
     pricing_by_room_type: boolean;
     pricing_mode: string;
     facilitation_cost_day: number | null;
-    facilitation_cost_half_day: number | null;
     management_cost_day: number | null;
     meal_cost_breakfast: number | null;
     meal_cost_lunch: number | null;
@@ -96,7 +95,6 @@ export function SetupStepClient({
   const [location, setLocation] = useState(event.location ?? "");
   const [pricingMode, setPricingMode] = useState(event.pricing_mode || "direct");
   const [facilitationDay, setFacilitationDay] = useState(event.facilitation_cost_day != null ? String(event.facilitation_cost_day) : "");
-  const [facilitationHalfDay, setFacilitationHalfDay] = useState(event.facilitation_cost_half_day != null ? String(event.facilitation_cost_half_day) : "");
   const [managementDay, setManagementDay] = useState(event.management_cost_day != null ? String(event.management_cost_day) : "");
   const [depositAmount, setDepositAmount] = useState(event.deposit_amount != null ? String(event.deposit_amount) : "");
   const [mealBreakfast, setMealBreakfast] = useState(event.meal_cost_breakfast != null ? String(event.meal_cost_breakfast) : "");
@@ -208,7 +206,6 @@ export function SetupStepClient({
         pricing_by_room_type: hasPricing,
         pricing_mode: pricingMode,
         facilitation_cost_day: facilitationDay ? parseFloat(facilitationDay) : null,
-        facilitation_cost_half_day: facilitationHalfDay ? parseFloat(facilitationHalfDay) : null,
         management_cost_day: managementDay ? parseFloat(managementDay) : null,
         meal_cost_breakfast: mealBreakfast ? parseFloat(mealBreakfast) : null,
         meal_cost_lunch: mealLunch ? parseFloat(mealLunch) : null,
@@ -477,7 +474,7 @@ export function SetupStepClient({
                   Simulador de costes
                 </Button>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Facilitación/día (€)</Label>
                   <Input
@@ -487,18 +484,6 @@ export function SetupStepClient({
                     value={facilitationDay}
                     onChange={(e) => setFacilitationDay(e.target.value)}
                     placeholder="€/pers./día"
-                    className="text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Facilitación/½ día (€)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={facilitationHalfDay}
-                    onChange={(e) => setFacilitationHalfDay(e.target.value)}
-                    placeholder="€/pers./½ día"
                     className="text-sm"
                   />
                 </div>

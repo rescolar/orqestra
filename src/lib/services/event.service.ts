@@ -372,7 +372,6 @@ export const EventService = {
         pricing_by_room_type: true,
         pricing_mode: true,
         facilitation_cost_day: true,
-        facilitation_cost_half_day: true,
         management_cost_day: true,
         meal_cost_breakfast: true,
         meal_cost_lunch: true,
@@ -406,11 +405,12 @@ export const EventService = {
       pricing_by_room_type?: boolean;
       pricing_mode?: string;
       facilitation_cost_day?: number | null;
-      facilitation_cost_half_day?: number | null;
       management_cost_day?: number | null;
       meal_cost_breakfast?: number | null;
       meal_cost_lunch?: number | null;
       meal_cost_dinner?: number | null;
+      show_accommodation?: boolean;
+      show_availability?: boolean;
     }
   ) {
     if (!(await canAccessEvent(ctx, eventId))) throw new Error("Evento no encontrado");
@@ -429,11 +429,12 @@ export const EventService = {
         ...(data.pricing_by_room_type !== undefined && { pricing_by_room_type: data.pricing_by_room_type }),
         ...(data.pricing_mode !== undefined && { pricing_mode: data.pricing_mode }),
         ...(data.facilitation_cost_day !== undefined && { facilitation_cost_day: data.facilitation_cost_day }),
-        ...(data.facilitation_cost_half_day !== undefined && { facilitation_cost_half_day: data.facilitation_cost_half_day }),
         ...(data.management_cost_day !== undefined && { management_cost_day: data.management_cost_day }),
         ...(data.meal_cost_breakfast !== undefined && { meal_cost_breakfast: data.meal_cost_breakfast }),
         ...(data.meal_cost_lunch !== undefined && { meal_cost_lunch: data.meal_cost_lunch }),
         ...(data.meal_cost_dinner !== undefined && { meal_cost_dinner: data.meal_cost_dinner }),
+        ...(data.show_accommodation !== undefined && { show_accommodation: data.show_accommodation }),
+        ...(data.show_availability !== undefined && { show_availability: data.show_availability }),
       },
     });
   },
@@ -465,6 +466,7 @@ export const EventService = {
                 dietary_notified: true,
                 requests_text: true,
                 requests_managed: true,
+                accommodation_room_type_id: true,
                 person: {
                   select: {
                     gender: true,

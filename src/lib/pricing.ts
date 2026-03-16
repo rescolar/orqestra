@@ -32,7 +32,6 @@ export interface EventPricingConfig {
   pricing_by_room_type?: boolean;
   pricing_mode?: string; // "direct" | "breakdown"
   facilitation_cost_day?: number | null;
-  facilitation_cost_half_day?: number | null;
   management_cost_day?: number | null;
   room_pricings?: RoomPricingEntry[];
   meal_costs?: { breakfast: number | null; lunch: number | null; dinner: number | null };

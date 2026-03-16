@@ -43,7 +43,6 @@ interface EventDetailFormProps {
     pricing_by_room_type?: boolean;
     pricing_mode?: string;
     facilitation_cost_day?: number | string | null;
-    facilitation_cost_half_day?: number | string | null;
     management_cost_day?: number | string | null;
     room_pricings?: RoomPricingRow[];
     meal_cost_breakfast?: number | string | null;
@@ -79,7 +78,6 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
   const [pricingByRoomType, setPricingByRoomType] = useState(event.pricing_by_room_type ?? false);
   const [pricingMode, setPricingMode] = useState(event.pricing_mode ?? "direct");
   const [facilitationDay, setFacilitationDay] = useState(event.facilitation_cost_day != null ? String(event.facilitation_cost_day) : "");
-  const [facilitationHalfDay, setFacilitationHalfDay] = useState(event.facilitation_cost_half_day != null ? String(event.facilitation_cost_half_day) : "");
   const [managementDay, setManagementDay] = useState(event.management_cost_day != null ? String(event.management_cost_day) : "");
   const [roomPricings, setRoomPricings] = useState<RoomPricingRow[]>(event.room_pricings ?? []);
   const [mealBreakfast, setMealBreakfast] = useState(event.meal_cost_breakfast != null ? String(event.meal_cost_breakfast) : "");
@@ -194,7 +192,6 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
           pricing_by_room_type: pricingByRoomType,
           pricing_mode: pricingMode,
           facilitation_cost_day: facilitationDay ? parseFloat(facilitationDay) : null,
-          facilitation_cost_half_day: facilitationHalfDay ? parseFloat(facilitationHalfDay) : null,
           management_cost_day: managementDay ? parseFloat(managementDay) : null,
           meal_cost_breakfast: mealBreakfast ? parseFloat(mealBreakfast) : null,
           meal_cost_lunch: mealLunch ? parseFloat(mealLunch) : null,
@@ -514,14 +511,10 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
                     Simulador de costes
                   </Button>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Facilitación/día (€)</Label>
                     <Input type="number" step="0.01" min={0} value={facilitationDay} onChange={(e) => setFacilitationDay(e.target.value)} placeholder="€/pers./día" className="text-sm" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Facilitación/½ día (€)</Label>
-                    <Input type="number" step="0.01" min={0} value={facilitationHalfDay} onChange={(e) => setFacilitationHalfDay(e.target.value)} placeholder="€/pers./½ día" className="text-sm" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Gestión/día (€)</Label>
