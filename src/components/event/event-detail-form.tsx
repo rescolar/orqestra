@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateEventDetails, updateRoomPricings, addRoomsByType } from "@/lib/actions/event";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Building2, Settings, Calendar, UtensilsCrossed, BedDouble, Bath, Hash, Plus, Calculator, Home } from "lucide-react";
+import { ArrowLeft, Building2, Settings, Calendar, UtensilsCrossed, BedDouble, Bath, Hash, Plus, Calculator, Home, LinkIcon, Check } from "lucide-react";
 import { SaveAsVenueButton } from "@/components/venue/save-as-venue-button";
 import { RoomTypeEditor } from "@/components/venue/room-type-editor";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { computeNights, computeTotalEventPrice } from "@/lib/pricing";
 import { CostSimulatorModal } from "@/components/event/cost-simulator-modal";
+import { getInviteLink } from "@/lib/actions/invite";
 import Link from "next/link";
 import type { RoomTypeData } from "@/components/venue/venue-edit-client";
 
@@ -91,6 +92,8 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
   const [error, setError] = useState<string | null>(null);
   const [addingRoomType, setAddingRoomType] = useState<string | null>(null);
   const [showSimulator, setShowSimulator] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const [isInvitePending, startInviteTransition] = useTransition();
 
   const hasVenueRoomTypes = venueRoomTypes && venueRoomTypes.length > 0;
 
@@ -598,6 +601,46 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
                   </button>
                 </label>
               )}
+            </div>
+
+            {/* Invite link */}
+            <div className="border-t border-gray-100 pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Enlace de invitación</p>
+                  <p className="text-xs text-gray-400">Comparte este enlace para que los participantes se registren</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isInvitePending}
+                  onClick={() => {
+                    startInviteTransition(async () => {
+                      const code = await getInviteLink(event.id);
+                      const url = `${window.location.origin}/join/${code}`;
+                      await navigator.clipboard.writeText(url);
+                      setInviteCopied(true);
+                      setTimeout(() => setInviteCopied(false), 2000);
+                    });
+                  }}
+                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                    inviteCopied
+                      ? "border-green-200 bg-green-50 text-green-700"
+                      : "border-gray-200 text-gray-600 hover:border-primary hover:text-primary"
+                  }`}
+                >
+                  {inviteCopied ? (
+                    <>
+                      <Check className="size-4" />
+                      Copiado
+                    </>
+                  ) : (
+                    <>
+                      <LinkIcon className="size-4" />
+                      {isInvitePending ? "Generando..." : "Copiar enlace"}
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

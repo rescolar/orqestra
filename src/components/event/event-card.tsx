@@ -62,8 +62,8 @@ export function EventCard({
   return (
     <>
       <div className="group relative flex overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-        {/* Hover actions */}
-        <div className="absolute top-3 right-3 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        {/* Actions */}
+        <div className="absolute top-3 right-3 z-10 flex gap-1">
           {!isCollaborator && <InviteLinkButton eventId={id} />}
           <Link
             href={`/events/${id}/detail`}
