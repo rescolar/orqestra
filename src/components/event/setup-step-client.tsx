@@ -18,9 +18,11 @@ import {
   ChevronUp,
   BedDouble,
   Hash,
+  Calculator,
 } from "lucide-react";
 import Link from "next/link";
 import { computeNights, computeTotalEventPrice } from "@/lib/pricing";
+import { CostSimulatorModal } from "@/components/event/cost-simulator-modal";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -129,6 +131,9 @@ export function SetupStepClient({
     return {};
   });
 
+  // ─── Simulator ─────────────────────────────────────────────────────────
+  const [showSimulator, setShowSimulator] = useState(false);
+
   // ─── Submit state ───────────────────────────────────────────────────────
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -217,7 +222,7 @@ export function SetupStepClient({
           description: rt.description.trim() || null,
           capacity: rt.capacity,
           has_private_bathroom: rt.has_private_bathroom,
-          base_price: rt.base_price ? parseFloat(rt.base_price) : null,
+          base_price: !rt.showOccupancies && rt.base_price ? parseFloat(rt.base_price) : null,
           occupancy_pricings: rt.showOccupancies
             ? rt.occupancy_pricings
                 .filter((op) => op.price && !isNaN(parseFloat(op.price)))
@@ -240,108 +245,6 @@ export function SetupStepClient({
 
   return (
     <div className="space-y-6">
-      {/* ─── Card: Gestión ─────────────────────────────────────────────── */}
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Settings className="size-4 text-gray-400" />
-            <h3 className="text-sm font-semibold text-gray-700">Gestión</h3>
-          </div>
-
-          {/* Pricing mode */}
-          <div className="space-y-2">
-            <Label>Modo de precio</Label>
-            <div className="flex gap-3">
-              <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "direct" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
-                <input
-                  type="radio"
-                  name="pricing_mode"
-                  value="direct"
-                  checked={pricingMode === "direct"}
-                  onChange={() => setPricingMode("direct")}
-                  className="accent-primary"
-                />
-                Todo incluido
-              </label>
-              <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "breakdown" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
-                <input
-                  type="radio"
-                  name="pricing_mode"
-                  value="breakdown"
-                  checked={pricingMode === "breakdown"}
-                  onChange={() => setPricingMode("breakdown")}
-                  className="accent-primary"
-                />
-                Desglosado
-              </label>
-            </div>
-          </div>
-
-          {/* Breakdown costs */}
-          {pricingMode === "breakdown" && (
-            <div className="space-y-3 rounded-lg bg-gray-50 p-3">
-              <p className="text-xs text-gray-500">
-                Precio total = alojamiento + facilitación + gestión
-              </p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Facilitación/día (€)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={facilitationDay}
-                    onChange={(e) => setFacilitationDay(e.target.value)}
-                    placeholder="€/pers./día"
-                    className="text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Facilitación/½ día (€)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={facilitationHalfDay}
-                    onChange={(e) => setFacilitationHalfDay(e.target.value)}
-                    placeholder="€/pers./½ día"
-                    className="text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Gestión/día (€)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={managementDay}
-                    onChange={(e) => setManagementDay(e.target.value)}
-                    placeholder="€/pers./día"
-                    className="text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Deposit */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="deposit_amount">Reserva (€)</Label>
-              <Input
-                id="deposit_amount"
-                type="number"
-                step="0.01"
-                min={0}
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
-                placeholder="Depósito"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* ─── Card: Centro ──────────────────────────────────────────────── */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <div className="space-y-4">
@@ -517,6 +420,139 @@ export function SetupStepClient({
         </div>
       </div>
 
+      {/* ─── Card: Gestión ─────────────────────────────────────────────── */}
+      <div className="rounded-xl bg-white p-6 shadow-sm">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Settings className="size-4 text-gray-400" />
+            <h3 className="text-sm font-semibold text-gray-700">Gestión</h3>
+          </div>
+
+          {/* Pricing mode */}
+          <div className="space-y-2">
+            <Label>Cálculo del precio</Label>
+            <div className="flex gap-3">
+              <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "direct" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
+                <input
+                  type="radio"
+                  name="pricing_mode"
+                  value="direct"
+                  checked={pricingMode === "direct"}
+                  onChange={() => setPricingMode("direct")}
+                  className="accent-primary"
+                />
+                Precio Final
+              </label>
+              <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "breakdown" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
+                <input
+                  type="radio"
+                  name="pricing_mode"
+                  value="breakdown"
+                  checked={pricingMode === "breakdown"}
+                  onChange={() => setPricingMode("breakdown")}
+                  className="accent-primary"
+                />
+                Gastos Desglosados
+              </label>
+            </div>
+            <p className="text-xs text-gray-500">
+              {pricingMode === "direct"
+                ? "Los precios por noche de cada habitación ya incluyen todos los gastos (facilitación, gestión, etc.)"
+                : "El precio final será el resultado de añadir los gastos de facilitación y gestión al coste de la habitación."}
+            </p>
+          </div>
+
+          {/* Breakdown costs */}
+          {pricingMode === "breakdown" && (
+            <div className="space-y-3 rounded-lg bg-gray-50 p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-gray-500">Gastos por persona y día</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSimulator(true)}
+                  className="h-7 gap-1.5 text-xs text-gray-600"
+                >
+                  <Calculator className="size-3.5" />
+                  Simulador de costes
+                </Button>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Facilitación/día (€)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={facilitationDay}
+                    onChange={(e) => setFacilitationDay(e.target.value)}
+                    placeholder="€/pers./día"
+                    className="text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Facilitación/½ día (€)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={facilitationHalfDay}
+                    onChange={(e) => setFacilitationHalfDay(e.target.value)}
+                    placeholder="€/pers./½ día"
+                    className="text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Gestión/día (€)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={managementDay}
+                    onChange={(e) => setManagementDay(e.target.value)}
+                    placeholder="€/pers./día"
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Deposit */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="deposit_amount">Reserva (€)</Label>
+              <Input
+                id="deposit_amount"
+                type="number"
+                step="0.01"
+                min={0}
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(e.target.value)}
+                placeholder="Depósito"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Cost Simulator Modal ──────────────────────────────────────── */}
+      <CostSimulatorModal
+        open={showSimulator}
+        onOpenChange={setShowSimulator}
+        roomTypes={roomTypes.map((rt) => ({
+          name: rt.name,
+          base_price: rt.base_price ? parseFloat(rt.base_price) : null,
+          occupancy_pricings: rt.occupancy_pricings
+            .filter((op) => op.price && !isNaN(parseFloat(op.price)))
+            .map((op) => ({ occupancy: op.occupancy, price: parseFloat(op.price) })),
+        }))}
+        nights={nights}
+        days={days}
+        estimatedParticipants={event.estimated_participants}
+        onApply={(value) => setManagementDay(value.toFixed(2))}
+      />
+
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {/* ─── Navigation ────────────────────────────────────────────────── */}
@@ -661,48 +697,41 @@ function RoomTypeCard({
               Baño privado
             </label>
 
-            <div className="space-y-1">
+            {/* Pricing mode: single vs occupancy */}
+            <div className="space-y-2">
               <Label className="text-xs">
-                Precio base (€/persona/noche)
+                Precio (€/persona/noche)
                 {pricingMode === "breakdown" && (
                   <span className="ml-1 font-normal text-gray-400">— solo alojamiento</span>
                 )}
               </Label>
-              <Input
-                type="number"
-                step="0.01"
-                min={0}
-                value={roomType.base_price}
-                onChange={(e) => onUpdate({ base_price: e.target.value })}
-                placeholder="€ por persona y noche"
-                className="h-8 w-40 text-sm"
-              />
-            </div>
-
-            {/* Occupancy pricings */}
-            <div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={roomType.showOccupancies}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    if (checked && roomType.occupancy_pricings.length === 0) {
-                      const rows: OccupancyRow[] = [];
-                      for (let i = 1; i <= Math.min(roomType.capacity, 4); i++) {
-                        rows.push({ occupancy: i, price: "" });
-                      }
-                      onUpdate({ showOccupancies: true, occupancy_pricings: rows });
-                    } else {
-                      onUpdate({ showOccupancies: checked });
-                    }
-                  }}
-                  className="rounded border-gray-300"
+              <div className="flex gap-2">
+                <label className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${!roomType.showOccupancies ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500"}`}>
+                  <input type="radio" checked={!roomType.showOccupancies} onChange={() => onUpdate({ showOccupancies: false })} className="accent-primary" />
+                  Precio único
+                </label>
+                <label className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${roomType.showOccupancies ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500"}`}>
+                  <input type="radio" checked={roomType.showOccupancies} onChange={() => {
+                    const rows: OccupancyRow[] = roomType.occupancy_pricings.length > 0
+                      ? roomType.occupancy_pricings
+                      : Array.from({ length: Math.min(roomType.capacity, 4) }, (_, i) => ({ occupancy: i + 1, price: "" }));
+                    onUpdate({ showOccupancies: true, base_price: "", occupancy_pricings: rows });
+                  }} className="accent-primary" />
+                  Por ocupación
+                </label>
+              </div>
+              {!roomType.showOccupancies ? (
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={roomType.base_price}
+                  onChange={(e) => onUpdate({ base_price: e.target.value })}
+                  placeholder="€ por persona y noche"
+                  className="h-8 w-40 text-sm"
                 />
-                Precios por ocupación
-              </label>
-              {roomType.showOccupancies && (
-                <div className="mt-2 space-y-2 pl-6">
+              ) : (
+                <div className="space-y-2">
                   {roomType.occupancy_pricings.map((o, idx) => {
                     const total = previewTotal(roomType, o.occupancy);
                     return (
@@ -857,42 +886,41 @@ function AddRoomTypeForm({
           <Bath className="size-3.5 text-blue-500" />
           Baño privado
         </label>
-        <div className="space-y-1">
-          <Label className="text-xs">Precio base (€/persona/noche)</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min={0}
-            value={basePrice}
-            onChange={(e) => setBasePrice(e.target.value)}
-            placeholder="€ por persona y noche"
-            className="h-8 w-40 text-sm"
-          />
-        </div>
-
-        {/* Occupancy pricings */}
-        <div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={showOccupancies}
-              onChange={(e) => {
-                setShowOccupancies(e.target.checked);
-                if (e.target.checked) {
-                  const cap = parseInt(capacity) || 2;
-                  const rows: OccupancyRow[] = [];
-                  for (let i = 1; i <= Math.min(cap, 4); i++) {
-                    rows.push({ occupancy: i, price: "" });
-                  }
-                  setOccupancies(rows);
+        {/* Pricing mode: single vs occupancy */}
+        <div className="space-y-2">
+          <Label className="text-xs">Precio (€/persona/noche)</Label>
+          <div className="flex gap-2">
+            <label className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${!showOccupancies ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500"}`}>
+              <input type="radio" checked={!showOccupancies} onChange={() => setShowOccupancies(false)} className="accent-primary" />
+              Precio único
+            </label>
+            <label className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${showOccupancies ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500"}`}>
+              <input type="radio" checked={showOccupancies} onChange={() => {
+                setShowOccupancies(true);
+                setBasePrice("");
+                const cap = parseInt(capacity) || 2;
+                const rows: OccupancyRow[] = [];
+                for (let i = 1; i <= Math.min(cap, 4); i++) {
+                  const existing = occupancies.find((o) => o.occupancy === i);
+                  rows.push({ occupancy: i, price: existing?.price ?? "" });
                 }
-              }}
-              className="rounded border-gray-300"
+                setOccupancies(rows);
+              }} className="accent-primary" />
+              Por ocupación
+            </label>
+          </div>
+          {!showOccupancies ? (
+            <Input
+              type="number"
+              step="0.01"
+              min={0}
+              value={basePrice}
+              onChange={(e) => setBasePrice(e.target.value)}
+              placeholder="€ por persona y noche"
+              className="h-8 w-40 text-sm"
             />
-            Precios por ocupación
-          </label>
-          {showOccupancies && (
-            <div className="mt-2 space-y-2 pl-6">
+          ) : (
+            <div className="space-y-2">
               {occupancies.map((o, idx) => (
                 <div key={o.occupancy} className="flex items-center gap-2">
                   <span className="w-24 text-xs text-gray-600">{occupancyLabel(o.occupancy)}</span>

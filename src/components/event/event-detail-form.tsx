@@ -6,11 +6,12 @@ import { updateEventDetails, updateRoomPricings, addRoomsByType } from "@/lib/ac
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Building2, Settings, Calendar, UtensilsCrossed, BedDouble, Bath, Hash, Plus } from "lucide-react";
+import { ArrowLeft, Building2, Settings, Calendar, UtensilsCrossed, BedDouble, Bath, Hash, Plus, Calculator } from "lucide-react";
 import { SaveAsVenueButton } from "@/components/venue/save-as-venue-button";
 import { RoomTypeEditor } from "@/components/venue/room-type-editor";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { computeNights, computeTotalEventPrice } from "@/lib/pricing";
+import { CostSimulatorModal } from "@/components/event/cost-simulator-modal";
 import Link from "next/link";
 import type { RoomTypeData } from "@/components/venue/venue-edit-client";
 
@@ -49,6 +50,8 @@ interface EventDetailFormProps {
     meal_cost_lunch?: number | string | null;
     meal_cost_dinner?: number | string | null;
     room_types?: { capacity: number; hasPrivateBathroom: boolean; quantity: number; price?: number; dailyRate?: number }[];
+    show_accommodation?: boolean;
+    show_availability?: boolean;
   };
 }
 
@@ -82,11 +85,14 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
   const [mealBreakfast, setMealBreakfast] = useState(event.meal_cost_breakfast != null ? String(event.meal_cost_breakfast) : "");
   const [mealLunch, setMealLunch] = useState(event.meal_cost_lunch != null ? String(event.meal_cost_lunch) : "");
   const [mealDinner, setMealDinner] = useState(event.meal_cost_dinner != null ? String(event.meal_cost_dinner) : "");
+  const [showAccommodation, setShowAccommodation] = useState(event.show_accommodation ?? false);
+  const [showAvailability, setShowAvailability] = useState(event.show_availability ?? false);
   const [showDateConfirm, setShowDateConfirm] = useState(false);
   const [pendingDates, setPendingDates] = useState<{ start?: string; end?: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addingRoomType, setAddingRoomType] = useState<string | null>(null);
+  const [showSimulator, setShowSimulator] = useState(false);
 
   const hasVenueRoomTypes = venueRoomTypes && venueRoomTypes.length > 0;
 
@@ -110,7 +116,9 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
     location !== (event.location ?? "") ||
     imageUrl !== (event.image_url ?? "") ||
     datesChanged ||
-    pricingChanged;
+    pricingChanged ||
+    showAccommodation !== (event.show_accommodation ?? false) ||
+    showAvailability !== (event.show_availability ?? false);
 
   // Room type summary
   const totalRooms = useMemo(() => {
@@ -191,6 +199,8 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
           meal_cost_breakfast: mealBreakfast ? parseFloat(mealBreakfast) : null,
           meal_cost_lunch: mealLunch ? parseFloat(mealLunch) : null,
           meal_cost_dinner: mealDinner ? parseFloat(mealDinner) : null,
+          show_accommodation: showAccommodation,
+          show_availability: showAvailability,
         });
         if (pricingByRoomType && (pricingModeChanged || roomPricingsChanged)) {
           await updateRoomPricings(
@@ -285,86 +295,6 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
           </div>
         </div>
       </div>
-
-      {/* ─── Card: Gestión (edit mode only) ────────────────────────────── */}
-      {!isWizard && (
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Settings className="size-4 text-gray-400" />
-              <h3 className="text-sm font-semibold text-gray-700">Gestión</h3>
-            </div>
-
-            {/* Pricing mode */}
-            <div className="space-y-2">
-              <Label>Modo de precio</Label>
-              <div className="flex gap-3">
-                <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "direct" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
-                  <input type="radio" name="pricing_mode_edit" value="direct" checked={pricingMode === "direct"} onChange={() => setPricingMode("direct")} className="accent-primary" />
-                  Todo incluido
-                </label>
-                <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "breakdown" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
-                  <input type="radio" name="pricing_mode_edit" value="breakdown" checked={pricingMode === "breakdown"} onChange={() => setPricingMode("breakdown")} className="accent-primary" />
-                  Desglosado
-                </label>
-              </div>
-            </div>
-
-            {/* Breakdown costs */}
-            {pricingMode === "breakdown" && (
-              <div className="space-y-3 rounded-lg bg-gray-50 p-3">
-                <p className="text-xs text-gray-500">
-                  Precio total = alojamiento + facilitación + gestión
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Facilitación/día (€)</Label>
-                    <Input type="number" step="0.01" min={0} value={facilitationDay} onChange={(e) => setFacilitationDay(e.target.value)} placeholder="€/pers./día" className="text-sm" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Facilitación/½ día (€)</Label>
-                    <Input type="number" step="0.01" min={0} value={facilitationHalfDay} onChange={(e) => setFacilitationHalfDay(e.target.value)} placeholder="€/pers./½ día" className="text-sm" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Gestión/día (€)</Label>
-                    <Input type="number" step="0.01" min={0} value={managementDay} onChange={(e) => setManagementDay(e.target.value)} placeholder="€/pers./día" className="text-sm" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Price per person + Deposit */}
-            <div className="grid grid-cols-2 gap-4">
-              {!pricingByRoomType && (
-                <div className="space-y-2">
-                  <Label htmlFor="event_price">Precio por persona (€)</Label>
-                  <Input
-                    id="event_price"
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={eventPrice}
-                    onChange={(e) => setEventPrice(e.target.value)}
-                    placeholder="Opcional"
-                  />
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="deposit_amount">Reserva (€)</Label>
-                <Input
-                  id="deposit_amount"
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  value={depositAmount}
-                  onChange={(e) => setDepositAmount(e.target.value)}
-                  placeholder="Depósito"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ─── Card: Centro (edit mode only) ─────────────────────────────── */}
       {!isWizard && (
@@ -538,6 +468,163 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
             </div>
           </div>
         </div>
+      )}
+
+      {/* ─── Card: Gestión (edit mode only) ────────────────────────────── */}
+      {!isWizard && (
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Settings className="size-4 text-gray-400" />
+              <h3 className="text-sm font-semibold text-gray-700">Gestión</h3>
+            </div>
+
+            {/* Pricing mode */}
+            <div className="space-y-2">
+              <Label>Cálculo del precio</Label>
+              <div className="flex gap-3">
+                <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "direct" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
+                  <input type="radio" name="pricing_mode_edit" value="direct" checked={pricingMode === "direct"} onChange={() => setPricingMode("direct")} className="accent-primary" />
+                  Precio Final
+                </label>
+                <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "breakdown" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
+                  <input type="radio" name="pricing_mode_edit" value="breakdown" checked={pricingMode === "breakdown"} onChange={() => setPricingMode("breakdown")} className="accent-primary" />
+                  Gastos Desglosados
+                </label>
+              </div>
+              <p className="text-xs text-gray-500">
+                {pricingMode === "direct"
+                  ? "Los precios por noche de cada habitación ya incluyen todos los gastos (facilitación, gestión, etc.)"
+                  : "El precio final será el resultado de añadir los gastos de facilitación y gestión al coste de la habitación."}
+              </p>
+            </div>
+
+            {/* Breakdown costs */}
+            {pricingMode === "breakdown" && (
+              <div className="space-y-3 rounded-lg bg-gray-50 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-gray-500">Gastos por persona y día</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowSimulator(true)}
+                    className="h-7 gap-1.5 text-xs text-gray-600"
+                  >
+                    <Calculator className="size-3.5" />
+                    Simulador de costes
+                  </Button>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Facilitación/día (€)</Label>
+                    <Input type="number" step="0.01" min={0} value={facilitationDay} onChange={(e) => setFacilitationDay(e.target.value)} placeholder="€/pers./día" className="text-sm" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Facilitación/½ día (€)</Label>
+                    <Input type="number" step="0.01" min={0} value={facilitationHalfDay} onChange={(e) => setFacilitationHalfDay(e.target.value)} placeholder="€/pers./½ día" className="text-sm" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Gestión/día (€)</Label>
+                    <Input type="number" step="0.01" min={0} value={managementDay} onChange={(e) => setManagementDay(e.target.value)} placeholder="€/pers./día" className="text-sm" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Price per person + Deposit */}
+            <div className="grid grid-cols-2 gap-4">
+              {!pricingByRoomType && (
+                <div className="space-y-2">
+                  <Label htmlFor="event_price">Precio por persona (€)</Label>
+                  <Input
+                    id="event_price"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={eventPrice}
+                    onChange={(e) => setEventPrice(e.target.value)}
+                    placeholder="Opcional"
+                  />
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="deposit_amount">Reserva (€)</Label>
+                <Input
+                  id="deposit_amount"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  placeholder="Depósito"
+                />
+              </div>
+            </div>
+
+            {/* Participant accommodation toggles */}
+            <div className="space-y-3 border-t border-gray-100 pt-4">
+              <label className="flex items-center justify-between">
+                <span className="text-sm text-gray-700">Mostrar opciones de alojamiento a participantes</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showAccommodation}
+                  onClick={() => {
+                    const next = !showAccommodation;
+                    setShowAccommodation(next);
+                    if (!next) setShowAvailability(false);
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    showAccommodation ? "bg-primary" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
+                      showAccommodation ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </label>
+              {showAccommodation && (
+                <label className="flex items-center justify-between pl-4">
+                  <span className="text-sm text-gray-500">Mostrar disponibilidad de plazas</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showAvailability}
+                    onClick={() => setShowAvailability(!showAvailability)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      showAvailability ? "bg-primary" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
+                        showAvailability ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </label>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Cost Simulator Modal ──────────────────────────────────────── */}
+      {!isWizard && (
+        <CostSimulatorModal
+          open={showSimulator}
+          onOpenChange={setShowSimulator}
+          roomTypes={(venueRoomTypes ?? []).map((rt) => ({
+            name: rt.name,
+            base_price: rt.base_price,
+            occupancy_pricings: rt.occupancy_pricings,
+          }))}
+          nights={nights}
+          days={days}
+          estimatedParticipants={event.estimated_participants}
+          onApply={(value) => setManagementDay(value.toFixed(2))}
+        />
       )}
 
       {/* Date change confirmation dialog */}
