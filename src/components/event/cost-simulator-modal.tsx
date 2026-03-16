@@ -29,11 +29,12 @@ interface CostSimulatorModalProps {
 }
 
 function getRoomTypePrice(rt: RoomTypeOption): number | null {
-  // Use occupancy=1 price if available (facilitators usually go solo)
   const occ1 = rt.occupancy_pricings.find((op) => op.occupancy === 1);
   if (occ1) return occ1.price;
   return rt.base_price;
 }
+
+type FeeMode = "total" | "per_person_day";
 
 export function CostSimulatorModal({
   open,
@@ -48,12 +49,17 @@ export function CostSimulatorModal({
   const [participants, setParticipants] = useState(String(estimatedParticipants));
   const [numFacilitators, setNumFacilitators] = useState("");
   const [selectedRoomTypeIdx, setSelectedRoomTypeIdx] = useState<string>("");
-  const [totalFees, setTotalFees] = useState("");
+  const [feeMode, setFeeMode] = useState<FeeMode>(
+    facilitationCostDay != null && facilitationCostDay > 0 ? "per_person_day" : "total"
+  );
+  const [feeTotal, setFeeTotal] = useState("");
+  const [feePerPersonDay, setFeePerPersonDay] = useState(
+    facilitationCostDay != null && facilitationCostDay > 0 ? String(facilitationCostDay) : ""
+  );
   const [extraCosts, setExtraCosts] = useState("");
 
   const parsedParticipants = parseInt(participants) || 0;
   const parsedFacilitators = parseInt(numFacilitators) || 0;
-  const parsedFees = parseFloat(totalFees) || 0;
   const parsedExtra = parseFloat(extraCosts) || 0;
 
   const hasFacilitationSet = facilitationCostDay != null && facilitationCostDay > 0;
@@ -64,15 +70,19 @@ export function CostSimulatorModal({
   const breakdown = useMemo(() => {
     const accommodationFacilitators = (roomTypePrice ?? 0) * nights * parsedFacilitators;
 
-    // Facilitation cost: auto-computed from facilitationCostDay if set, manual otherwise
-    const facilitationTotal = hasFacilitationSet
-      ? facilitationCostDay! * days * parsedParticipants
-      : parsedFees;
+    // Facilitation total depends on input mode
+    const parsedFeeTotal = parseFloat(feeTotal) || 0;
+    const parsedFeePerDay = parseFloat(feePerPersonDay) || 0;
+    const facilitationTotal = feeMode === "total"
+      ? parsedFeeTotal
+      : parsedFeePerDay * parsedParticipants * days;
 
-    // What management needs to cover:
-    // If facilitation/day is set → already charged to participants, only accommodation + extras
-    // If not set → everything goes to management
-    const totalForManagement = hasFacilitationSet
+    // If facilitation/day is already set in the parent form AND user kept per_person_day mode
+    // with the same value, facilitation is already charged to participants
+    const facilitationAlreadyCovered = hasFacilitationSet && feeMode === "per_person_day"
+      && parsedFeePerDay === facilitationCostDay;
+
+    const totalForManagement = facilitationAlreadyCovered
       ? accommodationFacilitators + parsedExtra
       : facilitationTotal + accommodationFacilitators + parsedExtra;
 
@@ -83,11 +93,12 @@ export function CostSimulatorModal({
 
     return {
       facilitationTotal,
+      facilitationAlreadyCovered,
       accommodationFacilitators,
       totalForManagement,
       managementPerPersonDay,
     };
-  }, [roomTypePrice, nights, parsedFacilitators, parsedFees, parsedExtra, parsedParticipants, days, hasFacilitationSet, facilitationCostDay]);
+  }, [roomTypePrice, nights, parsedFacilitators, feeTotal, feePerPersonDay, feeMode, parsedExtra, parsedParticipants, days, hasFacilitationSet, facilitationCostDay]);
 
   const canApply = parsedParticipants > 0 && days > 0;
 
@@ -149,21 +160,49 @@ export function CostSimulatorModal({
               </select>
             </div>
 
-            {/* Manual fees input: only when facilitation/day is NOT set */}
-            {!hasFacilitationSet && (
-              <div className="space-y-1">
-                <Label className="text-xs">Honorarios totales de facilitación (€)</Label>
+            {/* Facilitation fees: total or per person/day */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label className="text-xs">Gastos de facilitación</Label>
+                <div className="ml-auto flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setFeeMode("total")}
+                    className={`rounded px-2 py-0.5 text-[10px] font-medium ${feeMode === "total" ? "bg-primary text-white" : "bg-gray-100 text-gray-500"}`}
+                  >
+                    Total
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFeeMode("per_person_day")}
+                    className={`rounded px-2 py-0.5 text-[10px] font-medium ${feeMode === "per_person_day" ? "bg-primary text-white" : "bg-gray-100 text-gray-500"}`}
+                  >
+                    €/pers./día
+                  </button>
+                </div>
+              </div>
+              {feeMode === "total" ? (
                 <Input
                   type="number"
                   step="0.01"
                   min={0}
-                  value={totalFees}
-                  onChange={(e) => setTotalFees(e.target.value)}
+                  value={feeTotal}
+                  onChange={(e) => setFeeTotal(e.target.value)}
                   placeholder="Importe total del evento"
                   className="text-sm"
                 />
-              </div>
-            )}
+              ) : (
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={feePerPersonDay}
+                  onChange={(e) => setFeePerPersonDay(e.target.value)}
+                  placeholder="€/pers./día"
+                  className="text-sm"
+                />
+              )}
+            </div>
 
             <div className="space-y-1">
               <Label className="text-xs">Gastos extra del centro (€)</Label>
@@ -183,15 +222,17 @@ export function CostSimulatorModal({
           <div className="space-y-2 rounded-lg bg-gray-50 p-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Desglose</p>
             <div className="space-y-1 text-xs text-gray-600">
-              {/* Facilitation line */}
               <div className="flex justify-between">
                 <span>
-                  Facilitación ({facilitationCostDay ?? "?"}€ × {parsedParticipants} pers. × {days}d)
-                  {hasFacilitationSet && (
+                  Facilitación
+                  {feeMode === "per_person_day"
+                    ? ` (${feePerPersonDay || "0"}€ × ${parsedParticipants} pers. × ${days}d)`
+                    : ""}
+                  {breakdown.facilitationAlreadyCovered && (
                     <span className="ml-1 text-emerald-600">✓ ya incluido</span>
                   )}
                 </span>
-                <span className={`font-medium ${hasFacilitationSet ? "text-gray-400 line-through" : "text-gray-700"}`}>
+                <span className={`font-medium ${breakdown.facilitationAlreadyCovered ? "text-gray-400 line-through" : "text-gray-700"}`}>
                   {breakdown.facilitationTotal.toFixed(2)}€
                 </span>
               </div>
