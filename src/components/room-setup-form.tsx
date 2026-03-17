@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createRoomsFromTypes, addRoomsToEvent } from "@/lib/actions/event";
-import { saveVenueRoomsFromTypes } from "@/lib/actions/venue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -287,12 +286,7 @@ export function RoomSetupForm({
         ...(pricingByRoomType && t.dailyRate != null && { dailyRate: t.dailyRate }),
       }));
 
-      if (mode === "venue" && venueId) {
-        await saveVenueRoomsFromTypes(venueId, typeData, pricingByRoomType);
-        setSubmitting(false);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
-      } else if (eventId) {
+      if (eventId) {
         await createRoomsFromTypes(eventId, typeData, pricingByRoomType);
       }
     } catch (e) {

@@ -23,6 +23,14 @@ export async function deleteEvent(eventId: string) {
   revalidatePath("/dashboard");
 }
 
+export async function updateEventStatus(eventId: string, status: "draft" | "published" | "finished" | "archived") {
+  const ctx = await requireAuth();
+  await EventService.updateEventStatus(eventId, ctx, status);
+  revalidatePath("/dashboard");
+  revalidatePath(`/events/${eventId}/detail`);
+  revalidatePath(`/events/${eventId}/board`);
+}
+
 export async function createEvent(formData: FormData) {
   const ctx = await requireAuth();
 

@@ -2,11 +2,12 @@
 
 import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateEventDetails, updateRoomPricings, addRoomsByType } from "@/lib/actions/event";
+import { updateEventDetails, updateRoomPricings, addRoomsByType, updateEventStatus } from "@/lib/actions/event";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Building2, Settings, Calendar, UtensilsCrossed, BedDouble, Bath, Hash, Plus, Calculator, Home, LinkIcon, Check } from "lucide-react";
+import { ArrowLeft, Building2, Settings, Calendar, UtensilsCrossed, BedDouble, Bath, Hash, Plus, Calculator, Home, LinkIcon, Check, Rocket, Archive, Flag } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { SaveAsVenueButton } from "@/components/venue/save-as-venue-button";
 import { RoomTypeEditor } from "@/components/venue/room-type-editor";
 import { ImageUpload } from "@/components/shared/image-upload";
@@ -32,6 +33,7 @@ interface EventDetailFormProps {
   event: {
     id: string;
     name: string;
+    status: string;
     description: string | null;
     location: string | null;
     image_url: string | null;
@@ -94,6 +96,8 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
   const [showSimulator, setShowSimulator] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [isInvitePending, startInviteTransition] = useTransition();
+  const [eventStatus, setEventStatus] = useState(event.status);
+  const [isStatusPending, startStatusTransition] = useTransition();
 
   const hasVenueRoomTypes = venueRoomTypes && venueRoomTypes.length > 0;
 
@@ -603,44 +607,132 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
               )}
             </div>
 
-            {/* Invite link */}
-            <div className="border-t border-gray-100 pt-4">
+            {/* Event status + invite link */}
+            <div className="space-y-4 border-t border-gray-100 pt-4">
+              {/* Status badge */}
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Enlace de invitación</p>
-                  <p className="text-xs text-gray-400">Comparte este enlace para que los participantes se registren</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-gray-700">Estado del evento</p>
+                  {eventStatus === "draft" && <Badge variant="secondary">Borrador</Badge>}
+                  {(eventStatus === "published" || eventStatus === "active") && (
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Publicado</Badge>
+                  )}
+                  {eventStatus === "finished" && <Badge variant="secondary">Finalizado</Badge>}
+                  {eventStatus === "archived" && <Badge variant="secondary">Archivado</Badge>}
                 </div>
+              </div>
+
+              {/* Publish button for drafts */}
+              {eventStatus === "draft" && (
                 <button
                   type="button"
-                  disabled={isInvitePending}
+                  disabled={isStatusPending}
                   onClick={() => {
-                    startInviteTransition(async () => {
-                      const code = await getInviteLink(event.id);
-                      const url = `${window.location.origin}/join/${code}`;
-                      await navigator.clipboard.writeText(url);
-                      setInviteCopied(true);
-                      setTimeout(() => setInviteCopied(false), 2000);
+                    startStatusTransition(async () => {
+                      await updateEventStatus(event.id, "published");
+                      setEventStatus("published");
                     });
                   }}
-                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                    inviteCopied
-                      ? "border-green-200 bg-green-50 text-green-700"
-                      : "border-gray-200 text-gray-600 hover:border-primary hover:text-primary"
-                  }`}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {inviteCopied ? (
-                    <>
-                      <Check className="size-4" />
-                      Copiado
-                    </>
-                  ) : (
-                    <>
-                      <LinkIcon className="size-4" />
-                      {isInvitePending ? "Generando..." : "Copiar enlace"}
-                    </>
-                  )}
+                  <Rocket className="size-4" />
+                  {isStatusPending ? "Publicando..." : "Publicar evento"}
                 </button>
-              </div>
+              )}
+
+              {/* Invite link (only when published/active) */}
+              {(eventStatus === "published" || eventStatus === "active") && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Enlace de invitación</p>
+                    <p className="text-xs text-gray-400">Comparte este enlace para que los participantes se registren</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isInvitePending}
+                    onClick={() => {
+                      startInviteTransition(async () => {
+                        const code = await getInviteLink(event.id);
+                        const url = `${window.location.origin}/join/${code}`;
+                        await navigator.clipboard.writeText(url);
+                        setInviteCopied(true);
+                        setTimeout(() => setInviteCopied(false), 2000);
+                      });
+                    }}
+                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                      inviteCopied
+                        ? "border-green-200 bg-green-50 text-green-700"
+                        : "border-gray-200 text-gray-600 hover:border-primary hover:text-primary"
+                    }`}
+                  >
+                    {inviteCopied ? (
+                      <>
+                        <Check className="size-4" />
+                        Copiado
+                      </>
+                    ) : (
+                      <>
+                        <LinkIcon className="size-4" />
+                        {isInvitePending ? "Generando..." : "Copiar enlace"}
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Finalize button (when published/active) */}
+              {(eventStatus === "published" || eventStatus === "active") && (
+                <button
+                  type="button"
+                  disabled={isStatusPending}
+                  onClick={() => {
+                    startStatusTransition(async () => {
+                      await updateEventStatus(event.id, "finished");
+                      setEventStatus("finished");
+                    });
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <Flag className="size-4" />
+                  {isStatusPending ? "Finalizando..." : "Finalizar evento"}
+                </button>
+              )}
+
+              {/* Archive button (when finished) */}
+              {eventStatus === "finished" && (
+                <button
+                  type="button"
+                  disabled={isStatusPending}
+                  onClick={() => {
+                    startStatusTransition(async () => {
+                      await updateEventStatus(event.id, "archived");
+                      setEventStatus("archived");
+                    });
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <Archive className="size-4" />
+                  {isStatusPending ? "Archivando..." : "Archivar evento"}
+                </button>
+              )}
+
+              {/* Re-publish (when archived) */}
+              {eventStatus === "archived" && (
+                <button
+                  type="button"
+                  disabled={isStatusPending}
+                  onClick={() => {
+                    startStatusTransition(async () => {
+                      await updateEventStatus(event.id, "published");
+                      setEventStatus("published");
+                    });
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <Rocket className="size-4" />
+                  {isStatusPending ? "Publicando..." : "Re-publicar evento"}
+                </button>
+              )}
             </div>
           </div>
         </div>

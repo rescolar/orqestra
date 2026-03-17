@@ -377,6 +377,7 @@ export const PersonService = {
         dietary_notified: true,
         requests_text: true,
         requests_managed: true,
+        accommodation_room_type_id: true,
         person: {
           select: {
             name_full: true,
@@ -424,7 +425,7 @@ export const PersonService = {
     const previousRoomId = ep.room_id;
     const result = await db.eventPerson.update({
       where: { id: eventPersonId },
-      data: { room_id: roomId },
+      data: { room_id: roomId, accommodation_mismatch_managed: false },
     });
 
     // Record undo entry
@@ -536,6 +537,8 @@ export const PersonService = {
             internal_number: true,
             capacity: true,
             has_private_bathroom: true,
+            room_type_id: true,
+            _count: { select: { event_persons: true } },
           },
         },
         group: {
@@ -576,6 +579,7 @@ export const PersonService = {
       allergies_text?: string | null;
       requests_text?: string | null;
       requests_managed?: boolean;
+      accommodation_mismatch_managed?: boolean;
       amount_paid?: number | null;
       payment_note?: string | null;
       date_arrival?: string | null;

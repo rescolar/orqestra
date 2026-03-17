@@ -23,35 +23,20 @@ export default async function VenueEditPage({
     notFound();
   }
 
-  // Aggregate venue rooms into types for the form
-  const typeMap = new Map<
-    string,
-    {
-      capacity: number;
-      hasPrivateBathroom: boolean;
-      quantity: number;
-      price?: number;
-      dailyRate?: number;
-    }
-  >();
-
-  for (const vr of venue.venue_rooms) {
-    const key = `${vr.capacity}-${vr.has_private_bathroom}`;
-    const existing = typeMap.get(key);
-    if (existing) {
-      existing.quantity += 1;
-    } else {
-      typeMap.set(key, {
-        capacity: vr.capacity,
-        hasPrivateBathroom: vr.has_private_bathroom,
-        quantity: 1,
-        ...(vr.price != null && { price: Number(vr.price) }),
-        ...(vr.daily_rate != null && { dailyRate: Number(vr.daily_rate) }),
-      });
-    }
-  }
-
-  const initialTypes = Array.from(typeMap.values());
+  // Serialize room types for client
+  const roomTypes = venue.room_types.map((rt) => ({
+    id: rt.id,
+    name: rt.name,
+    description: rt.description,
+    capacity: rt.capacity,
+    has_private_bathroom: rt.has_private_bathroom,
+    base_price: rt.base_price != null ? Number(rt.base_price) : null,
+    position: rt.position,
+    occupancy_pricings: rt.occupancy_pricings.map((op) => ({
+      occupancy: op.occupancy,
+      price: Number(op.price),
+    })),
+  }));
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
@@ -61,9 +46,8 @@ export default async function VenueEditPage({
           name: venue.name,
           location: venue.location,
           notes: venue.notes,
-          pricing_by_room_type: venue.pricing_by_room_type,
         }}
-        initialTypes={initialTypes}
+        roomTypes={roomTypes}
       />
     </div>
   );

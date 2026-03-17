@@ -112,7 +112,7 @@ export const EventService = {
         date_start: data.date_start,
         date_end: data.date_end,
         estimated_participants: data.estimated_participants,
-        status: "active",
+        status: "draft",
         ...(data.event_price != null && { event_price: data.event_price }),
         ...(data.deposit_amount != null && { deposit_amount: data.deposit_amount }),
       },
@@ -345,6 +345,32 @@ export const EventService = {
     }
   },
 
+  async updateEventStatus(eventId: string, ctx: AuthContext, status: "draft" | "published" | "finished" | "archived") {
+    if (!(await isEventOwner(ctx, eventId))) throw new Error("Solo el propietario puede cambiar el estado");
+
+    const event = await db.event.findUnique({ where: { id: eventId }, select: { status: true } });
+    if (!event) throw new Error("Evento no encontrado");
+
+    // Valid transitions
+    const transitions: Record<string, string[]> = {
+      draft: ["published"],
+      active: ["published", "finished", "archived"], // active treated like published for migration
+      published: ["finished", "archived"],
+      finished: ["archived", "published"],
+      archived: ["published"],
+    };
+
+    const allowed = transitions[event.status] ?? [];
+    if (!allowed.includes(status)) {
+      throw new Error(`No se puede cambiar de ${event.status} a ${status}`);
+    }
+
+    return db.event.update({
+      where: { id: eventId },
+      data: { status },
+    });
+  },
+
   async deleteEvent(eventId: string, ctx: AuthContext) {
     if (!(await isEventOwner(ctx, eventId))) throw new Error("Solo el propietario puede eliminar el evento");
 
@@ -359,6 +385,7 @@ export const EventService = {
       select: {
         id: true,
         name: true,
+        status: true,
         description: true,
         location: true,
         image_url: true,

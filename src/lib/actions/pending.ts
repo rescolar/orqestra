@@ -42,12 +42,20 @@ export type PendingRequest = {
   requests_text: string;
 };
 
+export type PendingAccommodationMismatch = {
+  id: string;
+  person: { name_display: string };
+  preferredRoomTypeName: string;
+  actualRoomTypeName: string;
+};
+
 export type PendingData = {
   dietary: PendingDietary[];
   conflicts: PendingConflict[];
   payments: PendingPayment[];
   cancelRequests: PendingCancelRequest[];
   requests: PendingRequest[];
+  accommodationMismatches: PendingAccommodationMismatch[];
   hasPricing: boolean;
 };
 
@@ -171,6 +179,45 @@ export async function getPendingItems(eventId: string): Promise<PendingData> {
     orderBy: { person: { name_display: "asc" } },
   });
 
+  // Accommodation mismatches: person chose a room type but is assigned to a room of a different type
+  const mismatchRaw = await db.eventPerson.findMany({
+    where: {
+      event_id: eventId,
+      accommodation_room_type_id: { not: null },
+      accommodation_mismatch_managed: false,
+      room_id: { not: null },
+    },
+    include: {
+      person: { select: { name_display: true } },
+      room: {
+        select: {
+          room_type_id: true,
+          room_type: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { person: { name_display: "asc" } },
+  });
+
+  // Fetch preferred room type names for mismatched entries
+  const preferredTypeIds = [...new Set(mismatchRaw.map((m) => m.accommodation_room_type_id!))];
+  const preferredTypes = preferredTypeIds.length > 0
+    ? await db.roomType.findMany({
+        where: { id: { in: preferredTypeIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const preferredTypeMap = new Map(preferredTypes.map((t) => [t.id, t.name]));
+
+  const accommodationMismatches: PendingAccommodationMismatch[] = mismatchRaw
+    .filter((m) => m.room?.room_type_id && m.room.room_type_id !== m.accommodation_room_type_id)
+    .map((m) => ({
+      id: m.id,
+      person: { name_display: m.person.name_display },
+      preferredRoomTypeName: preferredTypeMap.get(m.accommodation_room_type_id!) ?? "Desconocido",
+      actualRoomTypeName: m.room?.room_type?.name ?? "Desconocido",
+    }));
+
   return {
     dietary: dietaryRaw,
     conflicts,
@@ -180,6 +227,7 @@ export async function getPendingItems(eventId: string): Promise<PendingData> {
       ...r,
       requests_text: r.requests_text!,
     })),
+    accommodationMismatches,
     hasPricing,
   };
 }

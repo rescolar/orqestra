@@ -21,7 +21,7 @@ type VenueSummary = {
   id: string;
   name: string;
   location: string | null;
-  _count: { venue_rooms: number };
+  _count: { room_types: number };
 };
 
 function addDays(dateStr: string, days: number): string {
@@ -145,7 +145,7 @@ export function NewEventForm() {
                     <span className="flex-1 text-sm font-medium text-gray-900">
                       {selectedVenue.name}
                       <span className="ml-2 text-xs text-gray-500">
-                        ({selectedVenue._count.venue_rooms} hab.)
+                        ({selectedVenue._count.room_types} hab.)
                       </span>
                     </span>
                     <button
@@ -165,7 +165,7 @@ export function NewEventForm() {
                     <option value="">Configuración manual</option>
                     {venues.map((v) => (
                       <option key={v.id} value={v.id}>
-                        {v.name} ({v._count.venue_rooms} hab.)
+                        {v.name} ({v._count.room_types} hab.)
                       </option>
                     ))}
                   </select>

@@ -36,6 +36,8 @@ export async function updateEventPreferences(
     arrives_for_dinner?: boolean;
     last_meal_lunch?: boolean;
     requests_text?: string;
+    accommodation_room_type_id?: string | null;
+    accommodation_occupancy?: number | null;
   }
 ) {
   const session = await auth();
@@ -82,6 +84,99 @@ export async function toggleActivitySignup(activityId: string, eventId: string) 
   const result = await ScheduleService.toggleSignup(activityId, session.user.id);
   revalidatePath(`/my-events/${eventId}`);
   return result;
+}
+
+export async function getAccommodationOptions(eventId: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  const { db } = await import("@/lib/db");
+  const { resolveRoomTypePrice, computeNights } = await import("@/lib/pricing");
+
+  const event = await db.event.findUnique({
+    where: { id: eventId },
+    select: {
+      date_start: true,
+      date_end: true,
+      pricing_mode: true,
+      facilitation_cost_day: true,
+      management_cost_day: true,
+      venue_id: true,
+    },
+  });
+
+  if (!event?.venue_id) return [];
+
+  const roomTypes = await db.roomType.findMany({
+    where: { venue_id: event.venue_id },
+    include: {
+      occupancy_pricings: { orderBy: { occupancy: "asc" } },
+      rooms: {
+        where: { event_id: eventId },
+        select: {
+          id: true,
+          capacity: true,
+          _count: { select: { event_persons: true } },
+        },
+      },
+    },
+    orderBy: { position: "asc" },
+  });
+
+  const nights = computeNights(event.date_start, event.date_end);
+  const days = nights; // convention: days = nights
+
+  return roomTypes.map((rt) => {
+    // Count available beds across all rooms of this type
+    const availableBeds = rt.rooms.reduce(
+      (sum, room) => sum + Math.max(0, room.capacity - room._count.event_persons),
+      0
+    );
+    if (availableBeds === 0) return null;
+
+    const options: { occupancy: number; label: string; totalPrice: number | null }[] = [];
+
+    if (rt.occupancy_pricings.length > 0) {
+      for (const op of rt.occupancy_pricings) {
+        const pricePerNight = op.price ? Number(op.price) : null;
+        let total: number | null = null;
+        if (pricePerNight != null) {
+          total = pricePerNight * nights;
+          if (event.pricing_mode === "breakdown") {
+            total += (Number(event.facilitation_cost_day) || 0) * days;
+            total += (Number(event.management_cost_day) || 0) * days;
+          }
+        }
+        options.push({
+          occupancy: op.occupancy,
+          label: op.occupancy === 1 ? "Individual" : op.occupancy === 2 ? "Compartida (2 pers)" : `${op.occupancy} personas`,
+          totalPrice: total,
+        });
+      }
+    } else if (rt.base_price != null) {
+      const pricePerNight = Number(rt.base_price);
+      let total = pricePerNight * nights;
+      if (event.pricing_mode === "breakdown") {
+        total += (Number(event.facilitation_cost_day) || 0) * days;
+        total += (Number(event.management_cost_day) || 0) * days;
+      }
+      options.push({
+        occupancy: rt.capacity,
+        label: `${rt.capacity} plazas`,
+        totalPrice: total,
+      });
+    }
+
+    return {
+      id: rt.id,
+      name: rt.name,
+      description: rt.description,
+      capacity: rt.capacity,
+      has_private_bathroom: rt.has_private_bathroom,
+      availableBeds,
+      options,
+    };
+  }).filter((rt): rt is NonNullable<typeof rt> => rt != null && rt.options.length > 0);
 }
 
 export async function getDiscoverableParticipants(eventId: string) {

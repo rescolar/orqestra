@@ -132,7 +132,7 @@ function RoomTypeCard({
         description: description.trim() || null,
         capacity: cap,
         has_private_bathroom: bathroom,
-        base_price: basePrice ? parseFloat(basePrice) : null,
+        base_price: !showOccupancies && basePrice ? parseFloat(basePrice) : null,
         occupancy_pricings: showOccupancies
           ? occupancies
               .filter((o) => o.price && !isNaN(parseFloat(o.price)))
@@ -185,14 +185,14 @@ function RoomTypeCard({
               <Bath className="size-3.5 text-blue-500" />
             )}
           </div>
-          {roomType.base_price != null && (
+          {(roomType.base_price != null || roomType.occupancy_pricings.length > 0) && (
             <p className="mt-0.5 text-xs text-gray-500">
-              Precio base: {roomType.base_price}€
-              {roomType.occupancy_pricings.length > 0 && (
-                <span className="ml-2">
-                  + {roomType.occupancy_pricings.length} precios por ocupación
-                </span>
-              )}
+              {roomType.occupancy_pricings.length > 0
+                ? roomType.occupancy_pricings.map((op) => {
+                    const label = op.occupancy === 1 ? "Ind" : op.occupancy === 2 ? "Doble" : op.occupancy === 3 ? "Triple" : `${op.occupancy}p`;
+                    return `${label}: ${op.price}€`;
+                  }).join(" · ")
+                : `${roomType.base_price}€/pers/noche`}
             </p>
           )}
         </div>
@@ -250,28 +250,19 @@ function RoomTypeCard({
                   Baño privado
                 </label>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Precio base (€/persona/noche)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  value={basePrice}
-                  onChange={(e) => setBasePrice(e.target.value)}
-                  placeholder="€ por persona y noche"
-                  className="h-8 w-40 text-sm"
-                />
-              </div>
-
-              {/* Occupancy pricings */}
-              <div>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={showOccupancies}
-                    onChange={(e) => {
-                      setShowOccupancies(e.target.checked);
-                      if (e.target.checked && occupancies.length === 0) {
+              {/* Pricing mode: single vs occupancy */}
+              <div className="space-y-2">
+                <Label className="text-xs">Precio (€/persona/noche)</Label>
+                <div className="flex gap-2">
+                  <label className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${!showOccupancies ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500"}`}>
+                    <input type="radio" checked={!showOccupancies} onChange={() => setShowOccupancies(false)} className="accent-primary" />
+                    Precio único
+                  </label>
+                  <label className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${showOccupancies ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500"}`}>
+                    <input type="radio" checked={showOccupancies} onChange={() => {
+                      setShowOccupancies(true);
+                      setBasePrice("");
+                      if (occupancies.length === 0) {
                         const cap = parseInt(capacity) || 2;
                         const rows: OccupancyRow[] = [];
                         for (let i = 1; i <= Math.min(cap, 4); i++) {
@@ -279,13 +270,22 @@ function RoomTypeCard({
                         }
                         setOccupancies(rows);
                       }
-                    }}
-                    className="rounded border-gray-300"
+                    }} className="accent-primary" />
+                    Por ocupación
+                  </label>
+                </div>
+                {!showOccupancies ? (
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={basePrice}
+                    onChange={(e) => setBasePrice(e.target.value)}
+                    placeholder="€ por persona y noche"
+                    className="h-8 w-40 text-sm"
                   />
-                  Precios por ocupación
-                </label>
-                {showOccupancies && (
-                  <div className="mt-2 space-y-2 pl-6">
+                ) : (
+                  <div className="space-y-2">
                     {occupancies.map((o, idx) => (
                       <div key={o.occupancy} className="flex items-center gap-2">
                         <span className="w-24 text-xs text-gray-600">
@@ -443,7 +443,7 @@ function AddRoomTypeForm({
         description: description.trim() || null,
         capacity: cap,
         has_private_bathroom: bathroom,
-        base_price: basePrice ? parseFloat(basePrice) : null,
+        base_price: !showOccupancies && basePrice ? parseFloat(basePrice) : null,
         occupancy_pricings: showOccupancies
           ? occupancies
               .filter((o) => o.price && !isNaN(parseFloat(o.price)))
@@ -520,45 +520,44 @@ function AddRoomTypeForm({
             Baño privado
           </label>
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Precio base (€/persona/noche)</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min={0}
-            value={basePrice}
-            onChange={(e) => setBasePrice(e.target.value)}
-            placeholder="€ por persona y noche"
-            className="h-8 w-40 text-sm"
-          />
-        </div>
-
-        {/* Occupancy pricings */}
-        <div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={showOccupancies}
-              onChange={(e) => {
-                setShowOccupancies(e.target.checked);
-                if (e.target.checked) {
-                  const cap = parseInt(capacity) || 2;
-                  const rows: OccupancyRow[] = [];
-                  for (let i = 1; i <= Math.min(cap, 4); i++) {
-                    rows.push({ occupancy: i, price: "" });
-                  }
-                  setOccupancies(rows);
+        {/* Pricing mode: single vs occupancy */}
+        <div className="space-y-2">
+          <Label className="text-xs">Precio (€/persona/noche)</Label>
+          <div className="flex gap-2">
+            <label className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${!showOccupancies ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500"}`}>
+              <input type="radio" checked={!showOccupancies} onChange={() => setShowOccupancies(false)} className="accent-primary" />
+              Precio único
+            </label>
+            <label className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${showOccupancies ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500"}`}>
+              <input type="radio" checked={showOccupancies} onChange={() => {
+                setShowOccupancies(true);
+                setBasePrice("");
+                const cap = parseInt(capacity) || 2;
+                const rows: OccupancyRow[] = [];
+                for (let i = 1; i <= Math.min(cap, 4); i++) {
+                  const existing = occupancies.find((o) => o.occupancy === i);
+                  rows.push({ occupancy: i, price: existing?.price ?? "" });
                 }
-              }}
-              className="rounded border-gray-300"
+                setOccupancies(rows);
+              }} className="accent-primary" />
+              Por ocupación
+            </label>
+          </div>
+          {!showOccupancies ? (
+            <Input
+              type="number"
+              step="0.01"
+              min={0}
+              value={basePrice}
+              onChange={(e) => setBasePrice(e.target.value)}
+              placeholder="€ por persona y noche"
+              className="h-8 w-40 text-sm"
             />
-            Precios por ocupación
-          </label>
-          <p className="ml-6 text-xs text-gray-400">
-            Define precios diferentes según cuántas personas usen la habitación
-          </p>
-          {showOccupancies && (
-            <div className="mt-2 space-y-2 pl-6">
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-400">
+                Precio diferente según cuántas personas usen la habitación
+              </p>
               {occupancies.map((o, idx) => (
                 <div key={o.occupancy} className="flex items-center gap-2">
                   <span className="w-24 text-xs text-gray-600">

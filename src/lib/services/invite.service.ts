@@ -29,6 +29,9 @@ export const InviteService = {
     if (!event || !isOwnerOrAdmin(ctx, event.user_id)) {
       throw new Error("Event not found or not owned by user");
     }
+    if (event.status !== "published" && event.status !== "active") {
+      throw new Error("Solo se puede compartir un evento publicado");
+    }
     if (event.invite_code) return event.invite_code;
 
     const code = generateInviteCode();
@@ -167,7 +170,7 @@ export const InviteService = {
     const events = await db.event.findMany({
       where: {
         user_id: { in: orgUserIds },
-        status: "active",
+        status: { in: ["active", "published", "finished"] },
         event_persons: {
           some: { person_id: { in: personIds } },
         },
@@ -211,7 +214,7 @@ export const InviteService = {
     // Auto-create Person if missing (Google OAuth creates User without Person)
     if (!person) {
       const user = await db.user.findUnique({ where: { id: participantUserId } });
-      if (!user) throw new Error("User not found");
+      if (!user) throw new Error("Usuario no encontrado. Cierra sesión e intenta de nuevo.");
 
       person = await db.person.create({
         data: {
@@ -289,6 +292,8 @@ export const InviteService = {
       arrives_for_dinner?: boolean;
       last_meal_lunch?: boolean;
       requests_text?: string;
+      accommodation_room_type_id?: string | null;
+      accommodation_occupancy?: number | null;
     }
   ) {
     // Verify ownership
@@ -305,9 +310,28 @@ export const InviteService = {
       throw new Error("Not authorized to set this status");
     }
 
+    // Auto-assign room when participant picks a room type
+    let autoAssignRoomId: string | undefined;
+    if (data.accommodation_room_type_id) {
+      const rooms = await db.room.findMany({
+        where: {
+          event_id: ep.event_id,
+          room_type_id: data.accommodation_room_type_id,
+        },
+        include: { _count: { select: { event_persons: true } } },
+      });
+      const available = rooms.find((r) => r._count.event_persons < r.capacity);
+      if (available) {
+        autoAssignRoomId = available.id;
+      }
+    }
+
     return db.eventPerson.update({
       where: { id: eventPersonId },
-      data,
+      data: {
+        ...data,
+        ...(autoAssignRoomId && { room_id: autoAssignRoomId }),
+      },
     });
   },
 

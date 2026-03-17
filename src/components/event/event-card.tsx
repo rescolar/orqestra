@@ -64,7 +64,7 @@ export function EventCard({
       <div className="group relative flex overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
         {/* Actions */}
         <div className="absolute top-3 right-3 z-10 flex gap-1">
-          {!isCollaborator && <InviteLinkButton eventId={id} />}
+          {!isCollaborator && (status === "published" || status === "active") && <InviteLinkButton eventId={id} />}
           <Link
             href={`/events/${id}/detail`}
             onClick={(e) => e.stopPropagation()}
@@ -115,10 +115,17 @@ export function EventCard({
                     Co-org
                   </Badge>
                 )}
-                {status !== "active" && (
-                  <Badge variant="secondary" className="capitalize">
-                    {status === "draft" ? "borrador" : status === "archived" ? "archivado" : status}
-                  </Badge>
+                {status === "draft" && (
+                  <Badge variant="secondary">Borrador</Badge>
+                )}
+                {status === "published" && (
+                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Publicado</Badge>
+                )}
+                {status === "finished" && (
+                  <Badge variant="secondary">Finalizado</Badge>
+                )}
+                {status === "archived" && (
+                  <Badge variant="secondary">Archivado</Badge>
                 )}
               </div>
             </div>

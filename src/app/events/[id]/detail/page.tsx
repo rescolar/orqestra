@@ -123,6 +123,7 @@ export default async function DetailPage({
           event={{
             id: event.id,
             name: event.name,
+            status: event.status,
             description: event.description,
             location: event.location,
             image_url: event.image_url,

@@ -8,6 +8,7 @@ import { updateEventPreferences } from "@/lib/actions/participant";
 import { ParticipantSchedule } from "./participant-schedule";
 import { RelationshipInviteForm } from "./relationship-invite-form";
 import { ParticipantDiscovery } from "./participant-discovery";
+import { AccommodationChoice, type AccommodationOption } from "./accommodation-choice";
 import Link from "next/link";
 import type { ParticipantDaySchedule } from "@/lib/services/schedule.service";
 
@@ -28,6 +29,8 @@ type EventPersonData = {
     dietary_requirements: string[];
     allergies_text: string | null;
   };
+  accommodation_room_type_id: string | null;
+  accommodation_occupancy: number | null;
 };
 
 function formatDate(date: Date): string {
@@ -51,11 +54,15 @@ export function MyEventDetail({
   schedule,
   scheduleConfirmed = false,
   discoverableParticipants = [],
+  accommodationOptions = [],
+  showAvailability = false,
 }: {
   eventPerson: EventPersonData;
   schedule?: ParticipantDaySchedule[];
   scheduleConfirmed?: boolean;
   discoverableParticipants?: DiscoverableParticipant[];
+  accommodationOptions?: AccommodationOption[];
+  showAvailability?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<"data" | "schedule">("data");
   const [status, setStatus] = useState(eventPerson.status);
@@ -333,6 +340,18 @@ export function MyEventDetail({
           />
         </CardContent>
       </Card>
+
+      {/* Accommodation choice */}
+      {accommodationOptions.length > 0 && (
+        <AccommodationChoice
+          eventPersonId={eventPerson.id}
+          accommodationOptions={accommodationOptions}
+          currentRoomTypeId={eventPerson.accommodation_room_type_id}
+          currentOccupancy={eventPerson.accommodation_occupancy}
+          showAvailability={showAvailability}
+          status={eventPerson.status}
+        />
+      )}
 
       {/* Relationship invite */}
       <RelationshipInviteForm eventId={eventPerson.event.id} />

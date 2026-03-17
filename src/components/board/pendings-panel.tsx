@@ -10,6 +10,7 @@ import {
   PendingPayment,
   PendingCancelRequest,
   PendingRequest,
+  PendingAccommodationMismatch,
 } from "@/lib/actions/pending";
 import { updateEventPerson } from "@/lib/actions/person";
 import { updateRoomField } from "@/lib/actions/room";
@@ -66,7 +67,7 @@ export function PendingsPanel({
   const [data, setData] = useState<PendingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [openSections, setOpenSections] = useState<Set<string>>(
-    () => new Set(["dietary", "conflicts", "payments", "cancelRequests", "requests"])
+    () => new Set(["dietary", "conflicts", "payments", "cancelRequests", "requests", "accommodationMismatches"])
   );
 
   const toggleSection = useCallback((key: string) => {
@@ -161,6 +162,21 @@ export function PendingsPanel({
         };
       });
       await updateEventPerson(epId, eventId, { requests_managed: true });
+      onItemResolved();
+    },
+    [eventId, onItemResolved]
+  );
+
+  const handleMismatchManaged = useCallback(
+    async (epId: string) => {
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          accommodationMismatches: prev.accommodationMismatches.filter((m) => m.id !== epId),
+        };
+      });
+      await updateEventPerson(epId, eventId, { accommodation_mismatch_managed: true });
       onItemResolved();
     },
     [eventId, onItemResolved]
@@ -419,6 +435,47 @@ export function PendingsPanel({
                   </button>
                   <button
                     onClick={() => handleRequestResolved(item.id)}
+                    className="shrink-0 rounded-md border border-gray-200 px-2 py-1 text-[10px] font-medium text-gray-500 hover:bg-success/10 hover:text-success hover:border-success/30"
+                  >
+                    Gestionado
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </PendingSection>
+
+        {/* Accommodation Mismatches */}
+        <PendingSection
+          label="Desajuste de Alojamiento"
+          icon="swap_horiz"
+          count={data.accommodationMismatches.length}
+          accentColor="text-warning"
+          open={openSections.has("accommodationMismatches")}
+          onToggle={() => toggleSection("accommodationMismatches")}
+        >
+          {data.accommodationMismatches.length === 0 ? (
+            <p className="text-xs text-gray-400">Sin pendientes</p>
+          ) : (
+            <div className="space-y-1">
+              {data.accommodationMismatches.map((item) => (
+                <div
+                  key={item.id}
+                  className="group flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-gray-50"
+                >
+                  <button
+                    onClick={() => onPersonClick(item.id)}
+                    className="flex-1 min-w-0 text-left"
+                  >
+                    <p className="truncate text-sm font-medium text-gray-700">
+                      {item.person.name_display}
+                    </p>
+                    <p className="truncate text-xs text-gray-400">
+                      Pidió {item.preferredRoomTypeName}, asignado a {item.actualRoomTypeName}
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => handleMismatchManaged(item.id)}
                     className="shrink-0 rounded-md border border-gray-200 px-2 py-1 text-[10px] font-medium text-gray-500 hover:bg-success/10 hover:text-success hover:border-success/30"
                   >
                     Gestionado

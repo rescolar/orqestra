@@ -1,8 +1,13 @@
+"use client";
+
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { updateEventStatus } from "@/lib/actions/event";
 
 type BoardHeaderProps = {
   eventId: string;
   eventName: string;
+  eventStatus: string;
   dateStart: Date;
   dateEnd: Date;
   assignedCount: number;
@@ -42,6 +47,7 @@ function KPI({ label, value, danger }: { label: string; value: string | number; 
 export function BoardHeader({
   eventId,
   eventName,
+  eventStatus: initialStatus,
   dateStart,
   dateEnd,
   assignedCount,
@@ -57,6 +63,9 @@ export function BoardHeader({
   undoing,
   canUndo,
 }: BoardHeaderProps) {
+  const [status, setStatus] = useState(initialStatus);
+  const [isStatusPending, startStatusTransition] = useTransition();
+
   return (
     <header className={`flex items-center justify-between border-b px-6 py-4 ${pendingCount === 0 ? "bg-success/5" : "bg-white"}`}>
       <div className="flex items-center gap-3">
@@ -67,7 +76,24 @@ export function BoardHeader({
           <span className="material-symbols-outlined text-xl">grid_view</span>
         </Link>
         <Link href={`/events/${eventId}/detail`} className="group">
-          <h1 className="text-xl font-bold text-primary group-hover:underline">{eventName}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-primary group-hover:underline">{eventName}</h1>
+            {status === "draft" && (
+              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                Borrador
+              </span>
+            )}
+            {status === "finished" && (
+              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                Finalizado
+              </span>
+            )}
+            {status === "archived" && (
+              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                Archivado
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-400 group-hover:text-gray-500">
             {formatDateRange(dateStart, dateEnd)}
           </p>
@@ -89,6 +115,21 @@ export function BoardHeader({
         </button>
 
         <div className="ml-4 flex items-center gap-3">
+          {status === "draft" && (
+            <button
+              onClick={() => {
+                startStatusTransition(async () => {
+                  await updateEventStatus(eventId, "published");
+                  setStatus("published");
+                });
+              }}
+              disabled={isStatusPending}
+              className="flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-base">rocket_launch</span>
+              {isStatusPending ? "Publicando..." : "Publicar"}
+            </button>
+          )}
           <Link
             href={`/events/${eventId}/schedule`}
             className="flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary hover:bg-primary/10"

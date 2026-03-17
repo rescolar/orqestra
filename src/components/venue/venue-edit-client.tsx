@@ -5,10 +5,21 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { RoomSetupForm } from "@/components/room-setup-form";
+import { RoomTypeEditor } from "@/components/venue/room-type-editor";
 import { updateVenue } from "@/lib/actions/venue";
 import { ArrowLeft, Check } from "lucide-react";
 import Link from "next/link";
+
+export interface RoomTypeData {
+  id: string;
+  name: string;
+  description: string | null;
+  capacity: number;
+  has_private_bathroom: boolean;
+  base_price: number | null;
+  position: number;
+  occupancy_pricings: { occupancy: number; price: number }[];
+}
 
 interface VenueEditClientProps {
   venue: {
@@ -16,18 +27,11 @@ interface VenueEditClientProps {
     name: string;
     location: string | null;
     notes: string | null;
-    pricing_by_room_type: boolean;
   };
-  initialTypes: {
-    capacity: number;
-    hasPrivateBathroom: boolean;
-    quantity: number;
-    price?: number;
-    dailyRate?: number;
-  }[];
+  roomTypes: RoomTypeData[];
 }
 
-export function VenueEditClient({ venue, initialTypes }: VenueEditClientProps) {
+export function VenueEditClient({ venue, roomTypes }: VenueEditClientProps) {
   const [name, setName] = useState(venue.name);
   const [location, setLocation] = useState(venue.location ?? "");
   const [notes, setNotes] = useState(venue.notes ?? "");
@@ -115,17 +119,12 @@ export function VenueEditClient({ venue, initialTypes }: VenueEditClientProps) {
         </div>
       </div>
 
-      {/* Room setup */}
+      {/* Room types */}
       <div>
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
-          Habitaciones
+          Tipos de habitación
         </h2>
-        <RoomSetupForm
-          mode="venue"
-          venueId={venue.id}
-          initialTypes={initialTypes}
-          initialPricingByRoomType={venue.pricing_by_room_type}
-        />
+        <RoomTypeEditor venueId={venue.id} initialRoomTypes={roomTypes} />
       </div>
     </div>
   );

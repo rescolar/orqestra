@@ -45,6 +45,7 @@ export type PersonData = {
   dietary_notified: boolean;
   requests_text: string | null;
   requests_managed: boolean;
+  accommodation_room_type_id: string | null;
   person: {
     name_display: string;
     name_initials: string;
@@ -63,6 +64,7 @@ export type RoomData = {
   has_private_bathroom: boolean;
   gender_restriction: string;
   conflict_acknowledged: boolean;
+  room_type_id: string | null;
   event_persons: PersonData[];
   _count: { event_persons: number };
 };
@@ -78,6 +80,7 @@ type BoardDndProviderProps = {
     dietary_notified: boolean;
     requests_text: string | null;
     requests_managed: boolean;
+    accommodation_room_type_id: string | null;
     person: {
       name_full: string;
       name_display: string;
@@ -89,6 +92,7 @@ type BoardDndProviderProps = {
   }[];
   headerData: {
     eventName: string;
+    eventStatus: string;
     dateStart: Date;
     dateEnd: Date;
     roomCount: number;
@@ -98,7 +102,11 @@ type BoardDndProviderProps = {
     event_price: number | null;
     deposit_amount: number | null;
     pricing_by_room_type?: boolean;
+    pricing_mode?: string;
+    facilitation_cost_day?: number | null;
+    management_cost_day?: number | null;
     room_pricings?: { capacity: number; has_private_bathroom: boolean; price: number; daily_rate?: number | null }[];
+    occupancy_pricings?: Record<string, { occupancy: number; price: number }[]>;
     meal_costs?: { breakfast: number | null; lunch: number | null; dinner: number | null };
     event_dates?: { start: string; end: string };
   } | null;
@@ -530,6 +538,7 @@ export function BoardDndProvider({
           dietary_notified: "dietary_notified" in personData ? (personData as PersonData).dietary_notified : false,
           requests_text: "requests_text" in personData ? (personData as PersonData).requests_text : null,
           requests_managed: "requests_managed" in personData ? (personData as PersonData).requests_managed : false,
+          accommodation_room_type_id: "accommodation_room_type_id" in personData ? (personData as PersonData).accommodation_room_type_id : null,
           person: {
             name_display: personData.person.name_display,
             name_initials: personData.person.name_initials,
@@ -557,6 +566,7 @@ export function BoardDndProvider({
             dietary_notified: "dietary_notified" in partnerData ? (partnerData as PersonData).dietary_notified : false,
             requests_text: "requests_text" in partnerData ? (partnerData as PersonData).requests_text : null,
             requests_managed: "requests_managed" in partnerData ? (partnerData as PersonData).requests_managed : false,
+            accommodation_room_type_id: "accommodation_room_type_id" in partnerData ? (partnerData as PersonData).accommodation_room_type_id : null,
             person: {
               name_display: partnerData.person.name_display,
               name_initials: partnerData.person.name_initials,
@@ -663,6 +673,7 @@ export function BoardDndProvider({
             dietary_notified: person.dietary_notified,
             requests_text: person.requests_text,
             requests_managed: person.requests_managed,
+            accommodation_room_type_id: person.accommodation_room_type_id,
             person: {
               name_full: person.person.name_display, // best we have
               name_display: person.person.name_display,
@@ -852,7 +863,13 @@ export function BoardDndProvider({
     const requestsPending = allPersons.filter(
       (ep) => ep.requests_text && !ep.requests_managed
     ).length;
-    return roomConflicts + dietaryPending + cancelRequestPending + requestsPending;
+    // Accommodation mismatches: person has preferred room type but is in a room of different type
+    const accommodationMismatches = rooms.reduce((count, r) => {
+      return count + r.event_persons.filter(
+        (ep) => ep.accommodation_room_type_id && r.room_type_id && ep.accommodation_room_type_id !== r.room_type_id
+      ).length;
+    }, 0);
+    return roomConflicts + dietaryPending + cancelRequestPending + requestsPending + accommodationMismatches;
   }, [rooms, unassigned]);
 
   return (
@@ -866,6 +883,7 @@ export function BoardDndProvider({
       <BoardHeader
         eventId={eventId}
         eventName={headerData.eventName}
+        eventStatus={headerData.eventStatus}
         dateStart={headerData.dateStart}
         dateEnd={headerData.dateEnd}
         assignedCount={assignedCount}
@@ -945,6 +963,7 @@ export function BoardDndProvider({
             key={selectedRoomId}
             roomId={selectedRoomId}
             eventId={eventId}
+            eventPricing={eventPricing}
             onClose={() => setSelectedRoomId(null)}
             onRoomUpdated={handleBoardRefresh}
             onPersonClick={handlePersonClick}

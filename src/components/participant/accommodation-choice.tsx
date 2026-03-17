@@ -12,6 +12,7 @@ export type AccommodationOption = {
   description: string | null;
   capacity: number;
   has_private_bathroom: boolean;
+  availableBeds: number;
   options: { occupancy: number; label: string; totalPrice: number | null }[];
 };
 
@@ -20,11 +21,15 @@ export function AccommodationChoice({
   accommodationOptions,
   currentRoomTypeId,
   currentOccupancy,
+  showAvailability = true,
+  status,
 }: {
   eventPersonId: string;
   accommodationOptions: AccommodationOption[];
   currentRoomTypeId: string | null;
   currentOccupancy: number | null;
+  showAvailability?: boolean;
+  status?: string;
 }) {
   const [selectedTypeId, setSelectedTypeId] = useState(currentRoomTypeId);
   const [selectedOccupancy, setSelectedOccupancy] = useState(currentOccupancy);
@@ -62,10 +67,17 @@ export function AccommodationChoice({
               key={rt.id}
               className={`rounded-xl border p-4 ${isSelected ? "border-primary bg-primary/5" : "border-gray-200"}`}
             >
-              <div className="mb-2 flex items-center gap-2">
-                <span className="font-medium text-gray-900">{rt.name}</span>
-                {rt.has_private_bathroom && (
-                  <Bath className="size-3.5 text-blue-500" />
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-gray-900">{rt.name}</span>
+                  {rt.has_private_bathroom && (
+                    <Bath className="size-3.5 text-blue-500" />
+                  )}
+                </div>
+                {showAvailability && (
+                  <span className="text-xs text-gray-500">
+                    {rt.availableBeds} {rt.availableBeds === 1 ? "plaza disponible" : "plazas disponibles"}
+                  </span>
                 )}
               </div>
               {rt.description && (
@@ -87,9 +99,11 @@ export function AccommodationChoice({
                           </span>
                         )}
                         {chosen ? (
-                          <span className="flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-medium text-white">
+                          <span className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium text-white ${
+                            status === "inscrito" ? "bg-amber-500" : "bg-green-600"
+                          }`}>
                             <Check className="size-3" />
-                            Elegido
+                            {status === "inscrito" ? "Pendiente de confirmación" : "Elegido"}
                           </span>
                         ) : (
                           <Button

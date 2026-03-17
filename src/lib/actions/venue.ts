@@ -39,7 +39,6 @@ export async function updateVenue(
     name?: string;
     location?: string | null;
     notes?: string | null;
-    pricing_by_room_type?: boolean;
   }
 ) {
   const ctx = await requireAuth();
@@ -54,23 +53,6 @@ export async function deleteVenue(venueId: string) {
   revalidatePath("/venues");
 }
 
-export async function saveVenueRoomsFromTypes(
-  venueId: string,
-  types: {
-    capacity: number;
-    hasPrivateBathroom: boolean;
-    quantity: number;
-    price?: number;
-    dailyRate?: number;
-  }[],
-  pricingByRoomType?: boolean
-) {
-  const ctx = await requireAuth();
-  await VenueService.saveVenueRoomsFromTypes(venueId, ctx, types, pricingByRoomType);
-  revalidatePath(`/venues/${venueId}`);
-  revalidatePath("/venues");
-}
-
 export async function saveEventAsVenue(eventId: string, name: string) {
   const ctx = await requireAuth();
   const venue = await VenueService.saveEventAsVenue(eventId, name, ctx);
@@ -80,9 +62,64 @@ export async function saveEventAsVenue(eventId: string, name: string) {
 
 export async function createEventRoomsFromVenue(
   eventId: string,
-  venueId: string
+  venueId: string,
+  quantities: { roomTypeId: string; quantity: number }[]
 ) {
   const ctx = await requireAuth();
-  await VenueService.createEventRoomsFromVenue(eventId, venueId, ctx);
+  await VenueService.createEventRoomsFromVenue(eventId, venueId, ctx, quantities);
   revalidatePath(`/events/${eventId}/board`);
+}
+
+// ─── RoomType CRUD ──────────────────────────────────────────────────────────
+
+export async function createRoomType(
+  venueId: string,
+  data: {
+    name: string;
+    description?: string | null;
+    capacity: number;
+    has_private_bathroom?: boolean;
+    base_price?: number | null;
+    occupancy_pricings?: { occupancy: number; price: number }[];
+  }
+) {
+  const ctx = await requireAuth();
+  const rt = await VenueService.createRoomType(venueId, ctx, data);
+  revalidatePath(`/venues/${venueId}`);
+  return rt;
+}
+
+export async function updateRoomType(
+  roomTypeId: string,
+  data: {
+    name?: string;
+    description?: string | null;
+    capacity?: number;
+    has_private_bathroom?: boolean;
+    base_price?: number | null;
+    occupancy_pricings?: { occupancy: number; price: number }[];
+  }
+) {
+  const ctx = await requireAuth();
+  const rt = await VenueService.updateRoomType(roomTypeId, ctx, data);
+  revalidatePath("/venues");
+  return rt;
+}
+
+export async function deleteRoomType(roomTypeId: string) {
+  const ctx = await requireAuth();
+  await VenueService.deleteRoomType(roomTypeId, ctx);
+  revalidatePath("/venues");
+}
+
+export async function createImplicitVenue(eventId: string) {
+  const ctx = await requireAuth();
+  const venue = await VenueService.createImplicitVenue(eventId, ctx);
+  return venue;
+}
+
+export async function promoteVenueToTemplate(venueId: string, name: string) {
+  const ctx = await requireAuth();
+  await VenueService.promoteVenueToTemplate(venueId, name, ctx);
+  revalidatePath("/venues");
 }

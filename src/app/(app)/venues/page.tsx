@@ -36,7 +36,7 @@ export default async function VenuesPage() {
               id={venue.id}
               name={venue.name}
               location={venue.location}
-              roomCount={venue._count.venue_rooms}
+              roomCount={venue._count.room_types}
             />
           ))}
         </div>

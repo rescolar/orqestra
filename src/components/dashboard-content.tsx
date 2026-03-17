@@ -24,59 +24,69 @@ interface DashboardContentProps {
   personCount: number;
 }
 
-export function DashboardContent({ events, personCount }: DashboardContentProps) {
-  const [showArchived, setShowArchived] = useState(false);
+type FilterTab = "active" | "finished" | "archived";
 
-  const activeEvents = events.filter((e) => e.status === "active" || e.status === "draft");
+export function DashboardContent({ events, personCount }: DashboardContentProps) {
+  const [tab, setTab] = useState<FilterTab>("active");
+
+  const activeEvents = events.filter((e) => e.status === "draft" || e.status === "published" || e.status === "active");
+  const finishedEvents = events.filter((e) => e.status === "finished");
   const archivedEvents = events.filter((e) => e.status === "archived");
+
+  const filteredEvents =
+    tab === "active" ? activeEvents :
+    tab === "finished" ? finishedEvents :
+    archivedEvents;
+
+  const tabs: { key: FilterTab; label: string; count: number }[] = [
+    { key: "active", label: "Activos", count: activeEvents.length },
+    { key: "finished", label: "Finalizados", count: finishedEvents.length },
+    { key: "archived", label: "Archivados", count: archivedEvents.length },
+  ];
 
   return (
     <div className="space-y-10">
-      {/* Active events */}
+      {/* Filter chips */}
       <section>
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Eventos Activos</h1>
-          {archivedEvents.length > 0 && (
+        <div className="mb-6 flex items-center gap-2">
+          {tabs.map((t) => (
             <button
+              key={t.key}
               type="button"
-              onClick={() => setShowArchived(!showArchived)}
-              className="text-sm font-medium text-primary hover:underline"
+              onClick={() => setTab(t.key)}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                tab === t.key
+                  ? "bg-primary text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
             >
-              {showArchived ? "Ocultar archivados" : `Ver archivados (${archivedEvents.length})`}
+              {t.label} ({t.count})
             </button>
-          )}
+          ))}
         </div>
 
-        {activeEvents.length === 0 && !showArchived ? (
+        {filteredEvents.length === 0 ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <NewEventCard />
+            {tab === "active" && <NewEventCard />}
             <div className="col-span-full -mt-2">
               <p className="text-sm text-gray-500">
-                Aún no tienes eventos. Crea uno para empezar a organizar tu retiro.
+                {tab === "active"
+                  ? "Aún no tienes eventos. Crea uno para empezar a organizar tu retiro."
+                  : tab === "finished"
+                    ? "No hay eventos finalizados."
+                    : "No hay eventos archivados."}
               </p>
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {activeEvents.map((event) => (
+            {filteredEvents.map((event) => (
               <EventCard key={event.id} {...event} />
             ))}
-            <NewEventCard />
+            {tab === "active" && <NewEventCard />}
           </div>
         )}
       </section>
-
-      {/* Archived events */}
-      {showArchived && archivedEvents.length > 0 && (
-        <section>
-          <h2 className="mb-4 text-lg font-semibold text-gray-600">Archivados</h2>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {archivedEvents.map((event) => (
-              <EventCard key={event.id} {...event} />
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Mis Personas */}
       <section>
