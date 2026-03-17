@@ -604,9 +604,9 @@ export function BoardDndProvider({
           if (sourceRoomIds.includes(r.id)) {
             eps = eps.filter((ep) => !idsToMove.includes(ep.id));
           }
-          // Add to target room
+          // Add to target room (clear auto_assigned — manual drag)
           if (r.id === roomId) {
-            eps = [...eps, ...toMove.map((t) => t.entry)];
+            eps = [...eps, ...toMove.map((t) => ({ ...t.entry, auto_assigned: false, auto_assign_managed: false }))];
           }
           if (eps !== r.event_persons) {
             return {
