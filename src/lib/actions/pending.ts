@@ -49,6 +49,12 @@ export type PendingAccommodationMismatch = {
   actualRoomTypeName: string;
 };
 
+export type PendingAutoAssignment = {
+  id: string;
+  person: { name_display: string };
+  roomName: string;
+};
+
 export type PendingData = {
   dietary: PendingDietary[];
   conflicts: PendingConflict[];
@@ -56,6 +62,7 @@ export type PendingData = {
   cancelRequests: PendingCancelRequest[];
   requests: PendingRequest[];
   accommodationMismatches: PendingAccommodationMismatch[];
+  autoAssignments: PendingAutoAssignment[];
   hasPricing: boolean;
 };
 
@@ -218,6 +225,28 @@ export async function getPendingItems(eventId: string): Promise<PendingData> {
       actualRoomTypeName: m.room?.room_type?.name ?? "Desconocido",
     }));
 
+  // Auto-assignments not yet managed
+  const autoAssignRaw = await db.eventPerson.findMany({
+    where: {
+      event_id: eventId,
+      auto_assigned: true,
+      auto_assign_managed: false,
+      room_id: { not: null },
+    },
+    select: {
+      id: true,
+      person: { select: { name_display: true } },
+      room: { select: { display_name: true, internal_number: true } },
+    },
+    orderBy: { person: { name_display: "asc" } },
+  });
+
+  const autoAssignments: PendingAutoAssignment[] = autoAssignRaw.map((m) => ({
+    id: m.id,
+    person: { name_display: m.person.name_display },
+    roomName: m.room?.display_name || `Hab ${m.room?.internal_number}`,
+  }));
+
   return {
     dietary: dietaryRaw,
     conflicts,
@@ -228,6 +257,7 @@ export async function getPendingItems(eventId: string): Promise<PendingData> {
       requests_text: r.requests_text!,
     })),
     accommodationMismatches,
+    autoAssignments,
     hasPricing,
   };
 }

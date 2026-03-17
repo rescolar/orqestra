@@ -27,6 +27,8 @@ export const EventService = {
             dietary_notified: true,
             requests_text: true,
             requests_managed: true,
+            auto_assigned: true,
+            auto_assign_managed: true,
             person: {
               select: {
                 gender: true,
@@ -76,6 +78,10 @@ export const EventService = {
         (ep) => !ep.requests_managed && ep.requests_text !== null
       ).length;
 
+      const autoAssignCount = event.event_persons.filter(
+        (ep) => ep.auto_assigned && !ep.auto_assign_managed
+      ).length;
+
       return {
         id: event.id,
         name: event.name,
@@ -88,7 +94,7 @@ export const EventService = {
         assigned_count: assignedCount,
         room_count: event._count.rooms,
         total_capacity: totalCapacity,
-        pending_count: dietaryCount + conflictCount + cancelRequestCount + requestCount,
+        pending_count: dietaryCount + conflictCount + cancelRequestCount + requestCount + autoAssignCount,
         is_collaborator: isCollaborator,
       };
     });
@@ -494,6 +500,8 @@ export const EventService = {
                 requests_text: true,
                 requests_managed: true,
                 accommodation_room_type_id: true,
+                auto_assigned: true,
+                auto_assign_managed: true,
                 person: {
                   select: {
                     gender: true,

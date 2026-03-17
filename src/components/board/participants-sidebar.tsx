@@ -25,6 +25,8 @@ type UnassignedPerson = {
   requests_text: string | null;
   requests_managed: boolean;
   accommodation_room_type_id: string | null;
+  auto_assigned: boolean;
+  auto_assign_managed: boolean;
   person: {
     name_full: string;
     name_display: string;

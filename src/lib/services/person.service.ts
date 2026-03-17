@@ -378,6 +378,8 @@ export const PersonService = {
         requests_text: true,
         requests_managed: true,
         accommodation_room_type_id: true,
+        auto_assigned: true,
+        auto_assign_managed: true,
         person: {
           select: {
             name_full: true,
@@ -425,7 +427,7 @@ export const PersonService = {
     const previousRoomId = ep.room_id;
     const result = await db.eventPerson.update({
       where: { id: eventPersonId },
-      data: { room_id: roomId, accommodation_mismatch_managed: false },
+      data: { room_id: roomId, accommodation_mismatch_managed: false, auto_assigned: false, auto_assign_managed: false },
     });
 
     // Record undo entry
@@ -580,6 +582,7 @@ export const PersonService = {
       requests_text?: string | null;
       requests_managed?: boolean;
       accommodation_mismatch_managed?: boolean;
+      auto_assign_managed?: boolean;
       amount_paid?: number | null;
       payment_note?: string | null;
       date_arrival?: string | null;

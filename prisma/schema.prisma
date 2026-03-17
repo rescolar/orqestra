@@ -172,6 +172,8 @@ model EventPerson {
   requests_text        String?
   requests_managed                Boolean           @default(false)
   accommodation_mismatch_managed  Boolean           @default(false)
+  auto_assigned                   Boolean           @default(false)
+  auto_assign_managed             Boolean           @default(false)
   checked_in_at                   DateTime?
   room_id                      String?
   accommodation_room_type_id   String?

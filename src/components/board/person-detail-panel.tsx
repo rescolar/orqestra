@@ -35,6 +35,8 @@ type EventPersonDetail = {
   dietary_notified: boolean;
   requests_text: string | null;
   requests_managed: boolean;
+  auto_assigned: boolean;
+  auto_assign_managed: boolean;
   amount_paid: unknown; // Prisma Decimal | null
   payment_note: string | null;
   date_arrival: string | null;
@@ -78,6 +80,7 @@ export type PersonUpdateData = {
   allergies_text?: string | null;
   requests_text?: string | null;
   requests_managed?: boolean;
+  auto_assign_managed?: boolean;
   amount_paid?: number | null;
   payment_note?: string | null;
   date_arrival?: string | null;
@@ -386,6 +389,16 @@ export function PersonDetailPanel({
         prev ? { ...prev, requests_managed: val } : prev
       );
       saveField({ requests_managed: val });
+    },
+    [saveField]
+  );
+
+  const handleAutoAssignManaged = useCallback(
+    (val: boolean) => {
+      setData((prev) =>
+        prev ? { ...prev, auto_assign_managed: val } : prev
+      );
+      saveField({ auto_assign_managed: val });
     },
     [saveField]
   );
@@ -781,6 +794,20 @@ export function PersonDetailPanel({
               </option>
             ))}
           </select>
+          {data.auto_assigned && !data.auto_assign_managed && (
+            <div className="mt-2 flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2">
+              <div className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm text-amber-600">assignment_ind</span>
+                <span className="text-xs font-medium text-amber-700">Auto-asignado</span>
+              </div>
+              <button
+                onClick={() => handleAutoAssignManaged(true)}
+                className="rounded-md border border-gray-200 px-2 py-1 text-[10px] font-medium text-gray-500 hover:bg-success/10 hover:text-success hover:border-success/30"
+              >
+                Gestionado
+              </button>
+            </div>
+          )}
         </CollapsibleSection>
 
         {/* Relations — auto-open during drag so droppable is mounted */}
@@ -1135,6 +1162,7 @@ export function PersonDetailPanel({
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary"
           />
         </CollapsibleSection>
+
       </div>
 
       {/* Footer — Discard */}

@@ -330,7 +330,7 @@ export const InviteService = {
       where: { id: eventPersonId },
       data: {
         ...data,
-        ...(autoAssignRoomId && { room_id: autoAssignRoomId }),
+        ...(autoAssignRoomId && { room_id: autoAssignRoomId, auto_assigned: true, auto_assign_managed: false }),
       },
     });
   },
