@@ -23,6 +23,7 @@ import {
 import Link from "next/link";
 import { computeNights, computeTotalEventPrice } from "@/lib/pricing";
 import { CostSimulatorModal } from "@/components/event/cost-simulator-modal";
+import type { CostManagerData } from "@/lib/services/economics.service";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ type OccupancyRow = { occupancy: number; price: string };
 
 type LocalRoomType = {
   tempId: string;
+  id?: string;
   name: string;
   description: string;
   capacity: number;
@@ -60,7 +62,25 @@ interface SetupStepClientProps {
     meal_cost_dinner: number | null;
   };
   hasExistingRooms: boolean;
+  initialCostManagerData: CostManagerData | null;
+  organizerPersons: {
+    id: string;
+    name_full: string;
+    name_display: string;
+    name_initials: string;
+    gender: "unknown" | "female" | "male" | "other";
+    default_role: "participant" | "facilitator";
+    event_persons: {
+      id: string;
+      role: "participant" | "facilitator";
+      room: {
+        display_name: string | null;
+        internal_number: string;
+      } | null;
+    }[];
+  }[];
   initialRoomTypes?: {
+    id: string;
     name: string;
     description: string | null;
     capacity: number;
@@ -84,6 +104,8 @@ function occupancyLabel(n: number) {
 export function SetupStepClient({
   event,
   hasExistingRooms,
+  initialCostManagerData,
+  organizerPersons,
   initialRoomTypes,
   initialQuantities,
 }: SetupStepClientProps) {
@@ -93,7 +115,8 @@ export function SetupStepClient({
 
   // ─── Section 1: Gastos del Evento ───────────────────────────────────────
   const [location, setLocation] = useState(event.location ?? "");
-  const [pricingMode, setPricingMode] = useState(event.pricing_mode || "direct");
+  const inferredPricingMode = event.pricing_mode === "direct" ? "direct" : "breakdown";
+  const [pricingMode, setPricingMode] = useState(inferredPricingMode);
   const [facilitationDay, setFacilitationDay] = useState(event.facilitation_cost_day != null ? String(event.facilitation_cost_day) : "");
   const [managementDay, setManagementDay] = useState(event.management_cost_day != null ? String(event.management_cost_day) : "");
   const [depositAmount, setDepositAmount] = useState(event.deposit_amount != null ? String(event.deposit_amount) : "");
@@ -106,6 +129,7 @@ export function SetupStepClient({
     if (initialRoomTypes && initialRoomTypes.length > 0) {
       return initialRoomTypes.map((rt, idx) => ({
         tempId: String(idx),
+        id: rt.id,
         name: rt.name,
         description: rt.description ?? "",
         capacity: rt.capacity,
@@ -380,7 +404,7 @@ export function SetupStepClient({
                 <Label className="text-xs">Desayuno (€)</Label>
                 <Input
                   type="number"
-                  step="0.01"
+                  step="1"
                   min={0}
                   value={mealBreakfast}
                   onChange={(e) => setMealBreakfast(e.target.value)}
@@ -392,7 +416,7 @@ export function SetupStepClient({
                 <Label className="text-xs">Comida (€)</Label>
                 <Input
                   type="number"
-                  step="0.01"
+                  step="1"
                   min={0}
                   value={mealLunch}
                   onChange={(e) => setMealLunch(e.target.value)}
@@ -404,7 +428,7 @@ export function SetupStepClient({
                 <Label className="text-xs">Cena (€)</Label>
                 <Input
                   type="number"
-                  step="0.01"
+                  step="1"
                   min={0}
                   value={mealDinner}
                   onChange={(e) => setMealDinner(e.target.value)}
@@ -429,17 +453,6 @@ export function SetupStepClient({
           <div className="space-y-2">
             <Label>Cálculo del precio</Label>
             <div className="flex gap-3">
-              <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "direct" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
-                <input
-                  type="radio"
-                  name="pricing_mode"
-                  value="direct"
-                  checked={pricingMode === "direct"}
-                  onChange={() => setPricingMode("direct")}
-                  className="accent-primary"
-                />
-                Precio Final
-              </label>
               <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "breakdown" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
                 <input
                   type="radio"
@@ -450,6 +463,17 @@ export function SetupStepClient({
                   className="accent-primary"
                 />
                 Gastos Desglosados
+              </label>
+              <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "direct" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
+                <input
+                  type="radio"
+                  name="pricing_mode"
+                  value="direct"
+                  checked={pricingMode === "direct"}
+                  onChange={() => setPricingMode("direct")}
+                  className="accent-primary"
+                />
+                Precio Final
               </label>
             </div>
             <p className="text-xs text-gray-500">
@@ -462,42 +486,22 @@ export function SetupStepClient({
           {/* Breakdown costs */}
           {pricingMode === "breakdown" && (
             <div className="space-y-3 rounded-lg bg-gray-50 p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-gray-500">Gastos por persona y día</p>
+              <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => setShowSimulator(true)}
-                  className="h-7 gap-1.5 text-xs text-gray-600"
+                  className="h-7 gap-1.5 text-xs"
                 >
                   <Calculator className="size-3.5" />
-                  Simulador de costes
+                  Gestor de costes
                 </Button>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Facilitación/día (€)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={facilitationDay}
-                    onChange={(e) => setFacilitationDay(e.target.value)}
-                    placeholder="€/pers./día"
-                    className="text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Gestión/día (€)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={managementDay}
-                    onChange={(e) => setManagementDay(e.target.value)}
-                    placeholder="€/pers./día"
-                    className="text-sm"
-                  />
+                <span className="hidden text-xs text-gray-400 sm:inline">→</span>
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-xs whitespace-nowrap text-gray-500">Coste adicional/día</Label>
+                  <span className="text-sm font-medium tabular-nums">
+                    {managementDay ? `${managementDay} €` : <span className="text-gray-400 italic">Sin calcular</span>}
+                  </span>
                 </div>
               </div>
             </div>
@@ -510,7 +514,7 @@ export function SetupStepClient({
               <Input
                 id="deposit_amount"
                 type="number"
-                step="0.01"
+                step="1"
                 min={0}
                 value={depositAmount}
                 onChange={(e) => setDepositAmount(e.target.value)}
@@ -523,9 +527,13 @@ export function SetupStepClient({
 
       {/* ─── Cost Simulator Modal ──────────────────────────────────────── */}
       <CostSimulatorModal
+        eventId={event.id}
         open={showSimulator}
         onOpenChange={setShowSimulator}
+        organizerPersons={organizerPersons}
+        initialData={initialCostManagerData}
         roomTypes={roomTypes.map((rt) => ({
+          id: rt.id,
           name: rt.name,
           base_price: rt.base_price ? parseFloat(rt.base_price) : null,
           occupancy_pricings: rt.occupancy_pricings
@@ -536,7 +544,7 @@ export function SetupStepClient({
         days={days}
         estimatedParticipants={event.estimated_participants}
         facilitationCostDay={facilitationDay ? parseFloat(facilitationDay) : null}
-        onApply={(value) => setManagementDay(value.toFixed(2))}
+        onApply={(value) => setManagementDay(value.toFixed(0))}
       />
 
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -709,7 +717,7 @@ function RoomTypeCard({
               {!roomType.showOccupancies ? (
                 <Input
                   type="number"
-                  step="0.01"
+                  step="1"
                   min={0}
                   value={roomType.base_price}
                   onChange={(e) => onUpdate({ base_price: e.target.value })}
@@ -725,7 +733,7 @@ function RoomTypeCard({
                         <span className="w-24 text-xs text-gray-600">{occupancyLabel(o.occupancy)}</span>
                         <Input
                           type="number"
-                          step="0.01"
+                          step="1"
                           min={0}
                           value={o.price}
                           onChange={(e) => {
@@ -898,7 +906,7 @@ function AddRoomTypeForm({
           {!showOccupancies ? (
             <Input
               type="number"
-              step="0.01"
+              step="1"
               min={0}
               value={basePrice}
               onChange={(e) => setBasePrice(e.target.value)}
@@ -912,7 +920,7 @@ function AddRoomTypeForm({
                   <span className="w-24 text-xs text-gray-600">{occupancyLabel(o.occupancy)}</span>
                   <Input
                     type="number"
-                    step="0.01"
+                    step="1"
                     min={0}
                     value={o.price}
                     onChange={(e) => {

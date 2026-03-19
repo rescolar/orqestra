@@ -6,8 +6,7 @@ import { updateEventDetails, updateRoomPricings, addRoomsByType, updateEventStat
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Building2, Settings, Calendar, UtensilsCrossed, BedDouble, Bath, Hash, Plus, Calculator, Home, LinkIcon, Check, Rocket, Archive, Flag } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Building2, Settings, Calendar, UtensilsCrossed, BedDouble, Bath, Hash, Plus, Calculator, Home, LinkIcon, Check, Users } from "lucide-react";
 import { SaveAsVenueButton } from "@/components/venue/save-as-venue-button";
 import { RoomTypeEditor } from "@/components/venue/room-type-editor";
 import { ImageUpload } from "@/components/shared/image-upload";
@@ -16,6 +15,7 @@ import { CostSimulatorModal } from "@/components/event/cost-simulator-modal";
 import { getInviteLink } from "@/lib/actions/invite";
 import Link from "next/link";
 import type { RoomTypeData } from "@/components/venue/venue-edit-client";
+import type { CostManagerData } from "@/lib/services/economics.service";
 
 type RoomPricingRow = {
   capacity: number;
@@ -30,6 +30,23 @@ interface EventDetailFormProps {
   isWizard: boolean;
   venueId?: string | null;
   venueRoomTypes?: VenueRoomType[];
+  initialCostManagerData: CostManagerData | null;
+  organizerPersons: {
+    id: string;
+    name_full: string;
+    name_display: string;
+    name_initials: string;
+    gender: "unknown" | "female" | "male" | "other";
+    default_role: "participant" | "facilitator";
+    event_persons: {
+      id: string;
+      role: "participant" | "facilitator";
+      room: {
+        display_name: string | null;
+        internal_number: string;
+      } | null;
+    }[];
+  }[];
   event: {
     id: string;
     name: string;
@@ -65,7 +82,7 @@ function occupancyLabel(n: number) {
   return n === 1 ? "Individual" : n === 2 ? "Doble" : n === 3 ? "Triple" : `${n} pers.`;
 }
 
-export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: EventDetailFormProps) {
+export function EventDetailForm({ isWizard, venueId, venueRoomTypes, initialCostManagerData, organizerPersons, event }: EventDetailFormProps) {
   const router = useRouter();
   const nights = computeNights(event.date_start, event.date_end);
   const days = nights;
@@ -79,14 +96,15 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
   const [eventPrice, setEventPrice] = useState(event.event_price != null ? String(event.event_price) : "");
   const [depositAmount, setDepositAmount] = useState(event.deposit_amount != null ? String(event.deposit_amount) : "");
   const [pricingByRoomType, setPricingByRoomType] = useState(event.pricing_by_room_type ?? false);
-  const [pricingMode, setPricingMode] = useState(event.pricing_mode ?? "direct");
+  const inferredPricingMode = event.pricing_mode === "direct" ? "direct" : "breakdown";
+  const [pricingMode, setPricingMode] = useState(inferredPricingMode);
   const [facilitationDay, setFacilitationDay] = useState(event.facilitation_cost_day != null ? String(event.facilitation_cost_day) : "");
   const [managementDay, setManagementDay] = useState(event.management_cost_day != null ? String(event.management_cost_day) : "");
   const [roomPricings, setRoomPricings] = useState<RoomPricingRow[]>(event.room_pricings ?? []);
   const [mealBreakfast, setMealBreakfast] = useState(event.meal_cost_breakfast != null ? String(event.meal_cost_breakfast) : "");
   const [mealLunch, setMealLunch] = useState(event.meal_cost_lunch != null ? String(event.meal_cost_lunch) : "");
   const [mealDinner, setMealDinner] = useState(event.meal_cost_dinner != null ? String(event.meal_cost_dinner) : "");
-  const [showAccommodation, setShowAccommodation] = useState(event.show_accommodation ?? false);
+  const [showAccommodation, setShowAccommodation] = useState(event.show_accommodation ?? true);
   const [showAvailability, setShowAvailability] = useState(event.show_availability ?? false);
   const [showDateConfirm, setShowDateConfirm] = useState(false);
   const [pendingDates, setPendingDates] = useState<{ start?: string; end?: string } | null>(null);
@@ -107,13 +125,17 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
 
   const originalPrice = event.event_price != null ? String(event.event_price) : "";
   const originalDeposit = event.deposit_amount != null ? String(event.deposit_amount) : "";
-  const pricingModeChanged = pricingByRoomType !== (event.pricing_by_room_type ?? false);
+  const pricingByRoomTypeChanged = pricingByRoomType !== (event.pricing_by_room_type ?? false);
+  const pricingModeChanged = pricingMode !== inferredPricingMode;
   const roomPricingsChanged = JSON.stringify(roomPricings) !== JSON.stringify(event.room_pricings ?? []);
+  const originalFacilitationDay = event.facilitation_cost_day != null ? String(event.facilitation_cost_day) : "";
+  const originalManagementDay = event.management_cost_day != null ? String(event.management_cost_day) : "";
   const originalMealBreakfast = event.meal_cost_breakfast != null ? String(event.meal_cost_breakfast) : "";
   const originalMealLunch = event.meal_cost_lunch != null ? String(event.meal_cost_lunch) : "";
   const originalMealDinner = event.meal_cost_dinner != null ? String(event.meal_cost_dinner) : "";
   const mealCostsChanged = mealBreakfast !== originalMealBreakfast || mealLunch !== originalMealLunch || mealDinner !== originalMealDinner;
-  const pricingChanged = eventPrice !== originalPrice || depositAmount !== originalDeposit || pricingModeChanged || roomPricingsChanged || mealCostsChanged;
+  const costFieldsChanged = facilitationDay !== originalFacilitationDay || managementDay !== originalManagementDay;
+  const pricingChanged = eventPrice !== originalPrice || depositAmount !== originalDeposit || pricingByRoomTypeChanged || pricingModeChanged || roomPricingsChanged || mealCostsChanged || costFieldsChanged;
 
   const isDirty =
     name !== event.name ||
@@ -122,7 +144,7 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
     imageUrl !== (event.image_url ?? "") ||
     datesChanged ||
     pricingChanged ||
-    showAccommodation !== (event.show_accommodation ?? false) ||
+    showAccommodation !== (event.show_accommodation ?? true) ||
     showAvailability !== (event.show_availability ?? false);
 
   // Room type summary
@@ -206,7 +228,7 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
           show_accommodation: showAccommodation,
           show_availability: showAvailability,
         });
-        if (pricingByRoomType && (pricingModeChanged || roomPricingsChanged)) {
+        if (pricingByRoomType && (pricingByRoomTypeChanged || roomPricingsChanged)) {
           await updateRoomPricings(
             event.id,
             roomPricings.map((rp) => ({
@@ -231,12 +253,49 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
       {/* ─── Card: Evento ──────────────────────────────────────────────── */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <div className="space-y-4">
-          {/* Dates */}
-          <div className="space-y-2">
+          {/* Header: Evento title + Status dropdown */}
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <Calendar className="size-4 text-gray-400" />
-              <Label className="text-sm font-semibold text-gray-700">Fechas</Label>
+              <h3 className="text-sm font-semibold text-gray-700">Evento</h3>
             </div>
+            {!isWizard && (
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-gray-500">Estado</Label>
+                <select
+                  value={eventStatus}
+                  disabled={isStatusPending}
+                  onChange={(e) => {
+                    const next = e.target.value as "draft" | "published" | "finished" | "archived";
+                    if (next === eventStatus) return;
+                    startStatusTransition(async () => {
+                      await updateEventStatus(event.id, next);
+                      setEventStatus(next);
+                    });
+                  }}
+                  className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+                >
+                  {(() => {
+                    const labels: Record<string, string> = { draft: "Borrador", published: "Publicado", active: "Publicado", finished: "Finalizado", archived: "Archivado" };
+                    const transitions: Record<string, string[]> = {
+                      draft: ["published"],
+                      active: ["published", "finished", "archived"],
+                      published: ["draft", "finished", "archived"],
+                      finished: ["archived", "published"],
+                      archived: ["published"],
+                    };
+                    const options = [eventStatus, ...(transitions[eventStatus] ?? [])];
+                    return options.map((s) => (
+                      <option key={s} value={s}>{labels[s] ?? s}</option>
+                    ));
+                  })()}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Dates */}
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
               <input
                 type="date"
@@ -352,39 +411,6 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
                   }))}
                 />
 
-                {/* Price preview per type */}
-                {venueRoomTypes!.some((rt) => rt.base_price != null || rt.occupancy_pricings.length > 0) && (
-                  <div className="rounded-lg bg-gray-50 p-3">
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                      Preview: precio total del evento ({nights}n)
-                    </p>
-                    <div className="space-y-1.5">
-                      {venueRoomTypes!.map((rt) => {
-                        const hasOcc = rt.occupancy_pricings.length > 0;
-                        if (!hasOcc && rt.base_price == null) return null;
-
-                        return (
-                          <div key={rt.id} className="text-xs text-gray-600">
-                            <span className="font-medium text-gray-700">{rt.name}</span>
-                            {hasOcc ? (
-                              <span className="ml-2">
-                                {rt.occupancy_pricings.map((op) => {
-                                  const total = previewTotal(rt, op.occupancy);
-                                  return total != null ? `${occupancyLabel(op.occupancy)}: ${total.toFixed(0)}€` : null;
-                                }).filter(Boolean).join(" · ")}
-                              </span>
-                            ) : (
-                              (() => {
-                                const total = previewTotal(rt);
-                                return total != null ? <span className="ml-2">{total.toFixed(0)}€</span> : null;
-                              })()
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -458,15 +484,15 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Desayuno (€)</Label>
-                  <Input type="number" step="0.01" min={0} value={mealBreakfast} onChange={(e) => setMealBreakfast(e.target.value)} placeholder="Opcional" className="text-sm" />
+                  <Input type="number" step="1" min={0} value={mealBreakfast} onChange={(e) => setMealBreakfast(e.target.value)} placeholder="Opcional" className="text-sm" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Comida (€)</Label>
-                  <Input type="number" step="0.01" min={0} value={mealLunch} onChange={(e) => setMealLunch(e.target.value)} placeholder="Opcional" className="text-sm" />
+                  <Input type="number" step="1" min={0} value={mealLunch} onChange={(e) => setMealLunch(e.target.value)} placeholder="Opcional" className="text-sm" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Cena (€)</Label>
-                  <Input type="number" step="0.01" min={0} value={mealDinner} onChange={(e) => setMealDinner(e.target.value)} placeholder="Opcional" className="text-sm" />
+                  <Input type="number" step="1" min={0} value={mealDinner} onChange={(e) => setMealDinner(e.target.value)} placeholder="Opcional" className="text-sm" />
                 </div>
               </div>
             </div>
@@ -487,13 +513,13 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
             <div className="space-y-2">
               <Label>Cálculo del precio</Label>
               <div className="flex gap-3">
-                <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "direct" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
-                  <input type="radio" name="pricing_mode_edit" value="direct" checked={pricingMode === "direct"} onChange={() => setPricingMode("direct")} className="accent-primary" />
-                  Precio Final
-                </label>
                 <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "breakdown" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
                   <input type="radio" name="pricing_mode_edit" value="breakdown" checked={pricingMode === "breakdown"} onChange={() => setPricingMode("breakdown")} className="accent-primary" />
                   Gastos Desglosados
+                </label>
+                <label className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${pricingMode === "direct" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
+                  <input type="radio" name="pricing_mode_edit" value="direct" checked={pricingMode === "direct"} onChange={() => setPricingMode("direct")} className="accent-primary" />
+                  Precio Final
                 </label>
               </div>
               <p className="text-xs text-gray-500">
@@ -506,53 +532,69 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
             {/* Breakdown costs */}
             {pricingMode === "breakdown" && (
               <div className="space-y-3 rounded-lg bg-gray-50 p-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-gray-500">Gastos por persona y día</p>
+                <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={() => setShowSimulator(true)}
-                    className="h-7 gap-1.5 text-xs text-gray-600"
+                    className="h-7 gap-1.5 text-xs"
                   >
                     <Calculator className="size-3.5" />
-                    Simulador de costes
+                    Gestor de costes
                   </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Facilitación/día (€)</Label>
-                    <Input type="number" step="0.01" min={0} value={facilitationDay} onChange={(e) => setFacilitationDay(e.target.value)} placeholder="€/pers./día" className="text-sm" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Gestión/día (€)</Label>
-                    <Input type="number" step="0.01" min={0} value={managementDay} onChange={(e) => setManagementDay(e.target.value)} placeholder="€/pers./día" className="text-sm" />
+                  <span className="hidden text-xs text-gray-400 sm:inline">→</span>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap text-gray-500">Coste adicional/día</Label>
+                    <span className="text-sm font-medium tabular-nums">
+                      {managementDay ? `${managementDay} €` : <span className="text-gray-400 italic">Sin calcular</span>}
+                    </span>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Price per person + Deposit */}
-            <div className="grid grid-cols-2 gap-4">
-              {!pricingByRoomType && (
-                <div className="space-y-2">
-                  <Label htmlFor="event_price">Precio por persona (€)</Label>
-                  <Input
-                    id="event_price"
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={eventPrice}
-                    onChange={(e) => setEventPrice(e.target.value)}
-                    placeholder="Opcional"
-                  />
+            {/* Price preview per type */}
+            {venueRoomTypes && venueRoomTypes.some((rt) => rt.base_price != null || rt.occupancy_pricings.length > 0) && (
+              <div className="rounded-lg bg-gray-50 p-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  Preview: precio total del evento ({nights}n)
+                </p>
+                <div className="space-y-1.5">
+                  {venueRoomTypes.map((rt) => {
+                    const hasOcc = rt.occupancy_pricings.length > 0;
+                    if (!hasOcc && rt.base_price == null) return null;
+
+                    return (
+                      <div key={rt.id} className="text-xs text-gray-600">
+                        <span className="font-medium text-gray-700">{rt.name}</span>
+                        {hasOcc ? (
+                          <span className="ml-2">
+                            {rt.occupancy_pricings.map((op) => {
+                              const total = previewTotal(rt, op.occupancy);
+                              return total != null ? `${occupancyLabel(op.occupancy)}: ${total.toFixed(0)}€` : null;
+                            }).filter(Boolean).join(" · ")}
+                          </span>
+                        ) : (
+                          (() => {
+                            const total = previewTotal(rt);
+                            return total != null ? <span className="ml-2">{total.toFixed(0)}€</span> : null;
+                          })()
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
+            )}
+
+            {/* Deposit */}
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="deposit_amount">Reserva (€)</Label>
                 <Input
                   id="deposit_amount"
                   type="number"
-                  step="0.01"
+                  step="1"
                   min={0}
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}
@@ -561,179 +603,101 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
               </div>
             </div>
 
-            {/* Participant accommodation toggles */}
-            <div className="space-y-3 border-t border-gray-100 pt-4">
-              <label className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">Mostrar opciones de alojamiento a participantes</span>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Card: Participantes (edit mode only) ────────────────────── */}
+      {!isWizard && (
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Users className="size-4 text-gray-400" />
+              <h3 className="text-sm font-semibold text-gray-700">Participantes</h3>
+            </div>
+
+            <label className="flex items-center justify-between">
+              <span className="text-sm text-gray-700">Mostrar opciones de alojamiento</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={showAccommodation}
+                onClick={() => {
+                  const next = !showAccommodation;
+                  setShowAccommodation(next);
+                  if (!next) setShowAvailability(false);
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  showAccommodation ? "bg-primary" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
+                    showAccommodation ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </label>
+            {showAccommodation && (
+              <label className="flex items-center justify-between pl-4">
+                <span className="text-sm text-gray-500">Mostrar disponibilidad de plazas</span>
                 <button
                   type="button"
                   role="switch"
-                  aria-checked={showAccommodation}
-                  onClick={() => {
-                    const next = !showAccommodation;
-                    setShowAccommodation(next);
-                    if (!next) setShowAvailability(false);
-                  }}
+                  aria-checked={showAvailability}
+                  onClick={() => setShowAvailability(!showAvailability)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    showAccommodation ? "bg-primary" : "bg-gray-300"
+                    showAvailability ? "bg-primary" : "bg-gray-300"
                   }`}
                 >
                   <span
                     className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
-                      showAccommodation ? "translate-x-6" : "translate-x-1"
+                      showAvailability ? "translate-x-6" : "translate-x-1"
                     }`}
                   />
                 </button>
               </label>
-              {showAccommodation && (
-                <label className="flex items-center justify-between pl-4">
-                  <span className="text-sm text-gray-500">Mostrar disponibilidad de plazas</span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={showAvailability}
-                    onClick={() => setShowAvailability(!showAvailability)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      showAvailability ? "bg-primary" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
-                        showAvailability ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </label>
-              )}
-            </div>
+            )}
 
-            {/* Event status + invite link */}
-            <div className="space-y-4 border-t border-gray-100 pt-4">
-              {/* Status badge */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-gray-700">Estado del evento</p>
-                  {eventStatus === "draft" && <Badge variant="secondary">Borrador</Badge>}
-                  {(eventStatus === "published" || eventStatus === "active") && (
-                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Publicado</Badge>
+            {/* Invite link (only when published/active) */}
+            {(eventStatus === "published" || eventStatus === "active") && (
+              <div className="flex items-center justify-between border-t border-gray-100 pt-3">
+                <div>
+                  <p className="text-sm text-gray-700">Enlace de invitación</p>
+                  <p className="text-xs text-gray-400">Comparte para que se registren</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isInvitePending}
+                  onClick={() => {
+                    startInviteTransition(async () => {
+                      const code = await getInviteLink(event.id);
+                      const url = `${window.location.origin}/join/${code}`;
+                      await navigator.clipboard.writeText(url);
+                      setInviteCopied(true);
+                      setTimeout(() => setInviteCopied(false), 2000);
+                    });
+                  }}
+                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                    inviteCopied
+                      ? "border-green-200 bg-green-50 text-green-700"
+                      : "border-gray-200 text-gray-600 hover:border-primary hover:text-primary"
+                  }`}
+                >
+                  {inviteCopied ? (
+                    <>
+                      <Check className="size-4" />
+                      Copiado
+                    </>
+                  ) : (
+                    <>
+                      <LinkIcon className="size-4" />
+                      {isInvitePending ? "Generando..." : "Copiar enlace"}
+                    </>
                   )}
-                  {eventStatus === "finished" && <Badge variant="secondary">Finalizado</Badge>}
-                  {eventStatus === "archived" && <Badge variant="secondary">Archivado</Badge>}
-                </div>
+                </button>
               </div>
-
-              {/* Publish button for drafts */}
-              {eventStatus === "draft" && (
-                <button
-                  type="button"
-                  disabled={isStatusPending}
-                  onClick={() => {
-                    startStatusTransition(async () => {
-                      await updateEventStatus(event.id, "published");
-                      setEventStatus("published");
-                    });
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
-                >
-                  <Rocket className="size-4" />
-                  {isStatusPending ? "Publicando..." : "Publicar evento"}
-                </button>
-              )}
-
-              {/* Invite link (only when published/active) */}
-              {(eventStatus === "published" || eventStatus === "active") && (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Enlace de invitación</p>
-                    <p className="text-xs text-gray-400">Comparte este enlace para que los participantes se registren</p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isInvitePending}
-                    onClick={() => {
-                      startInviteTransition(async () => {
-                        const code = await getInviteLink(event.id);
-                        const url = `${window.location.origin}/join/${code}`;
-                        await navigator.clipboard.writeText(url);
-                        setInviteCopied(true);
-                        setTimeout(() => setInviteCopied(false), 2000);
-                      });
-                    }}
-                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                      inviteCopied
-                        ? "border-green-200 bg-green-50 text-green-700"
-                        : "border-gray-200 text-gray-600 hover:border-primary hover:text-primary"
-                    }`}
-                  >
-                    {inviteCopied ? (
-                      <>
-                        <Check className="size-4" />
-                        Copiado
-                      </>
-                    ) : (
-                      <>
-                        <LinkIcon className="size-4" />
-                        {isInvitePending ? "Generando..." : "Copiar enlace"}
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-
-              {/* Finalize button (when published/active) */}
-              {(eventStatus === "published" || eventStatus === "active") && (
-                <button
-                  type="button"
-                  disabled={isStatusPending}
-                  onClick={() => {
-                    startStatusTransition(async () => {
-                      await updateEventStatus(event.id, "finished");
-                      setEventStatus("finished");
-                    });
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-                >
-                  <Flag className="size-4" />
-                  {isStatusPending ? "Finalizando..." : "Finalizar evento"}
-                </button>
-              )}
-
-              {/* Archive button (when finished) */}
-              {eventStatus === "finished" && (
-                <button
-                  type="button"
-                  disabled={isStatusPending}
-                  onClick={() => {
-                    startStatusTransition(async () => {
-                      await updateEventStatus(event.id, "archived");
-                      setEventStatus("archived");
-                    });
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-                >
-                  <Archive className="size-4" />
-                  {isStatusPending ? "Archivando..." : "Archivar evento"}
-                </button>
-              )}
-
-              {/* Re-publish (when archived) */}
-              {eventStatus === "archived" && (
-                <button
-                  type="button"
-                  disabled={isStatusPending}
-                  onClick={() => {
-                    startStatusTransition(async () => {
-                      await updateEventStatus(event.id, "published");
-                      setEventStatus("published");
-                    });
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-                >
-                  <Rocket className="size-4" />
-                  {isStatusPending ? "Publicando..." : "Re-publicar evento"}
-                </button>
-              )}
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -741,9 +705,13 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
       {/* ─── Cost Simulator Modal ──────────────────────────────────────── */}
       {!isWizard && (
         <CostSimulatorModal
+          eventId={event.id}
           open={showSimulator}
           onOpenChange={setShowSimulator}
+          organizerPersons={organizerPersons}
+          initialData={initialCostManagerData}
           roomTypes={(venueRoomTypes ?? []).map((rt) => ({
+            id: rt.id,
             name: rt.name,
             base_price: rt.base_price,
             occupancy_pricings: rt.occupancy_pricings,
@@ -752,7 +720,7 @@ export function EventDetailForm({ isWizard, venueId, venueRoomTypes, event }: Ev
           days={days}
           estimatedParticipants={event.estimated_participants}
           facilitationCostDay={facilitationDay ? parseFloat(facilitationDay) : null}
-          onApply={(value) => setManagementDay(value.toFixed(2))}
+          onApply={(value) => setManagementDay(value.toFixed(0))}
         />
       )}
 

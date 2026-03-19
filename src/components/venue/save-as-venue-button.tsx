@@ -56,7 +56,7 @@ export function SaveAsVenueButton({
           Guardar como centro
         </button>
       ) : (
-        <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
           <Building2 className="mr-1.5 size-4" />
           Guardar como centro
         </Button>
