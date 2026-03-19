@@ -11,7 +11,6 @@ import {
   PendingCancelRequest,
   PendingRequest,
   PendingAccommodationMismatch,
-  PendingAutoAssignment,
 } from "@/lib/actions/pending";
 import { updateEventPerson } from "@/lib/actions/person";
 import { updateRoomField } from "@/lib/actions/room";
@@ -68,7 +67,7 @@ export function PendingsPanel({
   const [data, setData] = useState<PendingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [openSections, setOpenSections] = useState<Set<string>>(
-    () => new Set(["dietary", "conflicts", "payments", "cancelRequests", "requests", "accommodationMismatches", "autoAssignments"])
+    () => new Set(["dietary", "conflicts", "payments", "cancelRequests", "requests", "accommodationMismatches"])
   );
 
   const toggleSection = useCallback((key: string) => {
@@ -178,21 +177,6 @@ export function PendingsPanel({
         };
       });
       await updateEventPerson(epId, eventId, { accommodation_mismatch_managed: true });
-      onItemResolved();
-    },
-    [eventId, onItemResolved]
-  );
-
-  const handleAutoAssignManaged = useCallback(
-    async (epId: string) => {
-      setData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          autoAssignments: prev.autoAssignments.filter((a) => a.id !== epId),
-        };
-      });
-      await updateEventPerson(epId, eventId, { auto_assign_managed: true });
       onItemResolved();
     },
     [eventId, onItemResolved]
@@ -492,47 +476,6 @@ export function PendingsPanel({
                   </button>
                   <button
                     onClick={() => handleMismatchManaged(item.id)}
-                    className="shrink-0 rounded-md border border-gray-200 px-2 py-1 text-[10px] font-medium text-gray-500 hover:bg-success/10 hover:text-success hover:border-success/30"
-                  >
-                    Gestionado
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </PendingSection>
-
-        {/* Auto-assignments */}
-        <PendingSection
-          label="Auto-asignaciones"
-          icon="assignment_ind"
-          count={data.autoAssignments.length}
-          accentColor="text-amber-600"
-          open={openSections.has("autoAssignments")}
-          onToggle={() => toggleSection("autoAssignments")}
-        >
-          {data.autoAssignments.length === 0 ? (
-            <p className="text-xs text-gray-400">Sin pendientes</p>
-          ) : (
-            <div className="space-y-1">
-              {data.autoAssignments.map((item) => (
-                <div
-                  key={item.id}
-                  className="group flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-gray-50"
-                >
-                  <button
-                    onClick={() => onPersonClick(item.id)}
-                    className="flex-1 min-w-0 text-left"
-                  >
-                    <p className="truncate text-sm font-medium text-gray-700">
-                      {item.person.name_display}
-                    </p>
-                    <p className="truncate text-xs text-gray-400">
-                      {item.roomName}
-                    </p>
-                  </button>
-                  <button
-                    onClick={() => handleAutoAssignManaged(item.id)}
                     className="shrink-0 rounded-md border border-gray-200 px-2 py-1 text-[10px] font-medium text-gray-500 hover:bg-success/10 hover:text-success hover:border-success/30"
                   >
                     Gestionado

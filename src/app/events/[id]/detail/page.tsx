@@ -6,6 +6,8 @@ import { EventService } from "@/lib/services/event.service";
 import { EventDetailForm } from "@/components/event/event-detail-form";
 import { WizardStepper } from "@/components/event/wizard-stepper";
 import { db } from "@/lib/db";
+import { PersonService } from "@/lib/services/person.service";
+import { EconomicsService } from "@/lib/services/economics.service";
 
 const STEPS = [
   { label: "Datos" },
@@ -31,9 +33,11 @@ export default async function DetailPage({
 
   if (!event) notFound();
 
-  const [roomPricings, roomTypes] = await Promise.all([
+  const [roomPricings, roomTypes, organizerPersons, initialCostManagerData] = await Promise.all([
     event.pricing_by_room_type ? EventService.getRoomPricings(id, ctx) : Promise.resolve([]),
     EventService.getRoomTypes(id, ctx),
+    PersonService.getAllPersonsForUser(ctx, id),
+    EconomicsService.getCostManagerData(id, ctx),
   ]);
 
   // Load venue room types with occupancy pricings (for new UI)
@@ -103,6 +107,7 @@ export default async function DetailPage({
               { href: `/events/${id}/collaborators`, label: "Co-organizadores", icon: "group" },
               { href: `/events/${id}/schedule`, label: "Programa", icon: "calendar_month" },
               { href: `/events/${id}/reception`, label: "Recepción", icon: "how_to_reg" },
+              { href: `/events/${id}/economics`, label: "Informe económico", icon: "monitoring" },
             ].map((link) => (
               <Link
                 key={link.href}
@@ -120,6 +125,8 @@ export default async function DetailPage({
           isWizard={isWizard}
           venueId={venueId}
           venueRoomTypes={venueRoomTypes}
+          organizerPersons={organizerPersons}
+          initialCostManagerData={initialCostManagerData}
           event={{
             id: event.id,
             name: event.name,

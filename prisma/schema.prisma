@@ -7,196 +7,137 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── User ────────────────────────────────────────────────────────────────────
-
-enum UserRole {
-  organizer
-  admin
-  participant
-}
-
-enum OrganizerEnvironment {
-  open
-  private
-}
-
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  password    String?
-  name        String
+  id                String               @id @default(cuid())
+  email             String               @unique
+  password          String?
+  name              String
   avatar_url        String?
-  role              UserRole @default(organizer)
-  google_id         String?  @unique
-  environment       OrganizerEnvironment @default(open)
-  slug              String?  @unique
-  brand_name        String?
-  brand_welcome_msg String?
+  role              UserRole             @default(organizer)
+  created_at        DateTime             @default(now())
   brand_bg_color    String?
+  brand_name        String?
   brand_text_color  String?
-  created_at  DateTime @default(now())
-
-  persons        Person[]
-  events         Event[]
-  venues         Venue[]
-  self_person    Person[] @relation("SelfPerson")
-  collaborations EventCollaborator[]
+  brand_welcome_msg String?
+  google_id         String?              @unique
+  environment       OrganizerEnvironment @default(open)
+  slug              String?              @unique
+  collaborations    EventCollaborator[]
+  events            Event[]
+  self_person       Person[]             @relation("SelfPerson")
+  persons           Person[]
+  venues            Venue[]
 
   @@map("users")
 }
 
-// ─── Person ──────────────────────────────────────────────────────────────────
-
-enum Gender {
-  unknown
-  female
-  male
-  other
-}
-
-enum PersonRole {
-  participant
-  facilitator
-}
-
 model Person {
-  id                   String     @id @default(cuid())
+  id                   String        @id @default(cuid())
   user_id              String
   name_full            String
   name_display         String
   name_initials        String
-  default_role         PersonRole @default(participant)
-  gender               Gender     @default(unknown)
+  default_role         PersonRole    @default(participant)
+  gender               Gender        @default(unknown)
   contact_email        String?
   contact_phone        String?
   contact_address      String?
-  avatar_url           String?
-  dietary_requirements String[]   @default([])
+  dietary_requirements String[]      @default([])
   allergies_text       String?
   notes                String?
-  created_at           DateTime   @default(now())
-
-  self_user_id  String?
-  discoverable  Boolean       @default(true)
-  user          User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  self_user     User?         @relation("SelfPerson", fields: [self_user_id], references: [id], onDelete: SetNull)
-  event_persons EventPerson[]
+  created_at           DateTime      @default(now())
+  avatar_url           String?
+  self_user_id         String?
+  discoverable         Boolean       @default(true)
+  event_persons        EventPerson[]
+  self_user            User?         @relation("SelfPerson", fields: [self_user_id], references: [id])
+  user                 User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, self_user_id])
   @@map("persons")
 }
 
-// ─── Event ───────────────────────────────────────────────────────────────────
-
-enum EventStatus {
-  draft
-  active
-  published
-  finished
-  archived
-}
-
 model Event {
-  id                     String      @id @default(cuid())
-  user_id                String
-  name                   String
-  date_start             DateTime
-  date_end               DateTime
-  estimated_participants Int
-  status                 EventStatus @default(draft)
-  description            String?
-  location               String?
-  image_url              String?
-  invite_code            String?         @unique
-  collab_invite_code     String?         @unique
-  participant_discovery  Boolean         @default(false)
-  schedule_confirmed     Boolean         @default(false)
-  show_accommodation     Boolean         @default(false)
-  show_availability      Boolean         @default(false)
-  event_price                Decimal?        @db.Decimal(10, 2)
-  deposit_amount             Decimal?        @db.Decimal(10, 2)
-  pricing_by_room_type       Boolean         @default(false)
-  pricing_mode               String          @default("direct") // "direct" | "breakdown"
-  facilitation_cost_day      Decimal?        @db.Decimal(10, 2)
-  facilitation_cost_half_day Decimal?        @db.Decimal(10, 2)
-  management_cost_day        Decimal?        @db.Decimal(10, 2)
-  meal_cost_breakfast        Decimal?        @db.Decimal(10, 2)
-  meal_cost_lunch            Decimal?        @db.Decimal(10, 2)
-  meal_cost_dinner           Decimal?        @db.Decimal(10, 2)
+  id                         String               @id @default(cuid())
+  user_id                    String
+  name                       String
+  date_start                 DateTime
+  date_end                   DateTime
+  estimated_participants     Int
+  status                     EventStatus          @default(draft)
+  description                String?
+  location                   String?
+  image_url                  String?
+  invite_code                String?              @unique
+  schedule_confirmed         Boolean              @default(false)
+  collab_invite_code         String?              @unique
+  participant_discovery      Boolean              @default(false)
+  deposit_amount             Decimal?             @db.Decimal(10, 2)
+  event_price                Decimal?             @db.Decimal(10, 2)
+  pricing_by_room_type       Boolean              @default(false)
+  meal_cost_breakfast        Decimal?             @db.Decimal(10, 2)
+  meal_cost_dinner           Decimal?             @db.Decimal(10, 2)
+  meal_cost_lunch            Decimal?             @db.Decimal(10, 2)
   venue_id                   String?
-
-  user                User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  venue               Venue?            @relation(fields: [venue_id], references: [id], onDelete: SetNull)
-  event_persons       EventPerson[]
-  rooms               Room[]
-  groups              Group[]
-  undo_entries        UndoEntry[]
-  centro_share_token  CentroShareToken?
-  schedule_blocks     ScheduleBlock[]
-  collaborators       EventCollaborator[]
-  relationship_invites RelationshipInvite[]
-  room_pricings       RoomPricing[]
+  facilitation_cost_day      Decimal?             @db.Decimal(10, 2)
+  facilitation_cost_half_day Decimal?             @db.Decimal(10, 2)
+  management_cost_day        Decimal?             @db.Decimal(10, 2)
+  pricing_mode               String               @default("direct")
+  show_accommodation         Boolean              @default(false)
+  show_availability          Boolean              @default(false)
+  centro_share_token         CentroShareToken?
+  collaborators              EventCollaborator[]
+  event_persons              EventPerson[]
+  user                       User                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  venue                      Venue?               @relation(fields: [venue_id], references: [id])
+  groups                     Group[]
+  relationship_invites       RelationshipInvite[]
+  room_pricings              RoomPricing[]
+  rooms                      Room[]
+  schedule_blocks            ScheduleBlock[]
+  undo_entries               UndoEntry[]
+  cost_items                 EventCostItem[]
 
   @@map("events")
 }
 
-// ─── EventPerson ─────────────────────────────────────────────────────────────
-
-enum EventPersonStatus {
-  inscrito
-  reservado
-  pagado
-  confirmado_sin_pago
-  solicita_cancelacion
-  cancelado
-}
-
 model EventPerson {
-  id                   String            @id @default(cuid())
-  event_id             String
-  person_id            String
-  role                 PersonRole        @default(participant)
-  status               EventPersonStatus @default(inscrito)
-  group_id             String?
-  amount_paid          Decimal?          @db.Decimal(10, 2)
-  payment_note         String?
-  companion_id         String?
-  date_arrival         DateTime?
-  date_departure       DateTime?
-  discount_breakfast   Int               @default(0)
-  discount_lunch       Int               @default(0)
-  discount_dinner      Int               @default(0)
-  dietary_notified     Boolean           @default(false)
-  arrives_for_dinner   Boolean           @default(true)
-  last_meal_lunch      Boolean           @default(true)
-  requests_text        String?
-  requests_managed                Boolean           @default(false)
-  accommodation_mismatch_managed  Boolean           @default(false)
-  auto_assigned                   Boolean           @default(false)
-  auto_assign_managed             Boolean           @default(false)
-  checked_in_at                   DateTime?
-  room_id                      String?
-  accommodation_room_type_id   String?
-  accommodation_occupancy      Int?
-
-  event            Event        @relation(fields: [event_id], references: [id], onDelete: Cascade)
-  person           Person       @relation(fields: [person_id], references: [id], onDelete: Cascade)
-  group            Group?       @relation(fields: [group_id], references: [id], onDelete: SetNull)
-  room             Room?        @relation(fields: [room_id], references: [id], onDelete: SetNull)
+  id                             String            @id @default(cuid())
+  event_id                       String
+  person_id                      String
+  role                           PersonRole        @default(participant)
+  status                         EventPersonStatus @default(inscrito)
+  group_id                       String?
+  dietary_notified               Boolean           @default(false)
+  requests_text                  String?
+  requests_managed               Boolean           @default(false)
+  room_id                        String?
+  arrives_for_dinner             Boolean           @default(true)
+  last_meal_lunch                Boolean           @default(true)
+  checked_in_at                  DateTime?
+  amount_paid                    Decimal?          @db.Decimal(10, 2)
+  payment_note                   String?
+  companion_id                   String?
+  date_arrival                   DateTime?
+  date_departure                 DateTime?
+  discount_breakfast             Int               @default(0)
+  discount_dinner                Int               @default(0)
+  discount_lunch                 Int               @default(0)
+  accommodation_mismatch_managed Boolean           @default(false)
+  accommodation_occupancy        Int?
+  accommodation_room_type_id     String?
+  auto_assign_managed            Boolean           @default(false)
+  auto_assigned                  Boolean           @default(false)
+  activity_signups               ActivitySignup[]
+  event                          Event             @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  group                          Group?            @relation(fields: [group_id], references: [id])
+  person                         Person            @relation(fields: [person_id], references: [id], onDelete: Cascade)
+  room                           Room?             @relation(fields: [room_id], references: [id])
+  meal_attendances               MealAttendance[]
+  cost_items                     EventCostItem[]
 
   @@unique([event_id, person_id])
   @@map("event_persons")
-
-  activity_signups ActivitySignup[]
-  meal_attendances MealAttendance[]
-}
-
-// ─── Room ────────────────────────────────────────────────────────────────────
-
-enum GenderRestriction {
-  mixed
-  women
-  men
 }
 
 model Room {
@@ -214,15 +155,12 @@ model Room {
   locked                Boolean           @default(false)
   locked_reason         String?
   room_type_id          String?
-
-  event         Event         @relation(fields: [event_id], references: [id], onDelete: Cascade)
-  room_type     RoomType?     @relation(fields: [room_type_id], references: [id], onDelete: SetNull)
-  event_persons EventPerson[]
+  event_persons         EventPerson[]
+  event                 Event             @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  room_type             RoomType?         @relation(fields: [room_type_id], references: [id])
 
   @@map("rooms")
 }
-
-// ─── RoomPricing ──────────────────────────────────────────────────────────────
 
 model RoomPricing {
   id                   String   @id @default(cuid())
@@ -231,27 +169,21 @@ model RoomPricing {
   has_private_bathroom Boolean
   price                Decimal  @db.Decimal(10, 2)
   daily_rate           Decimal? @db.Decimal(10, 2)
-
-  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  event                Event    @relation(fields: [event_id], references: [id], onDelete: Cascade)
 
   @@unique([event_id, capacity, has_private_bathroom])
   @@map("room_pricings")
 }
 
-// ─── Group ───────────────────────────────────────────────────────────────────
-
 model Group {
-  id       String @id @default(cuid())
+  id       String        @id @default(cuid())
   event_id String
   name     String
-
-  event   Event         @relation(fields: [event_id], references: [id], onDelete: Cascade)
-  members EventPerson[]
+  members  EventPerson[]
+  event    Event         @relation(fields: [event_id], references: [id], onDelete: Cascade)
 
   @@map("groups")
 }
-
-// ─── CentroShareToken ───────────────────────────────────────────────────────
 
 model CentroShareToken {
   id         String   @id @default(cuid())
@@ -259,62 +191,49 @@ model CentroShareToken {
   token      String   @unique
   expires_at DateTime
   created_at DateTime @default(now())
-
-  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  event      Event    @relation(fields: [event_id], references: [id], onDelete: Cascade)
 
   @@map("centro_share_tokens")
 }
 
-// ─── Schedule ───────────────────────────────────────────────────────────────
-
-enum ScheduleBlockType {
-  common
-  parallel
-}
-
 model ScheduleBlock {
-  id         String            @id @default(cuid())
+  id         String             @id @default(cuid())
   event_id   String
   day_index  Int
   position   Int
   type       ScheduleBlockType
   time_label String?
-
-  event      Event              @relation(fields: [event_id], references: [id], onDelete: Cascade)
   activities ScheduleActivity[]
+  event      Event              @relation(fields: [event_id], references: [id], onDelete: Cascade)
 
   @@map("schedule_blocks")
 }
 
 model ScheduleActivity {
-  id               String  @id @default(cuid())
+  id               String           @id @default(cuid())
   block_id         String
   title            String
   description      String?
   position         Int
+  closed           Boolean          @default(false)
   max_participants Int?
-  closed           Boolean @default(false)
-
-  block   ScheduleBlock    @relation(fields: [block_id], references: [id], onDelete: Cascade)
-  signups ActivitySignup[]
+  signups          ActivitySignup[]
+  block            ScheduleBlock    @relation(fields: [block_id], references: [id], onDelete: Cascade)
 
   @@map("schedule_activities")
 }
 
 model ActivitySignup {
-  id              String  @id @default(cuid())
+  id              String           @id @default(cuid())
   activity_id     String
   event_person_id String
-  confirmed       Boolean @default(false)
-
-  activity     ScheduleActivity @relation(fields: [activity_id], references: [id], onDelete: Cascade)
-  event_person EventPerson      @relation(fields: [event_person_id], references: [id], onDelete: Cascade)
+  confirmed       Boolean          @default(false)
+  activity        ScheduleActivity @relation(fields: [activity_id], references: [id], onDelete: Cascade)
+  event_person    EventPerson      @relation(fields: [event_person_id], references: [id], onDelete: Cascade)
 
   @@unique([activity_id, event_person_id])
   @@map("activity_signups")
 }
-
-// ─── MealAttendance ─────────────────────────────────────────────────────────
 
 model MealAttendance {
   id              String      @id @default(cuid())
@@ -323,14 +242,11 @@ model MealAttendance {
   breakfast       Boolean     @default(true)
   lunch           Boolean     @default(true)
   dinner          Boolean     @default(true)
-
   event_person    EventPerson @relation(fields: [event_person_id], references: [id], onDelete: Cascade)
 
   @@unique([event_person_id, day_index])
   @@map("meal_attendances")
 }
-
-// ─── PasswordResetToken ──────────────────────────────────────────────────────
 
 model PasswordResetToken {
   id         String   @id @default(cuid())
@@ -343,13 +259,6 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
-// ─── UndoEntry ───────────────────────────────────────────────────────────────
-
-enum UndoType {
-  assign_person
-  link_persons
-}
-
 model UndoEntry {
   id        String   @id @default(cuid())
   event_id  String
@@ -357,27 +266,21 @@ model UndoEntry {
   type      UndoType
   snapshot  Json
   timestamp DateTime @default(now())
-
-  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  event     Event    @relation(fields: [event_id], references: [id], onDelete: Cascade)
 
   @@map("undo_entries")
 }
-
-// ─── EventCollaborator ──────────────────────────────────────────────────────
 
 model EventCollaborator {
   id       String @id @default(cuid())
   event_id String
   user_id  String
-
-  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  event    Event  @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  user     User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([event_id, user_id])
   @@map("event_collaborators")
 }
-
-// ─── AdminInviteToken ───────────────────────────────────────────────────────
 
 model AdminInviteToken {
   id         String   @id @default(cuid())
@@ -387,20 +290,6 @@ model AdminInviteToken {
   created_at DateTime @default(now())
 
   @@map("admin_invite_tokens")
-}
-
-// ─── RelationshipInvite ─────────────────────────────────────────────────────
-
-enum RelationshipType {
-  inseparable
-  flexible
-}
-
-enum InviteStatus {
-  pending
-  accepted
-  declined
-  expired
 }
 
 model RelationshipInvite {
@@ -415,56 +304,156 @@ model RelationshipInvite {
   expires_at        DateTime
   created_at        DateTime         @default(now())
   resolved_at       DateTime?
-
-  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  event             Event            @relation(fields: [event_id], references: [id], onDelete: Cascade)
 
   @@map("relationship_invites")
 }
 
-// ─── Venue ──────────────────────────────────────────────────────────────────
-
 model Venue {
-  id          String  @id @default(cuid())
+  id          String     @id @default(cuid())
   user_id     String
   name        String
   location    String?
   notes       String?
-  is_template Boolean @default(true)
-
-  user       User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  room_types RoomType[]
-  events     Event[]
+  is_template Boolean    @default(true)
+  events      Event[]
+  room_types  RoomType[]
+  user        User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("venues")
 }
 
-// ─── RoomType ───────────────────────────────────────────────────────────────
-
 model RoomType {
-  id                   String   @id @default(cuid())
+  id                   String             @id @default(cuid())
   venue_id             String
   name                 String
   description          String?
   capacity             Int
-  has_private_bathroom Boolean  @default(false)
-  base_price           Decimal? @db.Decimal(10, 2)
-  position             Int      @default(0)
-
-  venue              Venue              @relation(fields: [venue_id], references: [id], onDelete: Cascade)
-  occupancy_pricings OccupancyPricing[]
-  rooms              Room[]
+  has_private_bathroom Boolean            @default(false)
+  base_price           Decimal?           @db.Decimal(10, 2)
+  position             Int                @default(0)
+  occupancy_pricings   OccupancyPricing[]
+  venue                Venue              @relation(fields: [venue_id], references: [id], onDelete: Cascade)
+  rooms                Room[]
 
   @@map("room_types")
 }
 
 model OccupancyPricing {
-  id           String  @id @default(cuid())
+  id           String   @id @default(cuid())
   room_type_id String
   occupancy    Int
-  price        Decimal @db.Decimal(10, 2)
-
-  room_type RoomType @relation(fields: [room_type_id], references: [id], onDelete: Cascade)
+  price        Decimal  @db.Decimal(10, 2)
+  room_type    RoomType @relation(fields: [room_type_id], references: [id], onDelete: Cascade)
 
   @@unique([room_type_id, occupancy])
   @@map("occupancy_pricings")
+}
+
+model EventCostItem {
+  id              String            @id @default(cuid())
+  event_id        String
+  event_person_id String?
+  scope           EventCostScope
+  category        EventCostCategory
+  title           String
+  description     String?
+  quantity        Decimal?          @db.Decimal(10, 2)
+  unit_amount     Decimal?          @db.Decimal(10, 2)
+  total_amount    Decimal           @db.Decimal(10, 2)
+  currency        String            @default("EUR")
+  status          EventCostStatus   @default(planned)
+  source          String            @default("cost_manager")
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @default(now()) @updatedAt
+  event           Event             @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  event_person    EventPerson?      @relation(fields: [event_person_id], references: [id], onDelete: SetNull)
+
+  @@index([event_id, source])
+  @@index([event_person_id])
+  @@map("event_cost_items")
+}
+
+enum UserRole {
+  organizer
+  admin
+  participant
+}
+
+enum OrganizerEnvironment {
+  open
+  private
+}
+
+enum Gender {
+  unknown
+  female
+  male
+  other
+}
+
+enum PersonRole {
+  participant
+  facilitator
+}
+
+enum EventStatus {
+  draft
+  active
+  archived
+  published
+  finished
+}
+
+enum EventPersonStatus {
+  inscrito
+  reservado
+  pagado
+  confirmado_sin_pago
+  solicita_cancelacion
+  cancelado
+}
+
+enum GenderRestriction {
+  mixed
+  women
+  men
+}
+
+enum ScheduleBlockType {
+  common
+  parallel
+}
+
+enum UndoType {
+  assign_person
+  link_persons
+}
+
+enum RelationshipType {
+  inseparable
+  flexible
+}
+
+enum InviteStatus {
+  pending
+  accepted
+  declined
+  expired
+}
+
+enum EventCostScope {
+  event
+  facilitator
+}
+
+enum EventCostCategory {
+  facilitator_fee
+  facilitator_lodging
+  extra_cost
+  organization_profit
+}
+
+enum EventCostStatus {
+  planned
 }

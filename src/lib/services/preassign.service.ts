@@ -152,7 +152,7 @@ export const PreAssignService = {
         assignments.map((a) =>
           db.eventPerson.update({
             where: { id: a.id },
-            data: { room_id: a.roomId, auto_assigned: true, auto_assign_managed: false },
+            data: { room_id: a.roomId },
           })
         )
       );

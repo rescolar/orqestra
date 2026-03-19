@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { SetupStepClient } from "@/components/event/setup-step-client";
 import { WizardStepper } from "@/components/event/wizard-stepper";
+import { PersonService } from "@/lib/services/person.service";
+import { EconomicsService } from "@/lib/services/economics.service";
 
 const STEPS = [
   { label: "Datos" },
@@ -46,9 +48,11 @@ export default async function SetupPage({
   if (!event) notFound();
 
   const hasExistingRooms = event._count.rooms > 0;
+  const ctx = { userId: session.user.id, role: session.user.role };
 
   // Load existing room types if event has a venue
   let initialRoomTypes: {
+    id: string;
     name: string;
     description: string | null;
     capacity: number;
@@ -57,6 +61,10 @@ export default async function SetupPage({
     occupancy_pricings: { occupancy: number; price: number }[];
   }[] = [];
   let initialQuantities: Record<string, number> = {};
+  const [organizerPersons, initialCostManagerData] = await Promise.all([
+    PersonService.getAllPersonsForUser(ctx, id),
+    EconomicsService.getCostManagerData(id, ctx),
+  ]);
 
   if (event.venue_id && hasExistingRooms) {
     const venue = await db.venue.findFirst({
@@ -74,6 +82,7 @@ export default async function SetupPage({
 
     if (venue) {
       initialRoomTypes = venue.room_types.map((rt) => ({
+        id: rt.id,
         name: rt.name,
         description: rt.description,
         capacity: rt.capacity,
@@ -122,6 +131,8 @@ export default async function SetupPage({
             meal_cost_dinner: event.meal_cost_dinner ? Number(event.meal_cost_dinner) : null,
           }}
           hasExistingRooms={hasExistingRooms}
+          organizerPersons={organizerPersons}
+          initialCostManagerData={initialCostManagerData}
           initialRoomTypes={initialRoomTypes}
           initialQuantities={initialQuantities}
         />

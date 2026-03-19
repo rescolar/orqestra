@@ -87,7 +87,6 @@ export async function updateEventPerson(
     requests_text?: string | null;
     requests_managed?: boolean;
     accommodation_mismatch_managed?: boolean;
-    auto_assign_managed?: boolean;
     amount_paid?: number | null;
     payment_note?: string | null;
     date_arrival?: string | null;
@@ -153,6 +152,34 @@ export async function addPersonToEventAndAssign(
     eventId
   );
   revalidatePath(`/events/${eventId}/board`);
+  return result;
+}
+
+export async function upsertFacilitatorFromSimulator(
+  eventId: string,
+  data:
+    | {
+        personId: string;
+        roomTypeId?: string | null;
+      }
+    | {
+        createPerson: {
+          name_full: string;
+          gender: "unknown" | "female" | "male" | "other";
+          contact_email?: string | null;
+          contact_phone?: string | null;
+          dietary_requirements?: string[];
+          allergies_text?: string | null;
+        };
+        roomTypeId?: string | null;
+      }
+) {
+  const ctx = await requireAuth();
+  const result = await PersonService.upsertFacilitatorForEvent(eventId, ctx, data);
+  revalidatePath(`/events/${eventId}/board`);
+  revalidatePath(`/events/${eventId}/detail`);
+  revalidatePath(`/events/${eventId}/setup`);
+  revalidatePath("/persons");
   return result;
 }
 

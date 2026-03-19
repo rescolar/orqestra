@@ -46,8 +46,6 @@ export type PersonData = {
   requests_text: string | null;
   requests_managed: boolean;
   accommodation_room_type_id: string | null;
-  auto_assigned: boolean;
-  auto_assign_managed: boolean;
   person: {
     name_display: string;
     name_initials: string;
@@ -83,8 +81,6 @@ type BoardDndProviderProps = {
     requests_text: string | null;
     requests_managed: boolean;
     accommodation_room_type_id: string | null;
-    auto_assigned: boolean;
-    auto_assign_managed: boolean;
     person: {
       name_full: string;
       name_display: string;
@@ -543,8 +539,6 @@ export function BoardDndProvider({
           requests_text: "requests_text" in personData ? (personData as PersonData).requests_text : null,
           requests_managed: "requests_managed" in personData ? (personData as PersonData).requests_managed : false,
           accommodation_room_type_id: "accommodation_room_type_id" in personData ? (personData as PersonData).accommodation_room_type_id : null,
-          auto_assigned: "auto_assigned" in personData ? (personData as PersonData).auto_assigned : false,
-          auto_assign_managed: "auto_assign_managed" in personData ? (personData as PersonData).auto_assign_managed : false,
           person: {
             name_display: personData.person.name_display,
             name_initials: personData.person.name_initials,
@@ -573,8 +567,6 @@ export function BoardDndProvider({
             requests_text: "requests_text" in partnerData ? (partnerData as PersonData).requests_text : null,
             requests_managed: "requests_managed" in partnerData ? (partnerData as PersonData).requests_managed : false,
             accommodation_room_type_id: "accommodation_room_type_id" in partnerData ? (partnerData as PersonData).accommodation_room_type_id : null,
-            auto_assigned: "auto_assigned" in partnerData ? (partnerData as PersonData).auto_assigned : false,
-            auto_assign_managed: "auto_assign_managed" in partnerData ? (partnerData as PersonData).auto_assign_managed : false,
             person: {
               name_display: partnerData.person.name_display,
               name_initials: partnerData.person.name_initials,
@@ -604,9 +596,9 @@ export function BoardDndProvider({
           if (sourceRoomIds.includes(r.id)) {
             eps = eps.filter((ep) => !idsToMove.includes(ep.id));
           }
-          // Add to target room (clear auto_assigned — manual drag)
+          // Add to target room
           if (r.id === roomId) {
-            eps = [...eps, ...toMove.map((t) => ({ ...t.entry, auto_assigned: false, auto_assign_managed: false }))];
+            eps = [...eps, ...toMove.map((t) => t.entry)];
           }
           if (eps !== r.event_persons) {
             return {
@@ -682,8 +674,6 @@ export function BoardDndProvider({
             requests_text: person.requests_text,
             requests_managed: person.requests_managed,
             accommodation_room_type_id: person.accommodation_room_type_id,
-            auto_assigned: person.auto_assigned,
-            auto_assign_managed: person.auto_assign_managed,
             person: {
               name_full: person.person.name_display, // best we have
               name_display: person.person.name_display,
@@ -736,7 +726,6 @@ export function BoardDndProvider({
         dietary_notified: changes.dietary_notified ?? ep.dietary_notified,
         requests_text: changes.requests_text !== undefined ? changes.requests_text : ep.requests_text,
         requests_managed: changes.requests_managed ?? ep.requests_managed,
-        auto_assign_managed: changes.auto_assign_managed ?? ep.auto_assign_managed,
         person: {
           ...ep.person,
           gender: (changes.gender as string) ?? ep.person.gender,
@@ -880,11 +869,7 @@ export function BoardDndProvider({
         (ep) => ep.accommodation_room_type_id && r.room_type_id && ep.accommodation_room_type_id !== r.room_type_id
       ).length;
     }, 0);
-    // Auto-assignments not yet managed
-    const autoAssignPending = allPersons.filter(
-      (ep) => ep.auto_assigned && !ep.auto_assign_managed
-    ).length;
-    return roomConflicts + dietaryPending + cancelRequestPending + requestsPending + accommodationMismatches + autoAssignPending;
+    return roomConflicts + dietaryPending + cancelRequestPending + requestsPending + accommodationMismatches;
   }, [rooms, unassigned]);
 
   return (

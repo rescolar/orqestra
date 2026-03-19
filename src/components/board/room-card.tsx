@@ -7,8 +7,6 @@ type AssignedPerson = {
   id: string;
   role: string;
   status: string;
-  auto_assigned: boolean;
-  auto_assign_managed: boolean;
   person: {
     name_display: string;
     name_initials: string;
@@ -218,13 +216,13 @@ function DraggableRoomPerson({
       onClick={() => onPersonClick?.(ep.id)}
       className={cn(
         "group flex h-12 cursor-grab items-center gap-2 rounded-lg px-3",
-        ep.auto_assigned && !ep.auto_assign_managed ? "bg-amber-50" : "bg-gray-50",
+        ep.status === "inscrito" ? "bg-amber-50" : "bg-gray-50",
         isDragging && "opacity-30"
       )}
     >
       <div className={cn(
         "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
-        ep.auto_assigned && !ep.auto_assign_managed ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary"
+        ep.status === "inscrito" ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary"
       )}>
         {ep.person.name_initials}
       </div>

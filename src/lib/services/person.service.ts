@@ -363,6 +363,171 @@ export const PersonService = {
     });
   },
 
+  async upsertFacilitatorForEvent(
+    eventId: string,
+    ctx: AuthContext,
+    data:
+      | {
+          personId: string;
+          roomTypeId?: string | null;
+        }
+      | {
+          createPerson: {
+            name_full: string;
+            gender: Gender;
+            contact_email?: string | null;
+            contact_phone?: string | null;
+            dietary_requirements?: string[];
+            allergies_text?: string | null;
+          };
+          roomTypeId?: string | null;
+        }
+  ) {
+    if (!(await canAccessEvent(ctx, eventId))) {
+      throw new Error("Evento no encontrado");
+    }
+
+    const event = await db.event.findUnique({
+      where: { id: eventId },
+      select: { id: true, user_id: true },
+    });
+    if (!event) throw new Error("Evento no encontrado");
+
+    let personId: string;
+    let personName: string;
+
+    if ("personId" in data) {
+      const existingPerson = await db.person.findFirst({
+        where: {
+          id: data.personId,
+          user_id: event.user_id,
+        },
+        select: {
+          id: true,
+          name_full: true,
+        },
+      });
+      if (!existingPerson) throw new Error("Persona no encontrada");
+      personId = existingPerson.id;
+      personName = existingPerson.name_full;
+    } else {
+      const createdPerson = await db.person.create({
+        data: {
+          user_id: event.user_id,
+          name_full: data.createPerson.name_full,
+          name_display: getDisplayName(data.createPerson.name_full),
+          name_initials: getInitials(data.createPerson.name_full),
+          gender: data.createPerson.gender,
+          default_role: "facilitator",
+          contact_email: data.createPerson.contact_email ?? null,
+          contact_phone: data.createPerson.contact_phone ?? null,
+          dietary_requirements: data.createPerson.dietary_requirements ?? [],
+          allergies_text: data.createPerson.allergies_text ?? null,
+        },
+        select: {
+          id: true,
+          name_full: true,
+        },
+      });
+      personId = createdPerson.id;
+      personName = createdPerson.name_full;
+    }
+
+    const existingEventPerson = await db.eventPerson.findFirst({
+      where: { event_id: eventId, person_id: personId },
+      include: {
+        room: {
+          select: {
+            id: true,
+            room_type_id: true,
+            display_name: true,
+            internal_number: true,
+          },
+        },
+      },
+    });
+
+    const roomTypeId = data.roomTypeId ?? undefined;
+    let roomIdToAssign: string | null | undefined = existingEventPerson?.room_id;
+
+    if (roomTypeId) {
+      if (existingEventPerson?.room?.room_type_id === roomTypeId) {
+        roomIdToAssign = existingEventPerson.room_id;
+      } else {
+        const rooms = await db.room.findMany({
+          where: {
+            event_id: eventId,
+            room_type_id: roomTypeId,
+            locked: false,
+          },
+          include: {
+            _count: { select: { event_persons: true } },
+          },
+          orderBy: { internal_number: "asc" },
+        });
+
+        const availableRoom = rooms.find((room) => room._count.event_persons < room.capacity);
+        roomIdToAssign = availableRoom?.id ?? null;
+      }
+    }
+
+    const eventPerson = existingEventPerson
+      ? await db.eventPerson.update({
+          where: { id: existingEventPerson.id },
+          data: {
+            role: "facilitator",
+            ...(roomTypeId !== undefined
+              ? {
+                  accommodation_room_type_id: roomTypeId,
+                  room_id: roomIdToAssign,
+                }
+              : {}),
+          },
+          include: {
+            room: {
+              select: {
+                id: true,
+                display_name: true,
+                internal_number: true,
+              },
+            },
+          },
+        })
+      : await db.eventPerson.create({
+          data: {
+            event_id: eventId,
+            person_id: personId,
+            role: "facilitator",
+            status: "inscrito",
+            ...(roomTypeId !== undefined
+              ? {
+                  accommodation_room_type_id: roomTypeId,
+                  room_id: roomIdToAssign,
+                }
+              : {}),
+          },
+          include: {
+            room: {
+              select: {
+                id: true,
+                display_name: true,
+                internal_number: true,
+              },
+            },
+          },
+        });
+
+    return {
+      personId,
+      personName,
+      eventPersonId: eventPerson.id,
+      roomId: eventPerson.room?.id ?? null,
+      roomLabel: eventPerson.room
+        ? eventPerson.room.display_name || `Hab ${eventPerson.room.internal_number}`
+        : null,
+    };
+  },
+
   async getUnassignedPersons(eventId: string, ctx: AuthContext) {
     if (!(await canAccessEvent(ctx, eventId)))
       throw new Error("Evento no encontrado");
@@ -378,8 +543,6 @@ export const PersonService = {
         requests_text: true,
         requests_managed: true,
         accommodation_room_type_id: true,
-        auto_assigned: true,
-        auto_assign_managed: true,
         person: {
           select: {
             name_full: true,
@@ -427,7 +590,7 @@ export const PersonService = {
     const previousRoomId = ep.room_id;
     const result = await db.eventPerson.update({
       where: { id: eventPersonId },
-      data: { room_id: roomId, accommodation_mismatch_managed: false, auto_assigned: false, auto_assign_managed: false },
+      data: { room_id: roomId, accommodation_mismatch_managed: false },
     });
 
     // Record undo entry
@@ -582,7 +745,6 @@ export const PersonService = {
       requests_text?: string | null;
       requests_managed?: boolean;
       accommodation_mismatch_managed?: boolean;
-      auto_assign_managed?: boolean;
       amount_paid?: number | null;
       payment_note?: string | null;
       date_arrival?: string | null;
