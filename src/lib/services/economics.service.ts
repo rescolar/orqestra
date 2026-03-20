@@ -55,6 +55,7 @@ export type EconomicReportData = {
   event: {
     id: string;
     name: string;
+    status: string;
     date_start: Date;
     date_end: Date;
     estimated_participants: number;
@@ -63,6 +64,8 @@ export type EconomicReportData = {
     expected: number;
     paid: number;
     pending: number;
+    marginPerParticipant: number | null;
+    totalMargin: number | null;
   };
   plannedCosts: {
     facilitatorFees: number;
@@ -83,6 +86,14 @@ export type EconomicReportData = {
     title: string;
     total: number;
   }>;
+  breakEven: {
+    marginPerParticipant: number | null;
+    costsWithoutProfit: number;
+    costsWithProfit: number;
+    estimatedParticipants: number;
+    breakEvenCosts: number | null;
+    breakEvenProfit: number | null;
+  };
 };
 
 function parseJsonDescription<T>(value: string | null): T | null {
@@ -229,6 +240,74 @@ function getPricingForParticipant(params: {
   };
 }
 
+function computeEstimatedPricePerPerson(params: {
+  realParticipantCount: number;
+  realPricedTotal: number;
+  event: {
+    event_price: unknown;
+    pricing_by_room_type: boolean;
+    pricing_mode: string;
+    facilitation_cost_day: unknown;
+    management_cost_day: unknown;
+    date_start: Date;
+    date_end: Date;
+  };
+  roomTypes: Array<{
+    base_price: unknown;
+    occupancy_pricings: { occupancy: number; price: unknown }[];
+    _count: { rooms: number };
+  }>;
+}): number | null {
+  const { realParticipantCount, realPricedTotal, event, roomTypes } = params;
+
+  // Strategy 1: average of real participant prices
+  if (realParticipantCount > 0 && realPricedTotal > 0) {
+    return realPricedTotal / realParticipantCount;
+  }
+
+  // Strategy 2: weighted average from room types (by room count)
+  if (roomTypes.length > 0) {
+    const nights = computeNights(event.date_start, event.date_end);
+    let totalWeight = 0;
+    let weightedSum = 0;
+
+    for (const rt of roomTypes) {
+      const roomCount = rt._count.rooms;
+      if (roomCount === 0) continue;
+
+      const singleOccupancy = rt.occupancy_pricings.find((p) => p.occupancy === 1);
+      const basePrice = singleOccupancy
+        ? Number(singleOccupancy.price)
+        : rt.base_price != null ? Number(rt.base_price) : null;
+      if (basePrice == null || Number.isNaN(basePrice)) continue;
+
+      const total = computeTotalEventPrice({
+        accommodationPerNight: basePrice,
+        nights,
+        days: nights,
+        pricingMode: event.pricing_mode,
+        facilitationCostDay: event.facilitation_cost_day != null ? Number(event.facilitation_cost_day) : null,
+        managementCostDay: event.management_cost_day != null ? Number(event.management_cost_day) : null,
+      });
+
+      weightedSum += total * roomCount;
+      totalWeight += roomCount;
+    }
+
+    if (totalWeight > 0) {
+      return weightedSum / totalWeight;
+    }
+  }
+
+  // Strategy 3: flat event_price
+  if (event.event_price != null) {
+    const price = Number(event.event_price);
+    if (!Number.isNaN(price) && price > 0) return price;
+  }
+
+  return null;
+}
+
 export const EconomicsService = {
   async saveCostManagerData(eventId: string, ctx: AuthContext, data: CostManagerSaveInput) {
     if (!(await canAccessEvent(ctx, eventId))) {
@@ -340,7 +419,7 @@ export const EconomicsService = {
         event_id: eventId,
         scope: "event",
         category: "organization_profit",
-        title: "Beneficio organizacion",
+        title: "Beneficio mínimo",
         quantity: 1,
         unit_amount: data.organizationProfit,
         total_amount: roundMoney(data.organizationProfit),
@@ -527,11 +606,13 @@ export const EconomicsService = {
       select: {
         id: true,
         name: true,
+        status: true,
         date_start: true,
         date_end: true,
         estimated_participants: true,
         event_price: true,
         deposit_amount: true,
+        venue_id: true,
         pricing_by_room_type: true,
         pricing_mode: true,
         facilitation_cost_day: true,
@@ -543,7 +624,7 @@ export const EconomicsService = {
     });
     if (!event) throw new Error("Evento no encontrado");
 
-    const [participants, roomPricings, plannedCostItems] = await Promise.all([
+    const [participants, roomPricings, plannedCostItems, roomTypes] = await Promise.all([
       db.eventPerson.findMany({
         where: {
           event_id: eventId,
@@ -613,13 +694,29 @@ export const EconomicsService = {
         if (isMissingEventCostItemsTable(error)) return [];
         throw error;
       }),
+      event.venue_id
+        ? db.roomType.findMany({
+            where: { venue_id: event.venue_id },
+            select: {
+              base_price: true,
+              occupancy_pricings: {
+                orderBy: { occupancy: "asc" as const },
+                select: { occupancy: true, price: true },
+              },
+              _count: { select: { rooms: { where: { event_id: eventId } } } },
+            },
+          })
+        : Promise.resolve([]),
     ]);
 
     let expected = 0;
     let paid = 0;
+    let realParticipantCount = 0;
+    let realPricedTotal = 0;
 
     for (const participant of participants) {
       if (participant.role === "facilitator") continue;
+      realParticipantCount++;
       const pricing = getPricingForParticipant({
         person: participant,
         event,
@@ -627,8 +724,23 @@ export const EconomicsService = {
       });
       if (pricing.amountOwed != null) {
         expected += pricing.amountOwed;
+        realPricedTotal += pricing.amountOwed;
       }
       paid += participant.amount_paid ? Number(participant.amount_paid) : 0;
+    }
+
+    // Estimate price per person for gap-filling and break-even
+    const estimatedPricePerPerson = computeEstimatedPricePerPerson({
+      realParticipantCount,
+      realPricedTotal,
+      event,
+      roomTypes,
+    });
+
+    // Fill gap with estimated price for missing participants
+    const missingCount = Math.max(0, event.estimated_participants - realParticipantCount);
+    if (missingCount > 0 && estimatedPricePerPerson != null) {
+      expected += estimatedPricePerPerson * missingCount;
     }
 
     const facilitatorMap = new Map<string, EconomicReportData["facilitatorLines"][number]>();
@@ -678,10 +790,31 @@ export const EconomicsService = {
 
     const plannedTotal = facilitatorFees + facilitatorLodging + eventCosts + organizationProfit;
 
+    // Compute margin per participant (what the organizer keeps after accommodation pass-through)
+    const days = computeNights(event.date_start, event.date_end);
+    let marginPerParticipant: number | null = null;
+
+    if (event.pricing_mode === "breakdown") {
+      const mgmt = event.management_cost_day != null ? Number(event.management_cost_day) : 0;
+      const facil = event.facilitation_cost_day != null ? Number(event.facilitation_cost_day) : 0;
+      marginPerParticipant = (mgmt + facil) * days;
+    } else {
+      // Direct mode: full price is margin (accommodation cost unknown)
+      marginPerParticipant = estimatedPricePerPerson;
+    }
+
+    const totalParticipants = realParticipantCount + missingCount;
+    const totalMargin = marginPerParticipant != null ? marginPerParticipant * totalParticipants : null;
+
+    // Break-even: two thresholds
+    const costsWithoutProfit = facilitatorFees + facilitatorLodging + eventCosts;
+    const costsWithProfit = costsWithoutProfit + organizationProfit;
+
     return {
       event: {
         id: event.id,
         name: event.name,
+        status: event.status,
         date_start: event.date_start,
         date_end: event.date_end,
         estimated_participants: event.estimated_participants,
@@ -690,6 +823,8 @@ export const EconomicsService = {
         expected: roundMoney(expected),
         paid: roundMoney(paid),
         pending: roundMoney(Math.max(0, expected - paid)),
+        marginPerParticipant: marginPerParticipant != null ? roundMoney(marginPerParticipant) : null,
+        totalMargin: totalMargin != null ? roundMoney(totalMargin) : null,
       },
       plannedCosts: {
         facilitatorFees: roundMoney(facilitatorFees),
@@ -708,6 +843,18 @@ export const EconomicsService = {
         ...item,
         total: roundMoney(item.total),
       })),
+      breakEven: {
+        marginPerParticipant: marginPerParticipant != null ? roundMoney(marginPerParticipant) : null,
+        costsWithoutProfit: roundMoney(costsWithoutProfit),
+        costsWithProfit: roundMoney(costsWithProfit),
+        estimatedParticipants: event.estimated_participants,
+        breakEvenCosts: marginPerParticipant != null && marginPerParticipant > 0
+          ? Math.ceil(costsWithoutProfit / marginPerParticipant)
+          : null,
+        breakEvenProfit: marginPerParticipant != null && marginPerParticipant > 0
+          ? Math.ceil(costsWithProfit / marginPerParticipant)
+          : null,
+      },
     };
   },
 };

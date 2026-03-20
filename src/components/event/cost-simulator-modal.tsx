@@ -554,14 +554,14 @@ export function CostSimulatorModal({
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Beneficio organizacion (€)</Label>
+                <Label className="text-xs">Beneficio mínimo (€)</Label>
                 <Input
                   type="number"
                   min={0}
                   step="1"
                   value={organizationProfit}
                   onChange={(e) => setOrganizationProfit(e.target.value)}
-                  placeholder="Margen para la organizacion"
+                  placeholder="Margen mínimo deseado"
                   className="text-sm"
                 />
               </div>
@@ -881,7 +881,7 @@ export function CostSimulatorModal({
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Beneficio organizacion</span>
+                  <span>Beneficio mínimo</span>
                   <span className="font-medium text-gray-700">
                     {parsedOrganizationProfit.toFixed(0)}€
                   </span>
